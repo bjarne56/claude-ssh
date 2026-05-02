@@ -192,3 +192,23 @@ now_ms() {
     perl -MTime::HiRes -e 'printf "%.0f", Time::HiRes::time*1000' 2>/dev/null \
         || python3 -c 'import time; print(int(time.time()*1000))'
 }
+
+# read_password_tty <prompt>
+# 从 /dev/tty 读密码(不回显),写入全局 SSHOPS_TTY_PASSWORD。
+# 返回 0=成功读到 / 1=tty 不可用(子进程,无 attached tty 或被重定向)。
+# 关键:不依赖 stdin/stdout,即便 sshops 被 Claude 子进程以重定向方式调用,
+# 只要 /dev/tty 真的可写(用户在自己终端跑)就能 prompt。
+# 整段 stderr 重定向到 /dev/null,避免 "Device not configured" 这类系统消息
+# 污染 Claude 看到的输出。
+read_password_tty() {
+    local prompt="$1"
+    SSHOPS_TTY_PASSWORD=""
+    local pwd_input=""
+    {
+        printf '%s' "$prompt" >/dev/tty &&
+        IFS= read -r -s pwd_input </dev/tty &&
+        printf '\n' >/dev/tty
+    } 2>/dev/null || return 1
+    SSHOPS_TTY_PASSWORD="$pwd_input"
+    return 0
+}

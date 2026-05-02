@@ -82,13 +82,56 @@ sshops run --host 10.1.2.3 --user root --key ~/.ssh/k.pem "uptime"
 
 **SecureCRT 的 `Password V2` 是私有加密格式,skill 不会、也不应该解码**(SecureCRT 9.0+ 的 `03:` 前缀加密 + master password 派生 key,无可靠公开解码方案)。
 
-如果用户跑 `sshops run 10.88.220.201 "..."`,skill 检测到该 .ini 是密码登录(无 Identity + 有 Password V2),会**直接报错并列出三种解决方案**:
+### 5.1 三种密码来源(优先级:用户对话给 > tty 自动 prompt > 报错引导)
 
-1. 现场输入:加 `--ask-password`
-2. 在 SecureCRT 中给该主机配 Identity(改 key 登录)
-3. 用 `pass` / macOS Keychain 后端(Phase 2 的 `password_refs` 配置)
+#### A. 用户在对话中直接给出密码
 
-Claude 看到这种错误时,**告诉用户三种方案中哪种最合适,等他确认再重跑**。
+例如用户说:"连一下 10.88.220.201,密码是 Qwe123!@#"。这是**用户显式授权 + 显式提供**,Claude 此时**直接用 `--password '<密码>'` 调用**,不要再让用户去终端重跑 / 再次确认:
+
+```bash
+sshops run 10.88.220.201 --password 'Qwe123!@#' "uptime"
+```
+
+**注意事项**(Claude 应主动告知用户一次,但不阻塞执行):
+- 密码进入进程 args(`ps -ef` 可见,通常是短暂的)
+- 不进 shell history(因为 Claude 不通过用户的 zsh 跑,直接 fork)
+- 不写入 commit / log 持久化(skill 设计如此,你也别主动写)
+- **生产环境密码建议用 5.2 节的 keychain / pass 后端**,临时测试可接受
+
+#### B. 用户在自己终端直接跑 sshops(没在 Claude 里),且没传密码
+
+skill 检测到 .ini 是密码登录,从 `/dev/tty` 自动弹 prompt(等同隐式 `--ask-password`),用户输完密码就连。
+
+```bash
+$ sshops run 10.88.220.201 "uptime"
+密码 (该主机 10.88.220.201 在 SecureCRT 是密码登录): ******
+{"exit": 0, ...}
+```
+
+#### C. Claude 子进程调用 + 用户没在对话给密码
+
+skill 报 `exit 64`,stderr 列出 4 种方案(见下表)。Claude 应**把方案文本原样转给用户**,等用户决定:
+
+| 方案 | 何时推荐 |
+|---|---|
+| **A**. 用户在自己终端跑 | 简单一次性 |
+| **B**. `--ask-password`(显式,等同 A) | 习惯加显式标记 |
+| **C**. Phase 2 `password_refs` 接 keychain/pass | **长期最优**,以后 Claude 调用零交互 |
+| **D**. SecureCRT 改 key 登录 | 治本,但要改 SecureCRT 配置 |
+
+### Claude 看到 "需要密码,但当前进程无 tty" 错误时怎么做
+
+1. **不要再次重试同一命令** — 没有 tty,再调一次还是失败
+2. **把 stderr 的方案文本原样转给用户**,问他选哪个
+3. 推荐顺序:**A > C > B > D**
+   - A:用户在自己终端 zsh 里跑同样命令 → 自动 prompt,密码不留 history
+   - C:Phase 2 password_refs 配 keychain / pass → 一次配置,以后 Claude 直接调无需交互(**长期最优**)
+   - B:用户在终端 + `--ask-password`(等同 A,显式)
+   - D:SecureCRT 改 key 登录(治本,但要用户改配置)
+
+### 主机有 key 但 .ini 仍标密码登录?
+
+如果 `Identity Filename V2` 字段被 SSH2.ini 全局回退给了 key,但 `Password V2` 仍非空,**仍当密码登录处理**(用户在 SecureCRT 里选了密码 auth 是强信号)。回退的 key 留在 ssh `-i` 参数里,如果远端恰好接受这个 key,ssh 会自动用 key 登录,密码不会被发到目标机(零额外审计噪音)。
 
 ## 6 危险命令处理
 
