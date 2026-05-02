@@ -267,8 +267,39 @@ pane_open() {
     [[ -z "$new_pane" ]] && die 6 "split-pane 失败 / split failed"
     record_set_pane "$sid" "$new_pane"
 
-    # 等 ssh 连接 + shell 启动(给 3 秒余量)
+    # 等 ssh 连接 + shell 启动(给 3 秒初始余量)
     sleep 3
+
+    # 智能等待:ssh 可能在 prompt 用户输入(密码 / passphrase / host key 确认)。
+    # 不要立即 marker 注入(会被当密码尝试吃掉),而是轮询 pane 末尾,
+    # 直到不再出现"等输入"特征,此时 shell 已 ready。
+    # 总超时默认 120s,通过 SSHOPS_LOGIN_TIMEOUT 覆盖。
+    local login_timeout="${SSHOPS_LOGIN_TIMEOUT:-120}"
+    local elapsed=0
+    local notified=0
+    while (( elapsed < login_timeout )); do
+        local raw stripped tail_text
+        raw="$(wt_get_text "$new_pane" 2>/dev/null || true)"
+        stripped="$(printf '%s' "$raw" | strip_ansi)"
+        # 看末尾 5 行,识别"等用户输入"特征
+        tail_text="$(printf '%s' "$stripped" | tail -5)"
+        if printf '%s' "$tail_text" | grep -qiE '([Pp]assword|[Pp]assphrase|[Vv]erification code|[Cc]ode):[[:space:]]*$|\(yes/no(/\[fingerprint\])?\)\?[[:space:]]*$|[Aa]re you sure you want to'; then
+            if (( notified == 0 )); then
+                log_info "ssh 在等用户输入(密码/passphrase/host key 确认),你在 WezTerm pane $new_pane 完成输入即可,skill 会自动接管 (timeout ${login_timeout}s)"
+                notified=1
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+            continue
+        fi
+        # 没有等输入特征,假设 shell ready
+        break
+    done
+    if (( elapsed >= login_timeout )); then
+        wt_kill_pane "$new_pane"
+        record_finalize "$sid"
+        die 3 "ssh 登录超时 (${login_timeout}s),用户未完成输入 / ssh login timeout"
+    fi
 
     # shell 检测:发 echo $SHELL,marker 切片读回
     if ! marker_inject_and_capture "$new_pane" 'echo "<shell>$SHELL</shell>"' 15; then
