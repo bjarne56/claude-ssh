@@ -54,6 +54,13 @@ wt_spawn_new_window() {
     "$(_wt_cli)" cli spawn --new-window --cwd "$cwd" -- "$@"
 }
 
+# wt_spawn_tab <cwd> <cmd...>
+# 在当前窗口创建新 tab(spawn 默认行为),返回新 pane id
+wt_spawn_tab() {
+    local cwd="$1"; shift
+    "$(_wt_cli)" cli spawn --cwd "$cwd" -- "$@"
+}
+
 # wt_split_pane <parent_pane_id> <direction> <percent> <cmd...>
 # direction: right | bottom | left | top
 wt_split_pane() {
