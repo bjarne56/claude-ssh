@@ -74,11 +74,17 @@ chmod +x "$SSHOPS_SRC/bin/sshops-setup" 2>/dev/null || true
 chmod +x "$SSHOPS_SRC/install.sh" 2>/dev/null || true
 chmod +x "$SSHOPS_SRC/tests/self-test.sh" 2>/dev/null || true
 
-# PATH 提示
-if ! echo ":$PATH:" | grep -q ":$SSHOPS_SRC/bin:"; then
-    echo
-    warn "建议把以下行加进 ~/.zshrc 或 ~/.bashrc 让 sshops 命令可用:"
-    echo "    export PATH=\"$SSHOPS_DEST/bin:\$PATH\""
+# PATH:幂等写入 ~/.zshenv
+ZSHRC="$HOME/.zshenv"
+PATH_ENTRY='export PATH="$HOME/Code/ssh-ops/bin:$PATH"'
+if [[ -w "$ZSHRC" ]] && ! grep -qF "$PATH_ENTRY" "$ZSHRC" 2>/dev/null; then
+    echo >> "$ZSHRC"
+    echo "$PATH_ENTRY" >> "$ZSHRC"
+    ok "PATH 已写入 $ZSHRC"
+elif grep -qF "$PATH_ENTRY" "$ZSHRC" 2>/dev/null; then
+    ok "PATH 已在 $ZSHRC 中"
+else
+    warn "无法写入 $ZSHRC,请手动加: $PATH_ENTRY"
 fi
 
 echo

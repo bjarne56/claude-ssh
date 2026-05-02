@@ -22,8 +22,6 @@ source "$_lib_dir/common.sh"
 # shellcheck disable=SC1091
 source "$_lib_dir/wezterm.sh"
 # shellcheck disable=SC1091
-source "$_lib_dir/marker.sh"
-# shellcheck disable=SC1091
 source "$_lib_dir/recorder.sh"
 # shellcheck disable=SC1091
 source "$_lib_dir/safety.sh"
@@ -309,26 +307,6 @@ pane_open() {
         die 3 "ssh 登录超时 (${login_timeout}s),用户未完成输入 / ssh login timeout"
     fi
 
-    # shell 检测:发 echo $SHELL,marker 切片读回
-    if ! marker_inject_and_capture "$new_pane" 'echo "<shell>$SHELL</shell>"' 15; then
-        wt_kill_pane "$new_pane"
-        record_finalize "$sid"
-        die 3 "等待 ssh 就绪超时 / ssh ready timeout"
-    fi
-    local shell_path="$SSHOPS_MARKER_OUTPUT"
-    if [[ "$shell_path" =~ \<shell\>(.*)\</shell\> ]]; then
-        shell_path="${BASH_REMATCH[1]}"
-    fi
-    local detected_shell; detected_shell="$(basename "$shell_path")"
-    case "$detected_shell" in
-        bash|zsh) : ok ;;
-        *)
-            wt_kill_pane "$new_pane"
-            record_finalize "$sid"
-            die 3 "目标 shell 不支持(检测到 $shell_path),本 skill 仅支持 bash/zsh / unsupported shell"
-            ;;
-    esac
-
     # auto_sudo:登录用户非 root 时自动 sudo -i 切 root
     # 默认 true(代码层默认):新用户开箱即用;现有 config.json 没此字段也走 true
     local sudo_active=0
@@ -347,17 +325,9 @@ pane_open() {
             log_info "auto_sudo: $user → root via sudo -i"
             wt_send_text "$new_pane" "sudo -i"
             sleep 1
-            # sudo 可能 prompt 密码,等用户手输
             if ! _wait_for_pane_input_complete "$new_pane" 60 "sudo -i"; then
                 log_warn "sudo -i 等待超时,后续命令可能在原 user shell 跑"
             else
-                # 重新 shell 检测确认 sudo 后还是 bash/zsh
-                if marker_inject_and_capture "$new_pane" 'echo "<shell>$SHELL</shell>"' 10; then
-                    local sudo_shell="$SSHOPS_MARKER_OUTPUT"
-                    [[ "$sudo_shell" =~ \<shell\>(.*)\</shell\> ]] && sudo_shell="${BASH_REMATCH[1]}"
-                    detected_shell="$(basename "$sudo_shell")"
-                    log_info "sudo 后 shell: $detected_shell"
-                fi
                 sudo_active=1
             fi
         else
@@ -365,11 +335,8 @@ pane_open() {
         fi
     fi
 
-    # 设 PS1 + 关闭输入回显(stty -echo)+ 注入 REAL_USER 审计身份
-    # PS1 模板:[\u(LOGIN_LABEL:$REAL_USER)@\h \W]\$
-    #   sudo 后:LOGIN_LABEL=root  → 展示 [root(root:claude)@host ~]#
-    #   未 sudo:LOGIN_LABEL=原 ssh 用户(如 roy) → 展示 [roy(roy:claude)@host ~]$
-    # REAL_USER 固定 'claude'(本 skill 只会被 Claude 调用,无需配置)
+    # PS1 + REAL_USER 审计身份,直接发命令,不用 marker 包装
+    # 默认按 bash 语法注入 PS1;若目标为 zsh,后续再补 zsh PROMPT 模板
     local real_user="claude"
     local login_label
     if (( sudo_active )); then
@@ -377,30 +344,11 @@ pane_open() {
     else
         login_label="$user"
     fi
-    local setup_cmd
-    if [[ "$detected_shell" == "bash" ]]; then
-        # 单引号包裹 PS1 字面值,$REAL_USER 留待 bash 在 prompt 展示时动态展开
-        # 当 LOGIN_LABEL == REAL_USER('claude') 时简化(避免 (claude:claude) 重复)
-        if [[ "$login_label" == "$real_user" ]]; then
-            setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'; export PS1='[\\u@\\h \\W]\\\$ '"
-        else
-            setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'; export PS1='[\\u($login_label:\$REAL_USER)@\\h \\W]\\\$ '"
-        fi
+    if [[ "$login_label" == "$real_user" ]]; then
+        wt_send_text "$new_pane" "export REAL_USER='$real_user'; export PS1='[\\u@\\h \\W]\\\$ '; clear"
     else
-        # zsh:暂只设 stty + REAL_USER,PS1 保留默认(Phase 2+ 加 zsh PROMPT 模板)
-        setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'"
-        log_warn "目标是 zsh,Phase 1b 暂不自定义 PROMPT(只设 REAL_USER + stty)"
+        wt_send_text "$new_pane" "export REAL_USER='$real_user'; export PS1='[\\u($login_label:\$REAL_USER)@\\h \\W]\\\$ '; clear"
     fi
-    if ! marker_inject_and_capture "$new_pane" "$setup_cmd" 10; then
-        wt_kill_pane "$new_pane"
-        record_finalize "$sid"
-        die 3 "设置 PS1/stty 失败 / setup failed"
-    fi
-
-    # 清屏:擦掉所有 marker 注入痕迹,用户看到的 pane 顶部就是干净的新 prompt。
-    # asciinema 录像不受 clear 影响(录的是 PTY 流,clear 也被录),审计完整。
-    wt_send_text "$new_pane" "clear"
-    sleep 0.3
 
     # 视觉标识(Phase 4 由 Lua 响应,Phase 1a 仅设 user var,无视觉效果)
     wt_set_user_var "$new_pane" "sshops_actor"      "ai"
