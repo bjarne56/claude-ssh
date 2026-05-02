@@ -23,7 +23,6 @@ FILES=(
     lib/common.sh
     lib/safety.sh
     lib/wezterm.sh
-    lib/marker.sh
     lib/recorder.sh
     lib/project.sh
     bin/sshops

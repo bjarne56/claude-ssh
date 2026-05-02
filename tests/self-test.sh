@@ -79,7 +79,7 @@ sid="$(echo "$result_json" | jq -r '.session_id')"
 
 [[ "$exit_code" == "0" ]] || ng "exit != 0: $exit_code"
 [[ "$output" == *"hello-from-sshops"* ]] || ng "output 不含期望字符串: $output"
-ok "marker 切片输出正确: '$output'"
+ok "命令切片输出正确: '$output'"
 ok "session_id: $sid"
 
 inf "==> 6) 录像文件检查"

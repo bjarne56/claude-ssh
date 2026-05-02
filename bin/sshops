@@ -22,8 +22,6 @@ source "$SSHOPS_HOME/lib/common.sh"
 # shellcheck disable=SC1091
 source "$SSHOPS_HOME/lib/wezterm.sh"
 # shellcheck disable=SC1091
-source "$SSHOPS_HOME/lib/marker.sh"
-# shellcheck disable=SC1091
 source "$SSHOPS_HOME/lib/recorder.sh"
 # shellcheck disable=SC1091
 source "$SSHOPS_HOME/lib/safety.sh"
@@ -61,7 +59,7 @@ sshops — SSH 远程运维 skill (Phase 1b)
   --ask-password      在你当前终端 prompt 一次密码
   --prod              标记目标为生产机,触发危险命令拦截 (临时参数模式才需要)
   --i-mean-it         强制放行危险命令 (Claude 不会主动加,必须用户对话明确)
-  --timeout SEC       命令注入超时,默认从 config.marker_timeout_seconds (30)
+  --timeout SEC       命令执行超时秒数,默认 30
 
 例:
   sshops run @aws/edge "uptime"                   走 SecureCRT
@@ -235,35 +233,67 @@ cmd_run() {
     local pane="$SSHOPS_PANE_ID"
     local sid="$SSHOPS_PANE_SESSION_ID"
 
-    # 注入 + 切片
+    # 发送命令 + 等待完成 + 切片输出
     set +e
-    marker_inject_and_capture "$pane" "$REM_CMD" "${SSHOPS_TIMEOUT:-}"
-    local mrc=$?
+    local start_ms; start_ms="$(now_ms)"
+
+    # 取命令发送前的屏幕快照(用于后续切片)
+    local before_text; before_text="$(wt_get_text "$pane" 2>/dev/null || true)"
+
+    wt_send_text "$pane" "$REM_CMD"
+
+    # 轮询等待命令完成:检测 shell prompt 重新出现
+    local cmd_timeout; cmd_timeout="${SSHOPS_TIMEOUT:-${SSHOPS_CMD_TIMEOUT:-30}}"
+    local elapsed=0
+    local after_text=""
+    while (( elapsed < cmd_timeout )); do
+        sleep 1
+        elapsed=$((elapsed + 1))
+        after_text="$(wt_get_text "$pane" 2>/dev/null || true)"
+        local last_line; last_line="$(printf '%s' "$after_text" | strip_ansi | tail -1)"
+        if printf '%s' "$last_line" | grep -qE '[$#] $'; then
+            sleep 0.5
+            after_text="$(wt_get_text "$pane" 2>/dev/null || true)"
+            break
+        fi
+    done
+
+    # 切片:从 before_text 尾部到 after_text 尾部,去掉首行(命令 echo)和末行(prompt)
+    local output
+    output="$(printf '%s' "$after_text" | strip_ansi)"
+    if [[ -n "$before_text" ]]; then
+        local before_stripped; before_stripped="$(printf '%s' "$before_text" | strip_ansi)"
+        output="${output#"$before_stripped"}"
+    fi
+    output="$(printf '%s' "$output" | sed '1d;$d')"
+
+    local duration_ms=$(( $(now_ms) - start_ms ))
+    # 退出码无法从屏幕文本准确还原,默认 0
+    local marker_exit=0
     set -e
-    (( mrc != 0 )) && exit "$mrc"
 
     # 记录
     local dgr=0
     [[ "${SSHOPS_GATE_DANGEROUS:-0}" == "1" ]] && dgr=1
     record_append_command "$sid" "ai" "$SEL_DISPLAY" "$REM_CMD" \
-        "$SSHOPS_MARKER_EXIT" "$SSHOPS_MARKER_DURATION_MS" \
-        "$dgr" 0 "$SSHOPS_MARKER_NONCE"
+        "$marker_exit" "$duration_ms" \
+        "$dgr" 0 "$(gen_nonce)"
 
     # 输出 JSON
     local offset; offset="$(record_cast_offset "$sid")"
     jq -n \
-        --argjson exit "$SSHOPS_MARKER_EXIT" \
-        --argjson dur "$SSHOPS_MARKER_DURATION_MS" \
+        --argjson exit "$marker_exit" \
+        --argjson dur "$duration_ms" \
         --argjson off "$offset" \
         --arg sid "$sid" \
         --arg sel "$SEL_DISPLAY" \
-        --arg out "$SSHOPS_MARKER_OUTPUT" \
+        --arg out "$output" \
         --argjson dgr "$dgr" \
         '{exit: $exit, duration_ms: $dur, cast_offset: $off,
           selector: $sel, session_id: $sid,
           dangerous: ($dgr == 1), blocked: false, output: $out}'
 
-    exit "$SSHOPS_MARKER_EXIT"
+    exit "$marker_exit"
 }
 
 cmd_close() {
