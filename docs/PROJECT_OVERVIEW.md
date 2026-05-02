@@ -55,7 +55,7 @@ lua/
 5. **目标 shell 限定 bash/zsh**:spawn 后先 `marker_inject_and_capture pane 'echo "<shell>$SHELL</shell>"'` 探测;非支持 shell 走 `wt_kill_pane` + `record_finalize` + `die 3`
 6. **项目隔离**:项目 ID = `pwd -P`(bash 内建解析 symlink,**不依赖 realpath**);不同目录开不同 WezTerm 窗口;`SSHOPS_PROJECT` 环境变量可覆盖
 7. **录像唯一方案 asciinema**,不实现 BSD/GNU script fallback;`asciinema rec --command "<shell-string>"` 接 ssh argv 经 `printf %q` 转义后的字符串
-8. **bash 4+ 必需**(macOS 默认 3.2 不够,需 `brew install bash`);用了数组、`${!var}` 间接展开、`mapfile`(暂未用,但保留余量)
+8. **bash 3.2 / 4 / 5 全部兼容**(macOS 默认 `/bin/bash` 3.2 / brew bash 5.x 都行);仅用 3.2 已支持的特性:数组 / `${!var}` 间接展开 / `BASH_REMATCH` / `printf -v`;空数组 + `set -u` 的 corner case(bash 4.4 之前 known bug)用 `[[ ${#arr[@]} -gt 0 ]]` 显式守护;已实测 3.2.57 与 5.3.9
 9. **跨平台时间戳**:`now_ms` 用 perl/python3 一行式(BSD `date` 不支持 `%3N`)
 10. **`--i-mean-it` Claude 不主动加**:必须用户对话里明确"我确认"才传
 

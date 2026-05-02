@@ -37,14 +37,10 @@ check_cmd perl       1 "(自带,通常无需安装)" || fail=1
 check_cmd xxd        1 "(自带,通常无需安装)" || fail=1
 check_cmd pass       0 "macOS: brew install pass  /  Linux: apt install pass" || true
 
-# bash 版本(>= 4 才支持 mapfile / nameref 等;脚本目前仅用 4+ 的轻特性,但保险起见检查)
-bash_major="${BASH_VERSION%%.*}"
-if [[ "$bash_major" -lt 4 ]]; then
-    err "bash 版本太老($BASH_VERSION),需要 ≥ 4。macOS: brew install bash 然后用 /opt/homebrew/bin/bash"
-    fail=1
-else
-    ok "bash: $BASH_VERSION"
-fi
+# bash 版本:本 skill 兼容 bash 3.2 / 4 / 5 全部主流版本
+# - 3.2(macOS 系统自带 /bin/bash):空数组 + set -u 用 [[ ${#arr[@]} -gt 0 ]] 守护
+# - 4.x / 5.x:自动兼容(向后兼容)
+ok "bash: $BASH_VERSION (3.2 / 4 / 5 全部兼容)"
 
 if [[ "$fail" == "1" ]]; then
     err "有必需依赖缺失,先安装上面提示的工具再重试"

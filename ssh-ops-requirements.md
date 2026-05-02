@@ -980,7 +980,11 @@ Claude 据此决策。
 
 ### 20.1 通用
 
-- 用 bash 写,**bash 4+ 必需**(macOS 默认 3.2 不够,要 `brew install bash`)
+- 用 bash 写,**bash 3.2 / 4 / 5 全部兼容**(macOS 自带 `/bin/bash` 3.2 即可,brew bash 5.x 也行;Linux 各发行版 4.x / 5.x 自动兼容)
+- 仅用 3.2 已支持的特性:数组 / `${!var}` 间接展开 / `BASH_REMATCH` / `printf -v` / `[[ =~ ]]` / `(( ))`
+- **禁用 4+ only 特性**:`mapfile` / `readarray` / `declare -A` / `local -n` / `coproc` / `globstar` / `${var,,}` 大小写转换
+- 空数组 + `set -u` 的 corner case(bash 4.4 之前 known bug)用 `[[ ${#arr[@]} -gt 0 ]]` 块显式守护,**不要**用 `"${arr[@]}"` 直接展开。原因:bash 3.2 上 `set -u` + 空数组 `"${arr[@]}"` 会报 unbound variable
+- self-test 必须**双 bash 跑**:`/bin/bash`(3.2) + brew `bash`(5.x)各跑一遍,验证向后兼容
 - 不引入 Python/Go 等运行时依赖,但允许 perl 一行式 fallback(macOS 自带)
 - jq 可以放心用,install.sh 自检里加它
 - 所有可执行 shell 脚本加 `set -euo pipefail`;**lib 内部 source 不写 `set`**,避免污染调用方 shell

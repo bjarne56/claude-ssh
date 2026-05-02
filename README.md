@@ -17,7 +17,7 @@ Claude Code 通过 WezTerm 进行 SSH 远程运维的 skill。
 ```bash
 # macOS
 brew install --cask wezterm
-brew install asciinema jq bash
+brew install asciinema jq
 brew install hudochenkov/sshpass/sshpass   # 可选,用 --password 才需要
 brew install pass                          # 可选,密码后端
 
@@ -26,7 +26,7 @@ brew install pass                          # 可选,密码后端
 # 把当前用户的公钥加进 ~/.ssh/authorized_keys
 ```
 
-> macOS 默认 bash 是 3.2,本 skill 用了 4+ 特性,**必须** `brew install bash`。
+> bash:**3.2 / 4 / 5 全部兼容**。macOS 系统自带 `/bin/bash` 3.2 即可,brew bash 5.x 也跑得通。空数组 + `set -u` 的 corner case 已显式守护。已实测 3.2.57 和 5.3.9。
 
 ### 2. 安装 skill
 
@@ -168,8 +168,8 @@ ssh-ops/
 **问:`exit 5` 被拦截。**
 答:危险命令在生产机被拦截。如确实要执行,在对话里明确告诉 Claude "我确认要在生产机执行 X",Claude 才会加 `--i-mean-it`。
 
-**问:macOS bash 是 3.2,装 brew bash 后 sshops 仍找老 bash。**
-答:确保 `which bash` 指向 `/opt/homebrew/bin/bash` 或 `/usr/local/bin/bash`。`#!/usr/bin/env bash` 走 PATH 顺序,把 brew 路径放前面。
+**问:bash 版本要求?**
+答:**3.2 / 4 / 5 全兼容**。macOS 默认 `/bin/bash 3.2` 够用,brew `bash 5.x` 也跑。代码用 `[[ ${#arr[@]} -gt 0 ]]` 显式守护空数组的 `set -u` corner case。已实测 3.2.57(macOS Sonoma 自带)和 5.3.9(Homebrew)。
 
 ## 文档
 

@@ -204,15 +204,21 @@ pane_open() {
     local cast_path="$rec_dir/stream.cast"
 
     # 组装 ssh 参数
+    # 注:bash 3.2 + set -u 下,空数组用 "${arr[@]}" 会报 unbound variable
+    # (4.4+ 才修),所以用 [[ ${#arr[@]} -gt 0 ]] 显式守护
     ssh_opts_for pane
     local ssh_argv=( ssh )
-    ssh_argv+=( "${SSHOPS_SSH_OPTS[@]}" )
+    if [[ ${#SSHOPS_SSH_OPTS[@]} -gt 0 ]]; then
+        ssh_argv+=( "${SSHOPS_SSH_OPTS[@]}" )
+    fi
     [[ -n "$port" && "$port" != "22" ]] && ssh_argv+=( -p "$port" )
     [[ -n "$key_path" ]] && ssh_argv+=( -i "$key_path" )
     if [[ -n "${SSHOPS_JUMP:-}" ]]; then
         ssh_argv+=( -J "$SSHOPS_JUMP" )
     fi
-    ssh_argv+=( "${extra_ssh_args[@]}" )
+    if [[ ${#extra_ssh_args[@]} -gt 0 ]]; then
+        ssh_argv+=( "${extra_ssh_args[@]}" )
+    fi
     ssh_argv+=( "${user}@${host}" )
 
     # 密码模式:sshpass 包一层
