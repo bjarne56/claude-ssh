@@ -369,8 +369,8 @@ pane_open() {
     # PS1 模板:[\u(LOGIN_LABEL:$REAL_USER)@\h \W]\$
     #   sudo 后:LOGIN_LABEL=root  → 展示 [root(root:claude)@host ~]#
     #   未 sudo:LOGIN_LABEL=原 ssh 用户(如 roy) → 展示 [roy(roy:claude)@host ~]$
-    # REAL_USER 默认 'claude',可在 config.real_user 改
-    local real_user; real_user="$(config_get '.real_user' 'claude')"
+    # REAL_USER 固定 'claude'(本 skill 只会被 Claude 调用,无需配置)
+    local real_user="claude"
     local login_label
     if (( sudo_active )); then
         login_label="root"
