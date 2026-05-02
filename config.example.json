@@ -8,7 +8,8 @@
   "path_mappings": [],
 
   "default_parallel": 8,
-  "log_dir": "~/.ssh-recordings",
+  "_log_dir_comment": "录像存储根目录。留空字符串(默认推荐)=每个项目录到自己根下的 .ssh-ops/recordings/(跟项目绑定,clone/move 时一起带走);填具体路径(如 ~/.ssh-recordings)=全局固定位置,所有项目集中存(适合统一审计场景)。",
+  "log_dir": "",
   "marker_timeout_seconds": 30,
   "prompt_marker": "SSHOPS_READY$ ",
 

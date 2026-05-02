@@ -83,10 +83,16 @@ ok "marker 切片输出正确: '$output'"
 ok "session_id: $sid"
 
 inf "==> 6) 录像文件检查"
-log_dir="$(jq -r '.log_dir' "$SSHOPS_HOME/config.json" \
-    | sed "s|^~|$HOME|")"
-proj_slug="$(basename "$(pwd -P)" | tr -c '[:alnum:]_.-' '_' | head -c 64)"
-session_dir="$log_dir/$proj_slug/$sid"
+log_dir_cfg="$(jq -r '.log_dir // ""' "$SSHOPS_HOME/config.json")"
+if [[ -n "$log_dir_cfg" ]]; then
+    # 全局模式:<log_dir>/<project_slug>/<sid>
+    log_dir="$(echo "$log_dir_cfg" | sed "s|^~|$HOME|")"
+    proj_slug="$(basename "$(pwd -P)" | tr -c '[:alnum:]_.-' '_' | head -c 64)"
+    session_dir="$log_dir/$proj_slug/$sid"
+else
+    # 项目内模式(默认):<project>/.ssh-ops/recordings/<sid>
+    session_dir="$(pwd -P)/.ssh-ops/recordings/$sid"
+fi
 
 [[ -d "$session_dir" ]] || ng "session 目录缺失: $session_dir"
 [[ -f "$session_dir/stream.cast" ]] || ng "stream.cast 缺失"

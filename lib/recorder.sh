@@ -19,8 +19,39 @@ if [[ -z "${_SSHOPS_COMMON_SOURCED:-}" ]]; then
     source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 fi
 
+# 录像存储根目录:
+# - 默认 = 当前项目根/.ssh-ops/recordings(跟项目绑定,clone/move 时一起带走)
+# - 若 config.log_dir 显式设置非空字符串,则用配置值(高级覆盖,适合统一审计场景)
 _record_log_dir() {
-    expand_path "$(config_get '.log_dir' '~/.ssh-recordings')"
+    local cfg
+    cfg="$(config_get '.log_dir' '')"
+    if [[ -n "$cfg" ]]; then
+        expand_path "$cfg"
+    else
+        printf '%s/.ssh-ops/recordings' "$(project_id)"
+    fi
+}
+
+# 首次写录像时,给项目根的 .gitignore 追加 .ssh-ops/ 排除项,避免误 commit。
+# 仅当 .gitignore 已存在且不含该条时追加;不存在则不动(尊重用户偏好,不主动创建)。
+_ensure_project_gitignore() {
+    # 仅在录像走项目内默认路径时才动 .gitignore
+    local cfg; cfg="$(config_get '.log_dir' '')"
+    [[ -n "$cfg" ]] && return 0
+
+    local proj; proj="$(project_id)"
+    local gi="$proj/.gitignore"
+    [[ -f "$gi" ]] || return 0
+
+    if ! grep -qE '^\.ssh-ops/?$' "$gi" 2>/dev/null; then
+        # 追加,带说明
+        {
+            printf '\n'
+            printf '# ssh-ops skill 录像与状态(自动维护)\n'
+            printf '.ssh-ops/\n'
+        } >> "$gi"
+        log_info "已自动追加 .ssh-ops/ 到 $gi(可手动调整)"
+    fi
 }
 
 # host_slug <selector|host>:转文件名安全
@@ -38,10 +69,18 @@ record_session_id() {
 }
 
 # record_session_dir <session_id>
+# 全局模式:<log_dir>/<project_slug>/<session_id>(按项目分子目录,避免不同项目 sid 冲突)
+# 项目内模式:<project>/.ssh-ops/recordings/<session_id>(已经在项目下,不再叠 project_slug)
 record_session_dir() {
     local sid="$1"
-    local proj; proj="$(project_slug)"
-    printf '%s/%s/%s' "$(_record_log_dir)" "$proj" "$sid"
+    local cfg; cfg="$(config_get '.log_dir' '')"
+    local root; root="$(_record_log_dir)"
+    if [[ -n "$cfg" ]]; then
+        local proj; proj="$(project_slug)"
+        printf '%s/%s/%s' "$root" "$proj" "$sid"
+    else
+        printf '%s/%s' "$root" "$sid"
+    fi
 }
 
 # record_init <session_id> <selector> <host> <user> <auth_type> [extra_meta_json]
@@ -54,6 +93,8 @@ record_init() {
     mkdir -p "$dir"
     : > "$dir/commands.jsonl"
     : > "$dir/annotations.jsonl"
+    # 项目内模式时,自动维护项目 .gitignore
+    _ensure_project_gitignore
     local now; now="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
     local proj_id; proj_id="$(project_id)"
     local proj_slug; proj_slug="$(project_slug)"

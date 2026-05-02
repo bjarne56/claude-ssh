@@ -295,15 +295,39 @@ GNU `script` (Linux 自带) 的 fallback 在 Phase 5+ 重新评估,Phase 1-4 不
 
 ### 7.2 录像目录结构
 
+**两种模式,由 `config.log_dir` 切换**:
+
+#### 默认模式:项目内(推荐)
+
+`config.log_dir` 留空字符串。每个项目录到自己根下的 `.ssh-ops/recordings/`,跟项目绑定:
+
 ```
-~/.ssh-recordings/<project-name>/<session-id>/
-├── stream.cast            # asciinema v2 格式 (优先) 或 stream.typescript + stream.timing
-├── commands.jsonl         # 命令级索引
-├── meta.json              # session 元数据
-└── annotations.jsonl      # 用户标注
+<project-root>/.ssh-ops/recordings/<session-id>/
+├── stream.cast
+├── commands.jsonl
+├── meta.json
+└── annotations.jsonl
 ```
 
-`<session-id>` 格式:`<host-slug>-<YYYYMMDD-HHMMSS>-<short-id>`
+优点:clone / move 项目时录像一起带走;`rm -rf` 项目时录像一起清掉,无孤儿。
+
+`record_init` 第一次写录像时,如果项目根有 `.gitignore`,**自动追加 `.ssh-ops/`**(避免误 commit);若 `.gitignore` 不存在则不动。
+
+#### 全局模式:统一审计
+
+`config.log_dir` 设非空路径(如 `~/.ssh-recordings`),所有项目录到同一根:
+
+```
+<log_dir>/<project-slug>/<session-id>/
+├── stream.cast
+...
+```
+
+`<project-slug>` 用 `basename $(pwd -P)` 经 `tr -c '[:alnum:]_.-' '_'` sanitize,最长 64 字节。
+
+#### `<session-id>` 格式
+
+`<host-slug>-<YYYYMMDD-HHMMSS>-<short-id>`
 
 例:`aws-edge-20260502-142301-a3f4b1`
 

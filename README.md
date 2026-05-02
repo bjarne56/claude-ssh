@@ -144,7 +144,9 @@ ssh-ops/
     └── Implementation_Plan.md  任务级状态
 ```
 
-录像数据(运行时产生,不入库)位于 `~/.ssh-recordings/<project_slug>/<session_id>/`。
+录像数据(运行时产生,不入库)默认放在**当前项目根的 `.ssh-ops/recordings/<session_id>/`**(跟项目绑定,clone/move 时一起带走;首次写录像时 skill 会自动给项目根 `.gitignore` 追加 `.ssh-ops/` 排除项)。
+
+如果你希望**全局集中存储**(所有项目录到同一位置,适合统一审计):在 `config.json` 里设 `"log_dir": "~/.ssh-recordings"`(或任意路径),目录结构为 `<log_dir>/<project_slug>/<session_id>/`。
 
 ## 路线图
 

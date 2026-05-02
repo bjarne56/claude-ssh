@@ -46,8 +46,13 @@ if [[ -n "$crt_dir" && ! -d "$crt_dir" ]]; then
 fi
 sessions_dir="$crt_dir/Sessions"
 
-# 2. 录像目录
-log_dir="$(ask "录像目录" "$HOME/.ssh-recordings")"
+# 2. 录像目录(可选)
+# - 留空:每个项目录到自己根下的 .ssh-ops/recordings/(默认推荐)
+# - 填路径:全局固定位置,所有项目集中存储(适合统一审计)
+echo "" >&2
+echo "录像目录(留空=每个项目录到自己根下的 .ssh-ops/recordings/,推荐;" >&2
+echo "         填路径=全局固定位置,所有项目集中存)" >&2
+log_dir="$(ask "录像目录" "")"
 
 # 3. 默认并发
 parallel="$(ask "默认并发数(用于 fan,Phase 2)" "8")"
