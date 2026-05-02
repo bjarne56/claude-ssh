@@ -159,20 +159,7 @@ skill **不需要在目标主机新建账号**,默认方案完全基于已有的
 | 远端 PS1 prompt | `[root(roy:claude)@host ~]#` 或 `[roy(roy:claude)@host ~]$` |
 | 录像 | 项目内 `.ssh-ops/recordings/<session-id>/`(stream.cast + commands.jsonl + meta.json) |
 
-`(roy:claude)` 这个 prompt 信号意思是「**原 ssh 登录是 roy,当前操作者是 claude (AI)**」 — 谁查 asciinema 回放或站旁边看 pane 都能立即识别 AI vs 人的操作。这是 **不能新建专用账号场景下的标准做法**,大多数生产环境直接走这条路。
-
-## 进阶:目标主机有专用账号(可选)
-
-如果**你恰好能在目标主机建专用账号**(自己的实验环境 / 你管控的小集群),`config.json` 里设:
-
-```json
-"ai_user": "claude",
-"ai_user_key": "~/.ssh/claude.key"
-```
-
-skill 会用 `claude@host` 直接登录,跳过 auto_sudo,系统层 `last` / sudo log 也直接看到 claude(不再依赖 PS1 字符串)。
-
-部署步骤:本机 `ssh-keygen -t ed25519 -f ~/.ssh/claude.key -N ''`,然后 sshd 接受这个 key 的目标主机配置。**默认 `ai_user: ""` 不启用**,大多数受限环境用不上,留作高级选项。
+`(roy:claude)` 这个 prompt 信号意思是「**原 ssh 登录是 roy,当前操作者是 claude (AI)**」 — 谁查 asciinema 回放或站旁边看 pane 都能立即识别 AI vs 人的操作。生产环境通常没权限在目标主机新建账号,这套基于现有账号 + PS1 字符串审计 + 完整录像的方案就是标准做法。
 
 ---
 
