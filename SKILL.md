@@ -82,25 +82,25 @@ sshops run --host 10.1.2.3 --user root --key ~/.ssh/k.pem "uptime"
 
 **SecureCRT 的 `Password V2` 是私有加密格式,skill 不会、也不应该解码**(SecureCRT 9.0+ 的 `03:` 前缀加密 + master password 派生 key,无可靠公开解码方案)。
 
-### 5.1 三种密码来源(优先级:用户对话给 > tty 自动 prompt > 报错引导)
+### 5.1 三种密码来源(skill 自动决策,Claude 不需要选)
+
+**Claude 默认行为永远是**:`sshops run <selector> "<cmd>"`,不主动加 `--password` / `--ask-password`。skill 内部根据上下文自动选下面三种之一:
 
 #### A. 用户在对话中直接给出密码
 
-例如用户说:"连一下 10.88.220.201,密码是 Qwe123!@#"。这是**用户显式授权 + 显式提供**,Claude 此时**直接用 `--password '<密码>'` 调用**,不要再让用户去终端重跑 / 再次确认:
+例如:"连 10.88.220.201,密码是 Qwe123!@#"。这是**用户显式授权 + 显式提供**,Claude 此时**直接用 `--password '<密码>'` 调用**:
 
 ```bash
 sshops run 10.88.220.201 --password 'Qwe123!@#' "uptime"
 ```
 
-**注意事项**(Claude 应主动告知用户一次,但不阻塞执行):
-- 密码进入进程 args(`ps -ef` 可见,通常是短暂的)
-- 不进 shell history(因为 Claude 不通过用户的 zsh 跑,直接 fork)
-- 不写入 commit / log 持久化(skill 设计如此,你也别主动写)
-- **生产环境密码建议用 5.2 节的 keychain / pass 后端**,临时测试可接受
+skill 会用 sshpass 自动喂密码,登录无感。
 
-#### B. 用户在自己终端直接跑 sshops(没在 Claude 里),且没传密码
+**告知用户一次但不阻塞**:密码进入进程 args(`ps` 可见,短暂)、不进 shell history、不写入 commit/log。**生产密码建议用 keychain / pass 后端**(Phase 2 的 password_refs)。
 
-skill 检测到 .ini 是密码登录,从 `/dev/tty` 自动弹 prompt(等同隐式 `--ask-password`),用户输完密码就连。
+#### B. 用户没给密码 + 在自己终端跑(有 tty)
+
+skill 从 `/dev/tty` 自动弹 prompt,用户输完密码就连(等同隐式 `--ask-password`):
 
 ```bash
 $ sshops run 10.88.220.201 "uptime"
@@ -108,16 +108,28 @@ $ sshops run 10.88.220.201 "uptime"
 {"exit": 0, ...}
 ```
 
-#### C. Claude 子进程调用 + 用户没在对话给密码
+#### C. 用户没给密码 + Claude 子进程调用(无 tty)— 自动 spawn + 等手输
 
-skill 报 `exit 64`,stderr 列出 4 种方案(见下表)。Claude 应**把方案文本原样转给用户**,等用户决定:
+**这是关键场景**:Claude 在子进程里调 `sshops`,没 tty,但**不会报错**。skill 行为:
 
-| 方案 | 何时推荐 |
-|---|---|
-| **A**. 用户在自己终端跑 | 简单一次性 |
-| **B**. `--ask-password`(显式,等同 A) | 习惯加显式标记 |
-| **C**. Phase 2 `password_refs` 接 keychain/pass | **长期最优**,以后 Claude 调用零交互 |
-| **D**. SecureCRT 改 key 登录 | 治本,但要改 SecureCRT 配置 |
+1. spawn pane,跑 `ssh` 不带 sshpass(让 ssh 自己 prompt)
+2. WezTerm pane 显示 `[user@host]$ password:`(ssh 在等密码)
+3. **用户在 WezTerm pane 里手输密码**(密码不进 ps、不进 history、不进 log,只在 pane 的 PTY 里)
+4. skill 后台轮询 pane 内容,检测到密码 prompt 消失 + shell 启动
+5. 自动 marker 注入命令,切片输出,返回 JSON
+
+**Claude 看到此场景,只需告诉用户**:"已经 spawn 好 pane,你去 WezTerm 输密码,完事我直接给你结果"。然后等 sshops 的 JSON 返回(可能 5-30 秒,看用户输密码速度)。**不要重试,不要二次询问密码**。
+
+#### 总结决策表
+
+| 场景 | Claude 调的命令 | skill 内部行为 |
+|---|---|---|
+| 用户对话给密码 | `--password 'XXX'` | sshpass 喂入 |
+| 用户在自己终端跑 sshops 且 .ini 密码登录 | (无 password 参数) | tty 自动 prompt |
+| Claude 子进程,密码登录主机 | (无 password 参数) | spawn pane → 用户手输 → 自动接管 |
+| key 登录主机 | (无 password 参数) | 直接 ssh -i key |
+
+**Claude 不需要根据场景区别对待 — 永远调 `sshops run <selector> "<cmd>"`,skill 自己决策**。仅在用户对话里明确给密码时,加 `--password 'XXX'`。
 
 ### Claude 看到 "需要密码,但当前进程无 tty" 错误时怎么做
 

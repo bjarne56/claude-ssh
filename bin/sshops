@@ -143,38 +143,18 @@ _resolve_selector_and_cmd() {
     selector_resolve_crt "$selector_input" || exit $?
 
     # 密码登录主机:.ini 有 Password V2 + 用户没传 --password / --ask-password
-    # 不再要求 SEL_KEY 为空 — 即便 SSH2.ini 回退给了 key,这台原本就是密码登录,
-    # 用户期望是输密码;key 仍保留作 ssh fallback 二级路径(密码失败时 ssh 自动试 key)
+    # 不阻塞 — 即便 Claude 子进程没 tty,让 pane_open 直接 spawn ssh,用户在 WezTerm
+    # pane 里手输密码,pane_open 的智能等待逻辑会自动检测密码 prompt 消失后接管。
     if [[ "${SEL_PASSWORD_PRESENT:-0}" == "1" && -z "$SSHOPS_PASSWORD" ]]; then
-        # 优先尝试从 tty 自动弹 prompt(等同隐式 --ask-password)
         if read_password_tty "密码 (该主机 $SEL_HOST 在 SecureCRT 是密码登录): "; then
+            # 用户在自己终端跑,有 tty:取密码用 sshpass 自动喂,登录无感
             SSHOPS_PASSWORD="$SSHOPS_TTY_PASSWORD"
             SSHOPS_AUTH_TYPE="password"
-            log_info "已从 tty 取得密码 (host=$SEL_HOST user=$SEL_USER port=$SEL_PORT)"
+            log_info "已从 tty 取得密码 → 将用 sshpass 自动喂入 ssh"
         else
-            # tty 不可用(常见:Claude 子进程调用)→ 给 Claude 清晰指引,让它告诉用户
-            cat <<EOF >&2
-该主机 ($SEL_HOST) 在 SecureCRT 中是密码登录(Password V2 字段非空)。
-当前进程没有可用的 tty,无法弹密码输入框 — 这通常意味着你是 Claude 子进程调用。
-
-请按以下任一方式让用户提供密码:
-
-  方案 A (推荐):告诉用户在自己的终端直接跑这条命令,skill 会自动 prompt
-                 密码不留 shell history、不出现在进程列表:
-      sshops run $selector_input "<cmd>"
-
-  方案 B:用户在终端跑时显式 --ask-password(行为与 A 相同):
-      sshops run $selector_input --ask-password "<cmd>"
-
-  方案 C (长期):用户先把密码存到 keychain / pass,Phase 2 的 password_refs
-                 接入后,Claude 调用就不需要任何交互:
-      security add-generic-password -s ssh-ops -a $SEL_HOST -w '<password>'
-      # 或
-      pass insert ssh-ops/$SEL_HOST
-
-  方案 D:在 SecureCRT 中给该主机配 Identity Filename V2 改 key 登录
-EOF
-        die 64 "需要密码,但当前进程无 tty"
+            # tty 不可用(Claude 子进程):放行,让 pane_open spawn ssh,
+            # ssh 自己 prompt 密码 → 用户在 WezTerm pane 手输 → pane_open 智能等待接管
+            log_info "未传密码且无 tty,spawn pane 后请在 WezTerm 手输密码 (host=$SEL_HOST user=$SEL_USER port=$SEL_PORT)。skill 检测到密码 prompt 消失会自动跑命令。"
         fi
     fi
 
