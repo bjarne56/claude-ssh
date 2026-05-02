@@ -165,22 +165,35 @@ _wait_for_pane_input_complete() {
     return 0
 }
 
-# pane_ensure_window:确保 WezTerm 运行 + 当前有活跃窗口可 split。
-# 不再创建专门的"项目窗口"和占位 pane,直接在 WezTerm 当前活跃窗口上 split。
-# 若无活跃窗口(WezTerm 刚启动),则在默认窗口上 spawn 第一个 pane。
+# pane_ensure_window:若无任何 pane 记录(第一台主机),创建新窗口。
+# 返回窗口 id。后续主机直接在该窗口上 split。
 pane_ensure_window() {
     wt_check
-    local win
-    win="$(wt_get_active_window)"
-    if [[ -z "$win" ]]; then
-        # WezTerm 在运行但没有任何窗口,创建一个
-        local cwd; cwd="$(pwd -P)"
-        local pane
-        pane="$(wt_spawn_new_window "$cwd" "${SHELL:-/bin/zsh}")"
-        [[ -z "$pane" ]] && die 6 "wezterm spawn 失败"
-        win="$(wt_window_of_pane "$pane")"
-        [[ -z "$win" ]] && die 6 "无法获取窗口 id"
+    local pid; pid="$(project_id)"
+    local win; win="$(panes_get_window "$pid")"
+    if [[ -n "$win" ]]; then
+        local exists
+        exists="$(wt_list_json | jq -r --arg w "$win" '.[] | select((.window_id|tostring) == $w) | .window_id' | head -1)"
+        if [[ -n "$exists" ]]; then
+            printf '%s' "$win"
+            return 0
+        fi
+        log_warn "窗口 $win 已不存在,重建"
+        local cur new
+        cur="$(panes_state_read)"
+        new="$(printf '%s' "$cur" | jq --arg p "$pid" 'del(.[$p])')"
+        state_with_lock 10 panes_state_write_atomic "$new"
     fi
+    # 第一台主机:新建窗口,不占位,直接用 ssh 命令 spawn
+    local cwd; cwd="$(pwd -P)"
+    local new_pane
+    new_pane="$(wt_spawn_new_window "$cwd" "${SHELL:-/bin/zsh}")"
+    [[ -z "$new_pane" ]] && die 6 "wezterm spawn 失败"
+    win="$(wt_window_of_pane "$new_pane")"
+    [[ -z "$win" ]] && die 6 "无法获取窗口 id"
+    panes_set_window "$pid" "$win"
+    # 这个占位 pane 稍后会被关闭(pane_open 中第一个 ssh pane 独占窗口时)
+    SSHOPS_PLACEHOLDER_PANE="$new_pane"
     printf '%s' "$win"
 }
 
@@ -259,31 +272,38 @@ pane_open() {
 
     local rec_argv=( asciinema rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )
 
-    # 找父 pane:活跃窗口内 pane_id 最小的(通常是第一个 pane)
-    local win; win="$(wt_get_active_window)"
-    local parent_pane
-    parent_pane="$(wt_list_json | jq -r --arg w "$win" '
-        [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[0].pane_id // empty
-    ')"
-    [[ -z "$parent_pane" ]] && die 6 "找不到活跃窗口的任何 pane / no parent pane in window $win"
-
-    # split 策略:Phase 1a 简化为右侧 50%
-    # TODO Phase 2: 完整 grid 算法在 lib/layout.sh
-    local existing_count
-    existing_count="$(wt_list_json | jq --arg w "$win" '[.[] | select((.window_id|tostring) == $w)] | length')"
+    # 策略:
+    #   - 第一台主机(窗口内只有占位 pane):spawn --new-window,关闭占位,独占窗口
+    #   - 后续主机:在窗口上 split 分网格
+    local win; win="$(panes_get_window "$pid")"
+    local existing_panes
+    existing_panes="$(wt_list_json | jq --arg w "$win" '[.[] | select((.window_id|tostring) == $w)] | length')"
     local new_pane
-    if (( existing_count <= 1 )); then
-        new_pane="$(wt_split_pane "$parent_pane" right 50 "${rec_argv[@]}")"
-    elif (( existing_count == 2 )); then
-        # 在第二个 pane 上纵向 split
+
+    if [[ -n "${SSHOPS_PLACEHOLDER_PANE:-}" ]]; then
+        # 第一台主机:占位 pane 还在,关掉它,用新窗口重 spawn 让 ssh pane 独占
+        wt_kill_pane "$SSHOPS_PLACEHOLDER_PANE" 2>/dev/null || true
+        unset SSHOPS_PLACEHOLDER_PANE
+        new_pane="$(wt_spawn_new_window "$(pwd -P)" "${rec_argv[@]}")"
+    elif (( existing_panes == 1 )); then
+        # 只有一台主机已在窗口内(且占位已关):第二台主机 → split
+        local parent
+        parent="$(wt_list_json | jq -r --arg w "$win" '
+            [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[0].pane_id
+        ')"
+        new_pane="$(wt_split_pane "$parent" right 50 "${rec_argv[@]}")"
+    elif (( existing_panes == 2 )); then
         local second
         second="$(wt_list_json | jq -r --arg w "$win" '
             [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[1].pane_id
         ')"
         new_pane="$(wt_split_pane "$second" bottom 50 "${rec_argv[@]}")"
     else
-        # 在最大 pane 上纵向 split(简化)
-        new_pane="$(wt_split_pane "$parent_pane" bottom 50 "${rec_argv[@]}")"
+        local parent
+        parent="$(wt_list_json | jq -r --arg w "$win" '
+            [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[0].pane_id
+        ')"
+        new_pane="$(wt_split_pane "$parent" bottom 50 "${rec_argv[@]}")"
     fi
 
     [[ -z "$new_pane" ]] && die 6 "split-pane 失败 / split failed"
