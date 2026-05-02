@@ -97,6 +97,17 @@ wt_kill_pane() {
     "$(_wt_cli)" cli kill-pane --pane-id "$pane" 2>/dev/null || true
 }
 
+# wt_set_tab_title <pane_id> <title>
+# 通过 pane 找到对应 tab,设置标题
+wt_set_tab_title() {
+    local pane="$1" title="$2"
+    local tab_id
+    tab_id="$(wt_list_json | jq -r --arg p "$pane" '.[] | select((.pane_id|tostring) == $p) | .tab_id')"
+    if [[ -n "$tab_id" ]]; then
+        "$(_wt_cli)" cli set-tab-title --tab-id "$tab_id" "$title" 2>/dev/null || true
+    fi
+}
+
 # wt_activate <pane_id>
 wt_activate() {
     local pane="$1"
