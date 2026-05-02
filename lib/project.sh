@@ -319,7 +319,8 @@ pane_open() {
     if [[ "$shell_path" =~ \<shell\>(.*)\</shell\> ]]; then
         shell_path="${BASH_REMATCH[1]}"
     fi
-    case "$(basename "$shell_path")" in
+    local detected_shell; detected_shell="$(basename "$shell_path")"
+    case "$detected_shell" in
         bash|zsh) : ok ;;
         *)
             wt_kill_pane "$new_pane"
@@ -330,6 +331,7 @@ pane_open() {
 
     # auto_sudo:登录用户非 root 时自动 sudo -i 切 root
     # 默认 true(代码层默认):新用户开箱即用;现有 config.json 没此字段也走 true
+    local sudo_active=0
     local auto_sudo; auto_sudo="$(config_get '.auto_sudo' 'true')"
     if [[ "$auto_sudo" == "true" ]]; then
         local skip_user_match=0
@@ -353,24 +355,41 @@ pane_open() {
                 if marker_inject_and_capture "$new_pane" 'echo "<shell>$SHELL</shell>"' 10; then
                     local sudo_shell="$SSHOPS_MARKER_OUTPUT"
                     [[ "$sudo_shell" =~ \<shell\>(.*)\</shell\> ]] && sudo_shell="${BASH_REMATCH[1]}"
-                    log_info "sudo 后 shell: $(basename "$sudo_shell")"
+                    detected_shell="$(basename "$sudo_shell")"
+                    log_info "sudo 后 shell: $detected_shell"
                 fi
+                sudo_active=1
             fi
         else
             log_info "auto_sudo: 跳过 ($user 在 auto_sudo_skip_users 列表)"
         fi
     fi
 
-    # 设 PS1 marker + 关闭 PTY 输入回显(stty -echo)
-    # stty -echo 让后续 marker 注入的命令字符不再被 PTY 回显给用户,
-    # 显著减少视觉噪音(用户只看到 cmd 的 stdout 输出 + 灰色 marker 行)。
-    # 副作用:用户在 pane 手输命令也不回显,需要时跑 stty echo 临时切回。
-    local prompt_marker
-    prompt_marker="$(config_get '.prompt_marker' 'SSHOPS_READY$ ')"
-    if ! marker_inject_and_capture "$new_pane" "stty -echo 2>/dev/null; export PS1='$prompt_marker'" 10; then
+    # 设 PS1 + 关闭输入回显(stty -echo)+ 注入 REAL_USER 审计身份
+    # PS1 模板:[\u(LOGIN_LABEL:$REAL_USER)@\h \W]\$
+    #   sudo 后:LOGIN_LABEL=root  → 展示 [root(root:claude)@host ~]#
+    #   未 sudo:LOGIN_LABEL=原 ssh 用户(如 roy) → 展示 [roy(roy:claude)@host ~]$
+    # REAL_USER 默认 'claude',可在 config.real_user 改
+    local real_user; real_user="$(config_get '.real_user' 'claude')"
+    local login_label
+    if (( sudo_active )); then
+        login_label="root"
+    else
+        login_label="$user"
+    fi
+    local setup_cmd
+    if [[ "$detected_shell" == "bash" ]]; then
+        # 单引号包裹 PS1 字面值,$REAL_USER 留待 bash 在 prompt 展示时动态展开
+        setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'; export PS1='[\\u($login_label:\$REAL_USER)@\\h \\W]\\\$ '"
+    else
+        # zsh:暂只设 stty + REAL_USER,PS1 保留默认(Phase 2+ 加 zsh PROMPT 模板)
+        setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'"
+        log_warn "目标是 zsh,Phase 1b 暂不自定义 PROMPT(只设 REAL_USER + stty)"
+    fi
+    if ! marker_inject_and_capture "$new_pane" "$setup_cmd" 10; then
         wt_kill_pane "$new_pane"
         record_finalize "$sid"
-        die 3 "设置 PS1/stty 失败 / set PS1/stty failed"
+        die 3 "设置 PS1/stty 失败 / setup failed"
     fi
 
     # 清屏:擦掉所有 marker 注入痕迹,用户看到的 pane 顶部就是干净的新 prompt。
