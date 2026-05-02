@@ -7,12 +7,29 @@ CONFIG_PATH="$SSHOPS_HOME/config.json"
 EXAMPLE="$SSHOPS_HOME/config.example.json"
 
 ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
-ask()  { local prompt="$1" default="${2:-}" var; printf '%s' "$prompt"; [[ -n "$default" ]] && printf ' [%s]' "$default"; printf ': '; read -r var; [[ -z "$var" ]] && var="$default"; printf '%s' "$var"; }
+
+# ask:交互问一个值。**prompt 必须写到 stderr**,否则在 var=$(ask ...) 命令替换中
+# stdout 会被捕获,prompt 文字混进返回值,且用户看不到提问。
+ask() {
+    local prompt="$1" default="${2:-}" var
+    printf '%s' "$prompt" >&2
+    [[ -n "$default" ]] && printf ' [%s]' "$default" >&2
+    printf ': ' >&2
+    read -r var
+    [[ -z "$var" ]] && var="$default"
+    printf '%s' "$var"
+}
 
 if [[ -f "$CONFIG_PATH" ]]; then
-    echo "已存在配置: $CONFIG_PATH"
-    echo "(若要重建,先 rm 它再跑 setup)"
-    exit 0
+    if jq empty "$CONFIG_PATH" >/dev/null 2>&1; then
+        echo "已存在合法配置: $CONFIG_PATH"
+        echo "(若要重建,先 rm 它再跑 setup)"
+        exit 0
+    else
+        echo "现有 $CONFIG_PATH 不是合法 JSON(可能上次 setup 中断)" >&2
+        echo "请先 rm '$CONFIG_PATH' 再重跑 sshops setup" >&2
+        exit 1
+    fi
 fi
 
 [[ -f "$EXAMPLE" ]] || { echo "找不到 $EXAMPLE" >&2; exit 1; }
@@ -35,8 +52,17 @@ log_dir="$(ask "录像目录" "$HOME/.ssh-recordings")"
 # 3. 默认并发
 parallel="$(ask "默认并发数(用于 fan,Phase 2)" "8")"
 
-# 写配置
-jq \
+# parallel 必须是数字(jq --argjson 要求合法 JSON)
+if ! [[ "$parallel" =~ ^[0-9]+$ ]]; then
+    echo "并发数必须是数字,收到: '$parallel'" >&2
+    exit 1
+fi
+
+# 写配置:tmp + mv 原子替换,避免 jq 失败留下半写文件
+tmp_cfg="$(mktemp "${TMPDIR:-/tmp}/sshops-config.XXXXXX")"
+trap 'rm -f "$tmp_cfg"' EXIT
+
+if ! jq \
     --arg crt "$crt_dir" \
     --arg sess "$sessions_dir" \
     --arg log "$log_dir" \
@@ -47,7 +73,11 @@ jq \
     | .log_dir = $log
     | .default_parallel = $par
     | del(._comment, ._path_mappings_comment)
-    ' "$EXAMPLE" > "$CONFIG_PATH"
+    ' "$EXAMPLE" > "$tmp_cfg"; then
+    echo "jq 写配置失败" >&2
+    exit 1
+fi
+mv "$tmp_cfg" "$CONFIG_PATH"
 
 ok "已写入 $CONFIG_PATH"
 

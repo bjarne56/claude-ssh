@@ -39,8 +39,19 @@ command -v asciinema >/dev/null || ng "asciinema 未安装"
 command -v jq >/dev/null        || ng "jq 未安装"
 ok "工具齐"
 
-inf "==> 2) wezterm cli 可用"
-wezterm cli list >/dev/null 2>&1 || ng "wezterm cli 不通(GUI 是否在跑?)"
+inf "==> 2) wezterm cli 可用(必要时自动启动 GUI)"
+if ! wezterm cli list >/dev/null 2>&1; then
+    inf "  WezTerm GUI 未启动,尝试 open -a WezTerm…"
+    if [[ "$(uname)" == "Darwin" ]]; then
+        open -a WezTerm 2>/dev/null || true
+    fi
+    # 等待最多 8 秒
+    for i in 1 2 3 4 5 6 7 8; do
+        sleep 1
+        wezterm cli list >/dev/null 2>&1 && break
+    done
+fi
+wezterm cli list >/dev/null 2>&1 || ng "wezterm cli 仍不通(请手动启动 WezTerm GUI 后重试)"
 ok "wezterm cli ok"
 
 inf "==> 3) ssh localhost 直连(基线)"
