@@ -280,37 +280,12 @@ pane_open() {
 
     local rec_argv=( asciinema rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )
 
-    # 策略:
-    #   第一台主机 → 当前窗口新 tab(ssh 独占整屏)
-    #   第二台及后续 → 在项目的第一个 tab 内 split 网格
-    local win; win="$(pane_ensure_window)"
-    local recorded_count
-    recorded_count="$(panes_state_read | jq --arg p "$pid" '.[$p].panes | length')"
+    # 策略:所有主机都用 tab(独占整屏),不做 split 网格
+    #   pane_ensure_window 只保证 WezTerm 运行 + 有窗口
     local new_pane
-
-    if (( recorded_count == 0 )); then
-        # 第一台主机:新 tab,独占整屏
-        new_pane="$(wt_spawn_tab "$(pwd -P)" "${rec_argv[@]}")"
-        win="$(wt_window_of_pane "$new_pane")"
-        panes_set_window "$pid" "$win"
-    else
-        # 后续主机:在项目窗口第一个 tab 上 split
-        local tab_panes
-        tab_panes="$(wt_list_json | jq --arg w "$win" '[.[] | select((.window_id|tostring) == $w)] | length')"
-        if (( tab_panes == 1 )); then
-            local parent
-            parent="$(wt_list_json | jq -r --arg w "$win" '.[] | select((.window_id|tostring) == $w) | .pane_id')"
-            new_pane="$(wt_split_pane "$parent" right 50 "${rec_argv[@]}")"
-        elif (( tab_panes == 2 )); then
-            local parent
-            parent="$(wt_list_json | jq -r --arg w "$win" '.[] | select((.window_id|tostring) == $w) | sort_by(.pane_id) | .[0].pane_id')"
-            new_pane="$(wt_split_pane "$parent" right 50 "${rec_argv[@]}")"
-        else
-            local second
-            second="$(wt_list_json | jq -r --arg w "$win" '.[] | select((.window_id|tostring) == $w) | sort_by(.pane_id) | .[1].pane_id')"
-            new_pane="$(wt_split_pane "$second" bottom 50 "${rec_argv[@]}")"
-        fi
-    fi
+    new_pane="$(wt_spawn_tab "$(pwd -P)" "${rec_argv[@]}")"
+    local win; win="$(wt_window_of_pane "$new_pane")"
+    panes_set_window "$pid" "$win"
 
     [[ -z "$new_pane" ]] && die 6 "split-pane 失败 / split failed"
     record_set_pane "$sid" "$new_pane"
