@@ -116,7 +116,7 @@ $ sshops run 10.88.220.201 "uptime"
 2. WezTerm pane 显示 `[user@host]$ password:`(ssh 在等密码)
 3. **用户在 WezTerm pane 里手输密码**(密码不进 ps、不进 history、不进 log,只在 pane 的 PTY 里)
 4. skill 后台轮询 pane 内容,检测到密码 prompt 消失 + shell 启动
-5. 自动 marker 注入命令,切片输出,返回 JSON
+5. 自动发命令,切片输出,返回 JSON
 
 **Claude 看到此场景,只需告诉用户**:"已经 spawn 好 pane,你去 WezTerm 输密码,完事我直接给你结果"。然后等 sshops 的 JSON 返回(可能 5-30 秒,看用户输密码速度)。**不要重试,不要二次询问密码**。
 
@@ -183,6 +183,7 @@ skill 内置危险命令模式拦截(`rm -rf /`、`reboot`、`mkfs`、`dd of=/de
 |---|---|
 | 跑一条短命令(<30s,看输出) | `sshops run <selector> "<cmd>"` |
 | 启动 pane 不跑命令(后续手敲或 run 复用) | `sshops open <selector>` |
+| 抓取 pane 当前可见文本(用户在 pane 手敲命令后,Claude 直接读画面) | `sshops peek <selector>` |
 | 关 pane | `sshops close <selector>` |
 | 列当前项目所有 pane | `sshops list-panes` |
 | 长任务后台 | Phase 2 `sshops bg`,目前先 `run` + `nohup &` |
