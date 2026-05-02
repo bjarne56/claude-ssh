@@ -47,8 +47,11 @@ marker_inject_and_capture() {
 
     # 命令包装。cmd 直接拼,信任调用方(safety_gate 已处理)。
     # 用 __sshops_rc 避免污染常见变量名 rc。
+    # printf + ANSI dim (\033[2m...\033[0m) 让 marker 字符串在 pane 显示为灰色,
+    # 不刺眼。strip_ansi 在切片前已处理 ANSI 序列,marker awk 匹配的是纯文本,
+    # 切片不受影响。
     local wrapped
-    wrapped="echo __SSHOPS_BEGIN_${nonce}__; ${cmd}; __sshops_rc=\$?; echo __SSHOPS_END_${nonce}__:\${__sshops_rc}"
+    wrapped=$'printf \'\\033[2m__SSHOPS_BEGIN_'"${nonce}"$'__\\033[0m\\n\'; '"${cmd}"$'; __sshops_rc=$?; printf \'\\033[2m__SSHOPS_END_'"${nonce}"$'__:%d\\033[0m\\n\' "${__sshops_rc}"'
 
     local start_ms; start_ms="$(now_ms)"
 

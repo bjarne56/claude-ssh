@@ -136,6 +136,37 @@ panes_cleanup_stale() {
 
 # === pane 生命周期 ===
 
+# _wait_for_pane_input_complete <pane_id> <timeout_s> <context_for_log>
+# 智能轮询 pane 末尾,直到不再出现"等用户输入"特征(密码 / passphrase /
+# yes/no host key / sudo password)。返回:
+#   0 = 已完成(prompt 消失,可继续 marker 注入)
+#   1 = 超时(用户没输入)
+# 用于 ssh 登录后 + sudo 后等用户手输的两个场景。
+_wait_for_pane_input_complete() {
+    local pane="$1" timeout="$2" ctx="${3:-input}"
+    local elapsed=0
+    local notified=0
+    while (( elapsed < timeout )); do
+        local raw stripped tail_text
+        raw="$(wt_get_text "$pane" 2>/dev/null || true)"
+        stripped="$(printf '%s' "$raw" | strip_ansi)"
+        tail_text="$(printf '%s' "$stripped" | tail -5)"
+        if printf '%s' "$tail_text" | grep -qiE \
+            '([Pp]assword|[Pp]assphrase|\[sudo\][[:space:]]+[Pp]assword|[Vv]erification code|[Cc]ode):[[:space:]]*$|\(yes/no(/\[fingerprint\])?\)\?[[:space:]]*$|[Aa]re you sure you want to'; then
+            if (( notified == 0 )); then
+                log_info "$ctx 在等用户输入,在 WezTerm pane $pane 完成输入,skill 自动接管 (timeout ${timeout}s)"
+                notified=1
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+            continue
+        fi
+        break
+    done
+    (( elapsed >= timeout )) && return 1
+    return 0
+}
+
 # pane_ensure_window:确保当前项目有窗口,无则 spawn 新窗口的占位 pane(用 cwd 跑 zsh)
 # 注意:WezTerm 窗口必须有至少一个 pane 才能存在。spawn --new-window 时一并起 zsh
 # 之后 split 出去的 pane 才是真正的 ssh pane;这个占位 pane 留作"项目首页"。
@@ -270,32 +301,9 @@ pane_open() {
     # 等 ssh 连接 + shell 启动(给 3 秒初始余量)
     sleep 3
 
-    # 智能等待:ssh 可能在 prompt 用户输入(密码 / passphrase / host key 确认)。
-    # 不要立即 marker 注入(会被当密码尝试吃掉),而是轮询 pane 末尾,
-    # 直到不再出现"等输入"特征,此时 shell 已 ready。
-    # 总超时默认 120s,通过 SSHOPS_LOGIN_TIMEOUT 覆盖。
+    # 智能等待 ssh 登录完成(用户在 pane 手输密码 / passphrase / host key 确认)
     local login_timeout="${SSHOPS_LOGIN_TIMEOUT:-120}"
-    local elapsed=0
-    local notified=0
-    while (( elapsed < login_timeout )); do
-        local raw stripped tail_text
-        raw="$(wt_get_text "$new_pane" 2>/dev/null || true)"
-        stripped="$(printf '%s' "$raw" | strip_ansi)"
-        # 看末尾 5 行,识别"等用户输入"特征
-        tail_text="$(printf '%s' "$stripped" | tail -5)"
-        if printf '%s' "$tail_text" | grep -qiE '([Pp]assword|[Pp]assphrase|[Vv]erification code|[Cc]ode):[[:space:]]*$|\(yes/no(/\[fingerprint\])?\)\?[[:space:]]*$|[Aa]re you sure you want to'; then
-            if (( notified == 0 )); then
-                log_info "ssh 在等用户输入(密码/passphrase/host key 确认),你在 WezTerm pane $new_pane 完成输入即可,skill 会自动接管 (timeout ${login_timeout}s)"
-                notified=1
-            fi
-            sleep 2
-            elapsed=$((elapsed + 2))
-            continue
-        fi
-        # 没有等输入特征,假设 shell ready
-        break
-    done
-    if (( elapsed >= login_timeout )); then
+    if ! _wait_for_pane_input_complete "$new_pane" "$login_timeout" "ssh 登录"; then
         wt_kill_pane "$new_pane"
         record_finalize "$sid"
         die 3 "ssh 登录超时 (${login_timeout}s),用户未完成输入 / ssh login timeout"
@@ -308,7 +316,6 @@ pane_open() {
         die 3 "等待 ssh 就绪超时 / ssh ready timeout"
     fi
     local shell_path="$SSHOPS_MARKER_OUTPUT"
-    # 提取 <shell>...</shell>
     if [[ "$shell_path" =~ \<shell\>(.*)\</shell\> ]]; then
         shell_path="${BASH_REMATCH[1]}"
     fi
@@ -321,15 +328,55 @@ pane_open() {
             ;;
     esac
 
-    # 设 PS1 marker
+    # auto_sudo:登录用户非 root 时自动 sudo -i 切 root
+    # 默认 true(代码层默认):新用户开箱即用;现有 config.json 没此字段也走 true
+    local auto_sudo; auto_sudo="$(config_get '.auto_sudo' 'true')"
+    if [[ "$auto_sudo" == "true" ]]; then
+        local skip_user_match=0
+        local skip_u
+        while IFS= read -r skip_u; do
+            [[ -z "$skip_u" ]] && continue
+            if [[ "$user" == "$skip_u" ]]; then
+                skip_user_match=1
+                break
+            fi
+        done < <(config_get_array '.auto_sudo_skip_users')
+        if (( skip_user_match == 0 )); then
+            log_info "auto_sudo: $user → root via sudo -i"
+            wt_send_text "$new_pane" "sudo -i"
+            sleep 1
+            # sudo 可能 prompt 密码,等用户手输
+            if ! _wait_for_pane_input_complete "$new_pane" 60 "sudo -i"; then
+                log_warn "sudo -i 等待超时,后续命令可能在原 user shell 跑"
+            else
+                # 重新 shell 检测确认 sudo 后还是 bash/zsh
+                if marker_inject_and_capture "$new_pane" 'echo "<shell>$SHELL</shell>"' 10; then
+                    local sudo_shell="$SSHOPS_MARKER_OUTPUT"
+                    [[ "$sudo_shell" =~ \<shell\>(.*)\</shell\> ]] && sudo_shell="${BASH_REMATCH[1]}"
+                    log_info "sudo 后 shell: $(basename "$sudo_shell")"
+                fi
+            fi
+        else
+            log_info "auto_sudo: 跳过 ($user 在 auto_sudo_skip_users 列表)"
+        fi
+    fi
+
+    # 设 PS1 marker + 关闭 PTY 输入回显(stty -echo)
+    # stty -echo 让后续 marker 注入的命令字符不再被 PTY 回显给用户,
+    # 显著减少视觉噪音(用户只看到 cmd 的 stdout 输出 + 灰色 marker 行)。
+    # 副作用:用户在 pane 手输命令也不回显,需要时跑 stty echo 临时切回。
     local prompt_marker
     prompt_marker="$(config_get '.prompt_marker' 'SSHOPS_READY$ ')"
-    # 用 marker 注入设置 PS1,确保命令本身被切片(避免污染下次 marker)
-    if ! marker_inject_and_capture "$new_pane" "export PS1='$prompt_marker'" 10; then
+    if ! marker_inject_and_capture "$new_pane" "stty -echo 2>/dev/null; export PS1='$prompt_marker'" 10; then
         wt_kill_pane "$new_pane"
         record_finalize "$sid"
-        die 3 "设置 PS1 失败 / set PS1 failed"
+        die 3 "设置 PS1/stty 失败 / set PS1/stty failed"
     fi
+
+    # 清屏:擦掉所有 marker 注入痕迹,用户看到的 pane 顶部就是干净的新 prompt。
+    # asciinema 录像不受 clear 影响(录的是 PTY 流,clear 也被录),审计完整。
+    wt_send_text "$new_pane" "clear"
+    sleep 0.3
 
     # 视觉标识(Phase 4 由 Lua 响应,Phase 1a 仅设 user var,无视觉效果)
     wt_set_user_var "$new_pane" "sshops_actor"      "ai"
