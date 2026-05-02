@@ -13,6 +13,10 @@
   "_auto_sudo_comment": "登录非 root 用户后,自动跑 sudo -i 切到 root(常见运维流程)。需要目标主机配 NOPASSWD,或用户在 WezTerm pane 里手输 sudo 密码(skill 会自动检测密码 prompt 消失后接管)。auto_sudo_skip_users 列出的用户不切。",
   "auto_sudo": true,
   "auto_sudo_skip_users": ["root"],
+
+  "_ai_user_comment": "标准部署:每台目标主机建一个专用 'claude' 用户(配 NOPASSWD sudoers + authorized_keys = ai_user_key 对应公钥),让 skill 直接以这个账号 ssh 登录,不走 SecureCRT 里的个人账号(如 roy)+ sudo 切 root 的迂回路径。系统层 audit (last/who/sudo log/journalctl)天然区分 AI vs 人。设非空时,覆盖 SecureCRT .ini 解析出的 user 和 identity 路径(host/port 仍来自 .ini)。留空 = 保持原 .ini user(回到旧行为)。",
+  "ai_user": "",
+  "ai_user_key": "",
   "_log_dir_comment": "录像存储根目录。留空字符串(默认推荐)=每个项目录到自己根下的 .ssh-ops/recordings/(跟项目绑定,clone/move 时一起带走);填具体路径(如 ~/.ssh-recordings)=全局固定位置,所有项目集中存(适合统一审计场景)。",
   "log_dir": "",
   "marker_timeout_seconds": 30,

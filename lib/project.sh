@@ -380,7 +380,12 @@ pane_open() {
     local setup_cmd
     if [[ "$detected_shell" == "bash" ]]; then
         # 单引号包裹 PS1 字面值,$REAL_USER 留待 bash 在 prompt 展示时动态展开
-        setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'; export PS1='[\\u($login_label:\$REAL_USER)@\\h \\W]\\\$ '"
+        # 当 LOGIN_LABEL == REAL_USER('claude') 时简化(避免 (claude:claude) 重复)
+        if [[ "$login_label" == "$real_user" ]]; then
+            setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'; export PS1='[\\u@\\h \\W]\\\$ '"
+        else
+            setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'; export PS1='[\\u($login_label:\$REAL_USER)@\\h \\W]\\\$ '"
+        fi
     else
         # zsh:暂只设 stty + REAL_USER,PS1 保留默认(Phase 2+ 加 zsh PROMPT 模板)
         setup_cmd="stty -echo 2>/dev/null; export REAL_USER='$real_user'"

@@ -72,6 +72,22 @@ selector_resolve_crt() {
     SEL_INI_PATH="$ini"
     SEL_PASSWORD_PRESENT="${CRT_PASSWORD_PRESENT:-0}"
 
+    # ai_user 覆盖:如果配置了标准 AI 账号,用它替换 .ini 解析出的 user/key
+    # host/port 仍来自 .ini(主机本身的连接信息不变)
+    # 部署前提:目标主机已建该用户 + authorized_keys 加 ai_user_key 对应公钥 + sudoers
+    local ai_user; ai_user="$(config_get '.ai_user' '')"
+    if [[ -n "$ai_user" ]]; then
+        local ai_user_key; ai_user_key="$(config_get '.ai_user_key' '')"
+        local original_user="$SEL_USER"
+        SEL_USER="$ai_user"
+        if [[ -n "$ai_user_key" ]]; then
+            SEL_KEY="$(expand_path "$ai_user_key")"
+        fi
+        # 既然走标准 AI 账号且有 key,.ini 的 password 设置就不该再触发密码提示
+        SEL_PASSWORD_PRESENT=0
+        log_info "ai_user override: $original_user → $SEL_USER (key=${SEL_KEY:-<none>})"
+    fi
+
     log_info "selector resolved: $SEL_DISPLAY → ${SEL_USER}@${SEL_HOST}:${SEL_PORT} key=${SEL_KEY:-<none>} pwd_in_crt=$SEL_PASSWORD_PRESENT"
     return 0
 }
