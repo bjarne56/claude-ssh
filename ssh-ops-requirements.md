@@ -870,24 +870,55 @@ Claude 据此决策。
 
 ## 18. 测试要求
 
-`tests/self-test.sh` 必须覆盖:
+`tests/self-test.sh` 是单人冒烟,完整测试矩阵分阶段交付。下方按**所属 Phase** 列必须覆盖项。
 
-- [ ] 空 SecureCRT 目录的优雅降级
-- [ ] 多个候选时模糊匹配的报错
-- [ ] 临时参数三种(key / password / ask-password)
-- [ ] marker 切片在有 ANSI 颜色输出时正常
-- [ ] marker 切片在命令本身包含 marker 字符串时不误判(用更长 nonce)
-- [ ] 危险命令在 prod 路径被拦截
-- [ ] 危险命令在非 prod 路径只警告
-- [ ] 跳板机 ProxyJump 解析(模拟一个 firewall .ini)
-- [ ] Windows path mapping 转换
-- [ ] `.ppk` 检测报错
-- [ ] 录像文件 cast_offset 与 commands.jsonl 时间一致
-- [ ] 回放 --text 模式输出格式
-- [ ] sync 抓回 human 命令并写入索引
-- [ ] retention gc 不删 prod 录像
-- [ ] 多 CC 项目 → 多 WezTerm 窗口
-- [ ] WezTerm 未启动时自动拉起
+### 18.1 Phase 1a 测试矩阵(MVP 必过)
+
+切片与录像是技术心脏,优先验证。
+
+- [ ] **基线**:`ssh localhost echo` 直连可用,且当前用户已配 key 到自己 `authorized_keys`
+- [ ] **wezterm cli list** 返回有效 JSON
+- [ ] **WezTerm 未启动时自动拉起**(`wt_check` 内置 `open -a WezTerm` 重试)
+- [ ] **临时参数 --key 模式**:`sshops run --host localhost --user $USER --port 22 "echo hello"` 跑通且 JSON `exit:0`
+- [ ] **marker 切片在有 ANSI 颜色输出时正常**(`ls --color=always /` 等)
+- [ ] **marker 切片在命令本身包含 marker 字符串时不误判**:`echo "__SSHOPS_BEGIN_xxx__"` 作为命令文本,nonce 16 字符 hex 不冲突
+- [ ] **目标 shell 检测**:模拟 `SHELL=/usr/bin/fish` 时 pane_open 报 `exit 3` 并 close pane
+- [ ] **危险命令在 `--prod` 主机被拦截**:进程 exit=5,JSON `exit:-1 blocked:true`,`commands.jsonl` 写一条 `blocked:true`
+- [ ] **危险命令在非 prod 主机只警告**:正常执行,JSON `dangerous:true blocked:false`
+- [ ] **`--i-mean-it` 强制放行 prod 危险命令**:正常执行,JSON `dangerous:true blocked:false`
+- [ ] **录像三件套**:`stream.cast` 非空、第一行是 asciinema v2 header 合法 JSON;`commands.jsonl` 至少 1 条;`meta.json` `command_count >= 1`
+- [ ] **`cast_offset`** 与 `commands.jsonl.ts` 时间一致(误差 < 1 秒)
+- [ ] **state 并发安全**:两个 sshops 进程同时 `pane_open` 不同 selector 不损坏 `panes.json`(`mkdir` 锁)
+- [ ] **多 CC 项目 → 多 WezTerm 窗口**:在两个不同 `$PWD` 跑 `sshops open` 应得到两个 window_id
+
+### 18.2 Phase 1b 测试矩阵(SecureCRT 接入)
+
+- [ ] **空 SecureCRT 目录的优雅降级**(报错且 exit code 明确)
+- [ ] **关键词模糊匹配**:多个候选时报错并列候选
+- [ ] **`@路径` 解析**:基本字段(Hostname / Username / Port / Identity)
+- [ ] **Port 字段格式兼容**:hex `00000016` → 22;十进制 `22` → 22;`ABCD` 无效 → warn + 默认 22
+- [ ] **SSH2.ini 全局 Identity 回退**:Sessions/host.ini 的 `Identity Filename V2` 为空时回退到 `<Config>/SSH2.ini`
+- [ ] **`${VDS_CONFIG_PATH}` 展开**:解析后路径展开为 Config 根绝对路径
+- [ ] **协议过滤**:`Protocol Name=Telnet/Serial/Rlogin/SSH1` 全部报错拒绝
+- [ ] **跳板机 ProxyJump 解析**:模拟 firewall .ini,生成 `-J` 参数
+- [ ] **跳板机递归 ≤3 层**:第 4 层报错(exit 2)
+- [ ] **跳板机循环引用检测**:A→B→A 报错(exit 2)
+- [ ] **Windows path mapping 转换**:`C:\Users\u\keys\foo.pem` → `~/.ssh/keys/foo.pem`
+- [ ] **`.ppk` 检测报错**:不自动转换,提示用户用 puttygen
+- [ ] **临时参数三种**(key / password / ask-password)
+
+### 18.3 Phase 2 测试矩阵
+
+- [ ] `sshops bg` 后 `tail` 抓 N 行
+- [ ] `sshops fan` 并发 `--parallel N` 不串
+- [ ] `sshops sync` 抓回 human 命令并写入索引
+- [ ] `sshops health` 多机用 ControlMaster 复用连接
+
+### 18.4 Phase 3 测试矩阵
+
+- [ ] 回放 `--text` 模式输出格式
+- [ ] retention gc 不删 prod 录像(`exempt_patterns` 生效)
+- [ ] `sshops log search --output <regex>` 跨 session 命中
 
 ## 19. 实现优先级
 
@@ -947,17 +978,57 @@ Claude 据此决策。
 
 ## 20. 给实现者的提示
 
-- 用 bash 写,不要引入 Python/Go 等运行时依赖
-- jq 可以放心用,自检里加它
-- 所有 shell 脚本加 `set -euo pipefail`
-- 路径处理小心 macOS 的空格(`Application Support`)
-- 测试时本机用 `ssh localhost` 起 sshd,不依赖外部主机
-- WezTerm pane 的 PTY 大小要在 spawn 时考虑(默认 80x24,但 split 后会变,marker 切片不应该依赖 pane 几何)
-- marker nonce 用 16 字符以上避免误匹配,且不要包含 shell 特殊字符
-- 所有时间戳用 ISO 8601 + UTC,展示时再转本地时区
+### 20.1 通用
+
+- 用 bash 写,**bash 4+ 必需**(macOS 默认 3.2 不够,要 `brew install bash`)
+- 不引入 Python/Go 等运行时依赖,但允许 perl 一行式 fallback(macOS 自带)
+- jq 可以放心用,install.sh 自检里加它
+- 所有可执行 shell 脚本加 `set -euo pipefail`;**lib 内部 source 不写 `set`**,避免污染调用方 shell
+- 路径处理小心 macOS 的空格(`Application Support`、中文目录如 `安全工具`)
 - 路径有空格的地方一律 quote
-- jq 输出当数据用,不要管它的格式美化
-- 用户的 `~/.config/wezterm/wezterm.lua` 不要自动改,只生成片段让用户自己 source
+- 所有时间戳用 ISO 8601 + UTC,展示时再转本地时区
+- 用户的 `~/.config/wezterm/wezterm.lua` **不要自动改**,只生成片段让用户自己 source(Phase 4)
+
+### 20.2 marker 切片相关
+
+- marker nonce **16 字符 hex**(`head -c 8 /dev/urandom | xxd -p`),不含 shell 特殊字符
+- 切片必须用 **awk 精确行匹配**(`^__SSHOPS_BEGIN_<nonce>__$` 等),不能用纯 grep,因为输入回显行包含字面字符串子串会误中
+- 切片前先经过 **`strip_ansi`** 处理,但保留行内容
+- WezTerm pane 的 PTY 几何在 spawn 时不要假设固定(默认 80x24,split 后会变,marker 切片不应该依赖 pane 几何)
+- 30s 超时是默认值,长任务必须改 `sshops bg`(Phase 2)
+
+### 20.3 跨平台与依赖
+
+- **录像唯一方案 asciinema**(macOS BSD `script` 与 GNU `script` 参数语义不同,不实现兼容);install.sh 检测不到 asciinema 直接报错给 brew 命令,**不允许降级**
+- **文件锁用 `mkdir`**(原子失败 + 轮询),不依赖 flock(macOS 无内置)
+- **`now_ms` 跨平台**:BSD `date` 不支持 `%3N`,统一用 `perl -MTime::HiRes -e 'printf "%.0f", Time::HiRes::time*1000'` 或 `python3 -c 'import time; print(int(time.time()*1000))'`
+- **realpath 跨平台**:macOS 12 之前没有 realpath 命令,优先 `pwd -P`(bash 内建可解析 symlink),fallback python3
+- **sshpass macOS 装法**:`brew install hudochenkov/sshpass/sshpass`(官方 brew 不带)
+
+### 20.4 asciinema 集成
+
+- `asciinema rec --quiet --stdin --command "<shell-string>" <cast_path>`,**`--command` 接 shell string**(不是 argv),要把 ssh argv 用 `printf %q` 转义
+- `--stdin` 让录像也包含用户输入(否则只有输出)
+- pane spawn 命令的形式是 `wezterm cli spawn ... -- asciinema rec ... ssh ...`,WezTerm 的 `-- argv` 不走 shell,所以这层不用再转义
+
+### 20.5 状态管理
+
+- **panes.json 写操作必走 `state_with_lock`**(mkdir 锁)
+- **写 JSON 用临时文件 + mv 原子替换**(`mktemp` → `jq` → `mv`),避免半写中断
+- **state 只在写时加锁,读时不加锁**:stale 读可接受(下一步操作如果 pane id 失效会自动清理重建)
+
+### 20.6 安全
+
+- `--i-mean-it` **绝对不能由 Claude 自动加**,必须用户在对话里明确说"我确认"才能传
+- 拦截记录依然要写 `commands.jsonl`(`blocked:true`),即使命令未执行 — 审计需要
+- 进程 exit code 是 0..255 范围,JSON 字段才能用 `-1` 表示"未实际执行"
+
+### 20.7 测试本机准备
+
+- `ssh localhost` 用本机 sshd 是 self-test 基线,需要:
+  1. macOS 系统设置开启 "远程登录"(System Settings → General → Sharing → Remote Login)
+  2. 当前用户公钥加进自己的 `~/.ssh/authorized_keys`
+- 验证:`ssh -o BatchMode=yes localhost echo ok` 应直接返回 `ok`
 
 ---
 
