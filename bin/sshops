@@ -40,6 +40,7 @@ sshops — SSH 远程运维 skill (Phase 1b)
   sshops run    <selector> "<cmd>"                跑命令并切片输出
   sshops open   <selector>                        仅 spawn pane,不跑命令
   sshops close  <selector>                        关 pane
+  sshops peek    <selector>                       抓取 pane 当前可见文本(strip ANSI)
   sshops list-panes                               列当前项目所有 pane
   sshops setup                                    交互式初始化配置
   sshops version
@@ -303,6 +304,22 @@ cmd_close() {
     log_info "closed: $SEL_DISPLAY"
 }
 
+cmd_peek() {
+    _parse_common_args "$@"
+    _resolve_selector_and_cmd 0
+
+    local pid; pid="$(project_id)"
+    local pane; pane="$(panes_get_pane "$pid" "$SEL_DISPLAY")"
+    if [[ -z "$pane" ]]; then
+        die 1 "未找到 pane: $SEL_DISPLAY (先 sshops open)"
+    fi
+    if ! wt_pane_alive "$pane"; then
+        die 1 "pane 已失效: $SEL_DISPLAY (pane_id=$pane)"
+    fi
+
+    wt_get_text "$pane" | strip_ansi
+}
+
 cmd_list_panes() {
     panes_state_init
     local pid; pid="$(project_id)"
@@ -315,6 +332,7 @@ main() {
         run)         cmd_run "$@" ;;
         open)        cmd_open "$@" ;;
         close)       cmd_close "$@" ;;
+        peek)        cmd_peek "$@" ;;
         list-panes)  cmd_list_panes "$@" ;;
         setup)       exec "$SSHOPS_HOME/bin/sshops-setup" "$@" ;;
         version|-v|--version) cmd_version ;;
