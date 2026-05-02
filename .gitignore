@@ -1,0 +1,28 @@
+# 运行时状态(每次安装/会话产生)
+state/
+tmp/
+.scratch/
+
+# 用户本地配置(不入库)
+config.json
+*.local.json
+
+# macOS
+.DS_Store
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+*~
+
+# Claude Code 本地状态
+.claude/
+.claude-store/
+
+# 第三方工具本地缓存
+.sloc-guard/
+.sloc-guard.toml
+
+# 全局 symlink(指向用户主目录的绝对路径,不入库)
+AGENTS.md

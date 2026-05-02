@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# sshops-setup — 极简 Phase 1a 配置向导
+set -euo pipefail
+
+SSHOPS_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG_PATH="$SSHOPS_HOME/config.json"
+EXAMPLE="$SSHOPS_HOME/config.example.json"
+
+ok()   { printf '\033[32m✓\033[0m %s\n' "$*"; }
+ask()  { local prompt="$1" default="${2:-}" var; printf '%s' "$prompt"; [[ -n "$default" ]] && printf ' [%s]' "$default"; printf ': '; read -r var; [[ -z "$var" ]] && var="$default"; printf '%s' "$var"; }
+
+if [[ -f "$CONFIG_PATH" ]]; then
+    echo "已存在配置: $CONFIG_PATH"
+    echo "(若要重建,先 rm 它再跑 setup)"
+    exit 0
+fi
+
+[[ -f "$EXAMPLE" ]] || { echo "找不到 $EXAMPLE" >&2; exit 1; }
+
+echo "=== ssh-ops Phase 1a 配置向导 ==="
+echo
+
+# 1. SecureCRT Config 路径
+default_crt="$HOME/Work/安全工具/SecureCRT/Config"
+[[ -d "$default_crt" ]] || default_crt="$HOME/Library/Application Support/VanDyke/SecureCRT/Config"
+crt_dir="$(ask "SecureCRT Config 目录(Phase 1b 用,可留空)" "$default_crt")"
+if [[ -n "$crt_dir" && ! -d "$crt_dir" ]]; then
+    echo "  警告: 目录不存在,继续(Phase 1a 不强依赖)"
+fi
+sessions_dir="$crt_dir/Sessions"
+
+# 2. 录像目录
+log_dir="$(ask "录像目录" "$HOME/.ssh-recordings")"
+
+# 3. 默认并发
+parallel="$(ask "默认并发数(用于 fan,Phase 2)" "8")"
+
+# 写配置
+jq \
+    --arg crt "$crt_dir" \
+    --arg sess "$sessions_dir" \
+    --arg log "$log_dir" \
+    --argjson par "$parallel" \
+    '
+    .securecrt_config_dir = $crt
+    | .securecrt_sessions_dir = $sess
+    | .log_dir = $log
+    | .default_parallel = $par
+    | del(._comment, ._path_mappings_comment)
+    ' "$EXAMPLE" > "$CONFIG_PATH"
+
+ok "已写入 $CONFIG_PATH"
+
+# 检查依赖
+echo
+echo "=== 依赖检查 ==="
+miss=0
+for c in wezterm asciinema jq ssh perl xxd; do
+    if command -v "$c" >/dev/null 2>&1; then
+        ok "$c"
+    else
+        printf '\033[31m✗ %s 未安装\033[0m\n' "$c"
+        miss=1
+    fi
+done
+for c in sshpass pass; do
+    if command -v "$c" >/dev/null 2>&1; then
+        ok "$c (可选)"
+    else
+        printf '\033[33m! %s 未安装(可选)\033[0m\n' "$c"
+    fi
+done
+
+echo
+if (( miss )); then
+    echo "有必需依赖缺失,装上后再用。安装提示见 install.sh"
+    exit 1
+fi
+
+echo "=== 下一步 ==="
+echo "  跑 bash $SSHOPS_HOME/tests/self-test.sh 做冒烟测试(需要 ssh localhost 可登录)"

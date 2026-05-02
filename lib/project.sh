@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# lib/project.sh
+# 项目识别 + WezTerm 窗口/pane 生命周期 + state(panes.json)管理。
+#
+# panes.json 结构:
+# {
+#   "<project_id>": {
+#     "wezterm_window_id": 17,
+#     "started_at": "2026-05-02T10:00:00Z",
+#     "panes": {
+#       "<selector>": { "pane_id": 42, "session_id": "...", "started_at": "..." }
+#     }
+#   }
+# }
+
+if [[ -n "${_SSHOPS_PROJECT_SOURCED:-}" ]]; then return 0; fi
+_SSHOPS_PROJECT_SOURCED=1
+
+_lib_dir="$(dirname "${BASH_SOURCE[0]}")"
+# shellcheck disable=SC1091
+source "$_lib_dir/common.sh"
+# shellcheck disable=SC1091
+source "$_lib_dir/wezterm.sh"
+# shellcheck disable=SC1091
+source "$_lib_dir/marker.sh"
+# shellcheck disable=SC1091
+source "$_lib_dir/recorder.sh"
+# shellcheck disable=SC1091
+source "$_lib_dir/safety.sh"
+unset _lib_dir
+
+PANES_STATE_FILE="${SSHOPS_STATE_DIR}/panes.json"
+
+panes_state_init() {
+    if [[ ! -f "$PANES_STATE_FILE" ]]; then
+        echo '{}' > "$PANES_STATE_FILE"
+    fi
+}
+
+# panes_state_read:打印 panes.json 内容到 stdout
+panes_state_read() {
+    panes_state_init
+    cat "$PANES_STATE_FILE"
+}
+
+# panes_state_write_atomic <json_string>:原子写
+panes_state_write_atomic() {
+    local content="$1"
+    local tmp; tmp="$(mktemp "${SSHOPS_TMP_DIR}/panes.XXXXXX")"
+    printf '%s' "$content" > "$tmp"
+    mv "$tmp" "$PANES_STATE_FILE"
+}
+
+# panes_get_window <project_id>:打印 window_id,无则空
+panes_get_window() {
+    local pid="$1"
+    panes_state_read | jq -r --arg p "$pid" '.[$p].wezterm_window_id // empty'
+}
+
+# panes_get_pane <project_id> <selector>:打印 pane_id,无则空
+panes_get_pane() {
+    local pid="$1" sel="$2"
+    panes_state_read | jq -r --arg p "$pid" --arg s "$sel" '.[$p].panes[$s].pane_id // empty'
+}
+
+# panes_get_session <project_id> <selector>:打印 session_id
+panes_get_session() {
+    local pid="$1" sel="$2"
+    panes_state_read | jq -r --arg p "$pid" --arg s "$sel" '.[$p].panes[$s].session_id // empty'
+}
+
+# panes_list <project_id>:每行一个 selector
+panes_list() {
+    local pid="$1"
+    panes_state_read | jq -r --arg p "$pid" '.[$p].panes // {} | keys[]'
+}
+
+# _panes_set_window_inner <project_id> <window_id>(锁内调用)
+_panes_set_window_inner() {
+    local pid="$1" win="$2"
+    local cur; cur="$(panes_state_read)"
+    local now; now="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    local new
+    new="$(printf '%s' "$cur" | jq \
+        --arg p "$pid" --argjson w "$win" --arg now "$now" \
+        '.[$p] = (.[$p] // {}) | .[$p].wezterm_window_id = $w | .[$p].started_at //= $now | .[$p].panes //= {}')"
+    panes_state_write_atomic "$new"
+}
+
+panes_set_window() {
+    state_with_lock 10 _panes_set_window_inner "$@"
+}
+
+# _panes_add_pane_inner <project_id> <selector> <pane_id> <session_id>
+_panes_add_pane_inner() {
+    local pid="$1" sel="$2" pane="$3" sid="$4"
+    local cur; cur="$(panes_state_read)"
+    local now; now="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+    local new
+    new="$(printf '%s' "$cur" | jq \
+        --arg p "$pid" --arg s "$sel" --argjson pane "$pane" --arg sid "$sid" --arg now "$now" \
+        '.[$p].panes[$s] = { pane_id: $pane, session_id: $sid, started_at: $now }')"
+    panes_state_write_atomic "$new"
+}
+
+panes_add_pane() {
+    state_with_lock 10 _panes_add_pane_inner "$@"
+}
+
+# _panes_remove_pane_inner <project_id> <selector>
+_panes_remove_pane_inner() {
+    local pid="$1" sel="$2"
+    local cur; cur="$(panes_state_read)"
+    local new
+    new="$(printf '%s' "$cur" | jq --arg p "$pid" --arg s "$sel" 'del(.[$p].panes[$s])')"
+    panes_state_write_atomic "$new"
+}
+
+panes_remove_pane() {
+    state_with_lock 10 _panes_remove_pane_inner "$@"
+}
+
+# panes_cleanup_stale:清理 state 中已不存在的 pane
+panes_cleanup_stale() {
+    local pid; pid="$(project_id)"
+    local sel pane
+    while IFS= read -r sel; do
+        [[ -z "$sel" ]] && continue
+        pane="$(panes_get_pane "$pid" "$sel")"
+        if [[ -n "$pane" ]] && ! wt_pane_alive "$pane"; then
+            log_warn "清理失效 pane: $sel (pane_id=$pane)"
+            panes_remove_pane "$pid" "$sel"
+        fi
+    done < <(panes_list "$pid")
+}
+
+# === pane 生命周期 ===
+
+# pane_ensure_window:确保当前项目有窗口,无则 spawn 新窗口的占位 pane(用 cwd 跑 zsh)
+# 注意:WezTerm 窗口必须有至少一个 pane 才能存在。spawn --new-window 时一并起 zsh
+# 之后 split 出去的 pane 才是真正的 ssh pane;这个占位 pane 留作"项目首页"。
+pane_ensure_window() {
+    wt_check
+    local pid; pid="$(project_id)"
+    local win; win="$(panes_get_window "$pid")"
+    if [[ -n "$win" ]]; then
+        # 校验窗口仍存活
+        local exists
+        exists="$(wt_list_json | jq -r --arg w "$win" '.[] | select((.window_id|tostring) == $w) | .window_id' | head -1)"
+        if [[ -n "$exists" ]]; then
+            printf '%s' "$win"
+            return 0
+        fi
+        log_warn "窗口 $win 已不存在,重建"
+        # 清理 state
+        local cur new
+        cur="$(panes_state_read)"
+        new="$(printf '%s' "$cur" | jq --arg p "$pid" 'del(.[$p])')"
+        state_with_lock 10 panes_state_write_atomic "$new"
+    fi
+    # 新建窗口 + 一个占位 pane(默认 shell)
+    local cwd; cwd="$(pwd -P)"
+    local pane
+    pane="$(wt_spawn_new_window "$cwd" "${SHELL:-/bin/zsh}")"
+    [[ -z "$pane" ]] && die 6 "wezterm spawn 失败 / spawn failed"
+    win="$(wt_window_of_pane "$pane")"
+    [[ -z "$win" ]] && die 6 "无法获取窗口 id / get window id failed"
+    panes_set_window "$pid" "$win"
+    printf '%s' "$win"
+}
+
+# pane_open <selector> <ssh_argv...>
+# 在当前项目窗口内 split 一个 pane 跑 asciinema rec 包 ssh,等 prompt,设 PS1。
+# 输出(全局):
+#   SSHOPS_PANE_ID
+#   SSHOPS_PANE_SESSION_ID
+pane_open() {
+    local selector="$1"; shift
+    # 后续参数:user host port [key_path] (经 sshpass 注入密码时由调用方处理)
+    local user="$1" host="$2" port="${3:-22}"; shift 3 || true
+    local key_path="${1:-}"; shift || true
+    local extra_ssh_args=( "$@" )
+
+    local pid; pid="$(project_id)"
+
+    pane_ensure_window >/dev/null
+
+    # 已存在?
+    local existing
+    existing="$(panes_get_pane "$pid" "$selector")"
+    if [[ -n "$existing" ]] && wt_pane_alive "$existing"; then
+        SSHOPS_PANE_ID="$existing"
+        SSHOPS_PANE_SESSION_ID="$(panes_get_session "$pid" "$selector")"
+        return 0
+    fi
+    # 失效则清理
+    if [[ -n "$existing" ]]; then
+        panes_remove_pane "$pid" "$selector"
+    fi
+
+    # 录像准备
+    local sid; sid="$(record_session_id "$host")"
+    local rec_dir; rec_dir="$(record_init "$sid" "$selector" "$host" "$user" "${SSHOPS_AUTH_TYPE:-key}")"
+    local cast_path="$rec_dir/stream.cast"
+
+    # 组装 ssh 参数
+    ssh_opts_for pane
+    local ssh_argv=( ssh )
+    ssh_argv+=( "${SSHOPS_SSH_OPTS[@]}" )
+    [[ -n "$port" && "$port" != "22" ]] && ssh_argv+=( -p "$port" )
+    [[ -n "$key_path" ]] && ssh_argv+=( -i "$key_path" )
+    if [[ -n "${SSHOPS_JUMP:-}" ]]; then
+        ssh_argv+=( -J "$SSHOPS_JUMP" )
+    fi
+    ssh_argv+=( "${extra_ssh_args[@]}" )
+    ssh_argv+=( "${user}@${host}" )
+
+    # 密码模式:sshpass 包一层
+    if [[ "${SSHOPS_AUTH_TYPE:-}" == "password" && -n "${SSHOPS_PASSWORD:-}" ]]; then
+        if ! command -v sshpass >/dev/null 2>&1; then
+            die 1 "sshpass 未安装,密码模式不可用 / sshpass missing"
+        fi
+        ssh_argv=( sshpass -p "$SSHOPS_PASSWORD" "${ssh_argv[@]}" )
+    fi
+
+    # asciinema rec 包 ssh
+    # asciinema 的 --command 接 shell string,我们把 ssh argv 用 printf %q 转义
+    local ssh_cmd
+    printf -v ssh_cmd '%q ' "${ssh_argv[@]}"
+    ssh_cmd="${ssh_cmd% }"
+
+    local rec_argv=( asciinema rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )
+
+    # 找父 pane:同项目窗口的任一 pane 都行;Phase 1a 简化为占位 pane
+    local win; win="$(panes_get_window "$pid")"
+    local parent_pane
+    parent_pane="$(wt_list_json | jq -r --arg w "$win" '
+        [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[0].pane_id // empty
+    ')"
+    [[ -z "$parent_pane" ]] && die 6 "找不到项目窗口的任何 pane / no parent pane in window $win"
+
+    # split 策略:Phase 1a 简化为右侧 50%
+    # TODO Phase 2: 完整 grid 算法在 lib/layout.sh
+    local existing_count
+    existing_count="$(wt_list_json | jq --arg w "$win" '[.[] | select((.window_id|tostring) == $w)] | length')"
+    local new_pane
+    if (( existing_count <= 1 )); then
+        new_pane="$(wt_split_pane "$parent_pane" right 50 "${rec_argv[@]}")"
+    elif (( existing_count == 2 )); then
+        # 在第二个 pane 上纵向 split
+        local second
+        second="$(wt_list_json | jq -r --arg w "$win" '
+            [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[1].pane_id
+        ')"
+        new_pane="$(wt_split_pane "$second" bottom 50 "${rec_argv[@]}")"
+    else
+        # 在最大 pane 上纵向 split(简化)
+        new_pane="$(wt_split_pane "$parent_pane" bottom 50 "${rec_argv[@]}")"
+    fi
+
+    [[ -z "$new_pane" ]] && die 6 "split-pane 失败 / split failed"
+    record_set_pane "$sid" "$new_pane"
+
+    # 等 ssh 连接 + shell 启动(给 3 秒余量)
+    sleep 3
+
+    # shell 检测:发 echo $SHELL,marker 切片读回
+    if ! marker_inject_and_capture "$new_pane" 'echo "<shell>$SHELL</shell>"' 15; then
+        wt_kill_pane "$new_pane"
+        record_finalize "$sid"
+        die 3 "等待 ssh 就绪超时 / ssh ready timeout"
+    fi
+    local shell_path="$SSHOPS_MARKER_OUTPUT"
+    # 提取 <shell>...</shell>
+    if [[ "$shell_path" =~ \<shell\>(.*)\</shell\> ]]; then
+        shell_path="${BASH_REMATCH[1]}"
+    fi
+    case "$(basename "$shell_path")" in
+        bash|zsh) : ok ;;
+        *)
+            wt_kill_pane "$new_pane"
+            record_finalize "$sid"
+            die 3 "目标 shell 不支持(检测到 $shell_path),本 skill 仅支持 bash/zsh / unsupported shell"
+            ;;
+    esac
+
+    # 设 PS1 marker
+    local prompt_marker
+    prompt_marker="$(config_get '.prompt_marker' 'SSHOPS_READY$ ')"
+    # 用 marker 注入设置 PS1,确保命令本身被切片(避免污染下次 marker)
+    if ! marker_inject_and_capture "$new_pane" "export PS1='$prompt_marker'" 10; then
+        wt_kill_pane "$new_pane"
+        record_finalize "$sid"
+        die 3 "设置 PS1 失败 / set PS1 failed"
+    fi
+
+    # 视觉标识(Phase 4 由 Lua 响应,Phase 1a 仅设 user var,无视觉效果)
+    wt_set_user_var "$new_pane" "sshops_actor"      "ai"
+    wt_set_user_var "$new_pane" "sshops_session_id" "$sid"
+
+    panes_add_pane "$pid" "$selector" "$new_pane" "$sid"
+
+    SSHOPS_PANE_ID="$new_pane"
+    SSHOPS_PANE_SESSION_ID="$sid"
+    return 0
+}
+
+# pane_close <selector>
+pane_close() {
+    local selector="$1"
+    local pid; pid="$(project_id)"
+    local pane; pane="$(panes_get_pane "$pid" "$selector")"
+    local sid; sid="$(panes_get_session "$pid" "$selector")"
+    if [[ -n "$pane" ]]; then
+        wt_kill_pane "$pane"
+    fi
+    if [[ -n "$sid" ]]; then
+        record_finalize "$sid"
+    fi
+    panes_remove_pane "$pid" "$selector"
+}

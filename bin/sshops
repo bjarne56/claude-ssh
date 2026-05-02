@@ -1,0 +1,235 @@
+#!/usr/bin/env bash
+# sshops — Claude Code 通过 WezTerm 跑 SSH 的 skill 主入口。
+# Phase 1a:仅支持临时参数(--host --user --key/--password),不解析 SecureCRT。
+
+set -euo pipefail
+
+# 定位 SSHOPS_HOME(`pwd -P` 自动解析 symlink,等价于 realpath)
+_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+export SSHOPS_HOME="${SSHOPS_HOME:-$(cd "$_BIN_DIR/.." && pwd -P)}"
+unset _BIN_DIR
+
+# 加载所有 lib(各自有 sourced guard,顺序不敏感但建议 common 先)
+# shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/common.sh"
+# shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/wezterm.sh"
+# shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/marker.sh"
+# shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/recorder.sh"
+# shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/safety.sh"
+# shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/project.sh"
+
+usage() {
+    cat <<'EOF'
+sshops — SSH 远程运维 skill (Phase 1a)
+
+用法:
+  sshops run    --host H --user U [--port P] [--key K | --password P | --ask-password] \
+                [--prod] [--i-mean-it] [--timeout SEC] "<cmd>"
+  sshops open   --host H --user U [...]                 仅 spawn pane,不跑命令
+  sshops close  --selector SEL                          关 pane(SEL = "user@host:port")
+  sshops list-panes                                     列当前项目所有 pane
+  sshops setup                                          交互式初始化配置
+  sshops version
+  sshops help [<command>]
+
+通用选项:
+  --host H            目标主机 (IP / 域名)
+  --user U            登录用户
+  --port P            端口 (默认 22)
+  --key PATH          私钥路径
+  --password STR      明文密码 (sshpass 喂入,仅非 prod)
+  --ask-password      在你当前终端 prompt 一次密码 (Phase 1a 暂未实现,先用 --password)
+  --prod              标记目标为生产机,触发危险命令拦截
+  --i-mean-it         强制放行危险命令 (仅在用户明确确认时使用)
+  --timeout SEC       命令注入超时,默认从 config.marker_timeout_seconds (30)
+
+输出:
+  sshops run 输出 JSON:{exit, duration_ms, output, session_id, cast_offset, blocked, dangerous}
+EOF
+}
+
+cmd_version() {
+    echo "ssh-ops 0.1.0-phase1a"
+}
+
+# 解析公共参数。设置全局变量供命令使用。
+_parse_common_args() {
+    SSHOPS_HOST=""
+    SSHOPS_USER=""
+    SSHOPS_PORT="22"
+    SSHOPS_KEY=""
+    SSHOPS_PASSWORD=""
+    SSHOPS_AUTH_TYPE="key"
+    SSHOPS_PROD_FLAG=0
+    SSHOPS_I_MEAN_IT=0
+    SSHOPS_TIMEOUT=""
+    SSHOPS_REMAINING=()
+    while (( $# > 0 )); do
+        case "$1" in
+            --host) SSHOPS_HOST="$2"; shift 2 ;;
+            --user) SSHOPS_USER="$2"; shift 2 ;;
+            --port) SSHOPS_PORT="$2"; shift 2 ;;
+            --key) SSHOPS_KEY="$2"; SSHOPS_AUTH_TYPE="key"; shift 2 ;;
+            --password) SSHOPS_PASSWORD="$2"; SSHOPS_AUTH_TYPE="password"; shift 2 ;;
+            --ask-password)
+                read -r -s -p "密码 (host=$SSHOPS_HOST user=$SSHOPS_USER): " SSHOPS_PASSWORD
+                echo
+                SSHOPS_AUTH_TYPE="password"
+                shift
+                ;;
+            --prod) SSHOPS_PROD_FLAG=1; shift ;;
+            --i-mean-it) SSHOPS_I_MEAN_IT=1; shift ;;
+            --timeout) SSHOPS_TIMEOUT="$2"; shift 2 ;;
+            --selector) SSHOPS_SELECTOR_OVERRIDE="$2"; shift 2 ;;
+            --) shift; SSHOPS_REMAINING+=("$@"); break ;;
+            -*)
+                die 64 "未知参数: $1"
+                ;;
+            *)
+                SSHOPS_REMAINING+=("$1"); shift
+                ;;
+        esac
+    done
+}
+
+# 临时参数生成 selector 字符串(不带 @,与 SecureCRT 路径风格区分)
+_tmp_selector() {
+    if [[ -n "${SSHOPS_SELECTOR_OVERRIDE:-}" ]]; then
+        printf '%s' "$SSHOPS_SELECTOR_OVERRIDE"
+    else
+        printf '%s@%s:%s' "$SSHOPS_USER" "$SSHOPS_HOST" "$SSHOPS_PORT"
+    fi
+}
+
+# 把 prod 标志转为 safety_gate 能识别的 selector 形式
+_prod_selector_marker() {
+    if (( SSHOPS_PROD_FLAG == 1 )); then
+        printf '__SSHOPS_TMP_PROD__'
+    else
+        printf '__SSHOPS_TMP_NONPROD__'
+    fi
+}
+
+cmd_open() {
+    _parse_common_args "$@"
+    [[ -z "$SSHOPS_HOST" ]] && die 64 "缺 --host"
+    [[ -z "$SSHOPS_USER" ]] && die 64 "缺 --user"
+
+    local selector; selector="$(_tmp_selector)"
+    export SSHOPS_AUTH_TYPE SSHOPS_PASSWORD
+    pane_open "$selector" "$SSHOPS_USER" "$SSHOPS_HOST" "$SSHOPS_PORT" "$SSHOPS_KEY"
+    log_info "pane opened: selector=$selector pane_id=$SSHOPS_PANE_ID session_id=$SSHOPS_PANE_SESSION_ID"
+    cat <<EOF
+{"selector": "$selector", "pane_id": $SSHOPS_PANE_ID, "session_id": "$SSHOPS_PANE_SESSION_ID"}
+EOF
+}
+
+cmd_run() {
+    _parse_common_args "$@"
+    [[ -z "$SSHOPS_HOST" ]] && die 64 "缺 --host"
+    [[ -z "$SSHOPS_USER" ]] && die 64 "缺 --user"
+    [[ ${#SSHOPS_REMAINING[@]} -eq 0 ]] && die 64 "缺命令文本"
+
+    local cmd="${SSHOPS_REMAINING[*]}"
+    local selector; selector="$(_tmp_selector)"
+    local prod_marker; prod_marker="$(_prod_selector_marker)"
+
+    # 安全栏杆
+    set +e
+    safety_gate "$prod_marker" "$cmd" "$SSHOPS_I_MEAN_IT"
+    local gate_rc=$?
+    set -e
+
+    if (( gate_rc == 5 )); then
+        # 拦截 — 输出 blocked JSON,exit 5
+        local sid_for_block; sid_for_block="$(record_session_id "$SSHOPS_HOST")"
+        # 拦截记录:不需要 pane,直接写到一个临时 session 目录
+        record_init "$sid_for_block" "$selector" "$SSHOPS_HOST" "$SSHOPS_USER" "$SSHOPS_AUTH_TYPE" >/dev/null
+        record_append_command "$sid_for_block" "ai" "$selector" "$cmd" -1 0 1 1 "$(gen_nonce)"
+        record_finalize "$sid_for_block"
+        jq -n \
+            --arg sid "$sid_for_block" \
+            --arg reason "$SSHOPS_GATE_REASON" \
+            --arg cmd "$cmd" \
+            '{exit: -1, blocked: true, dangerous: true, reason: $reason, session_id: $sid, output: "(not executed)"}'
+        exit 5
+    fi
+
+    # 打开/复用 pane
+    export SSHOPS_AUTH_TYPE SSHOPS_PASSWORD
+    pane_open "$selector" "$SSHOPS_USER" "$SSHOPS_HOST" "$SSHOPS_PORT" "$SSHOPS_KEY"
+    local pane="$SSHOPS_PANE_ID"
+    local sid="$SSHOPS_PANE_SESSION_ID"
+
+    # 注入 + 切片
+    set +e
+    marker_inject_and_capture "$pane" "$cmd" "${SSHOPS_TIMEOUT:-}"
+    local mrc=$?
+    set -e
+    (( mrc != 0 )) && exit "$mrc"
+
+    # 记录
+    local dgr=0
+    [[ "${SSHOPS_GATE_DANGEROUS:-0}" == "1" ]] && dgr=1
+    record_append_command "$sid" "ai" "$selector" "$cmd" \
+        "$SSHOPS_MARKER_EXIT" "$SSHOPS_MARKER_DURATION_MS" \
+        "$dgr" 0 "$SSHOPS_MARKER_NONCE"
+
+    # 输出 JSON
+    local offset; offset="$(record_cast_offset "$sid")"
+    jq -n \
+        --argjson exit "$SSHOPS_MARKER_EXIT" \
+        --argjson dur "$SSHOPS_MARKER_DURATION_MS" \
+        --argjson off "$offset" \
+        --arg sid "$sid" \
+        --arg out "$SSHOPS_MARKER_OUTPUT" \
+        --argjson dgr "$dgr" \
+        '{exit: $exit, duration_ms: $dur, cast_offset: $off, session_id: $sid, dangerous: ($dgr == 1), blocked: false, output: $out}'
+
+    exit "$SSHOPS_MARKER_EXIT"
+}
+
+cmd_close() {
+    _parse_common_args "$@"
+    local selector
+    if [[ -n "${SSHOPS_SELECTOR_OVERRIDE:-}" ]]; then
+        selector="$SSHOPS_SELECTOR_OVERRIDE"
+    elif [[ -n "$SSHOPS_HOST" && -n "$SSHOPS_USER" ]]; then
+        selector="$(_tmp_selector)"
+    else
+        die 64 "需要 --selector 或 --host/--user"
+    fi
+    pane_close "$selector"
+    log_info "closed: $selector"
+}
+
+cmd_list_panes() {
+    panes_state_init
+    local pid; pid="$(project_id)"
+    panes_state_read | jq --arg p "$pid" '.[$p] // {wezterm_window_id: null, panes: {}}'
+}
+
+main() {
+    local sub="${1:-help}"; shift || true
+    case "$sub" in
+        run)         cmd_run "$@" ;;
+        open)        cmd_open "$@" ;;
+        close)       cmd_close "$@" ;;
+        list-panes)  cmd_list_panes "$@" ;;
+        setup)       exec "$SSHOPS_HOME/bin/sshops-setup" "$@" ;;
+        version|-v|--version) cmd_version ;;
+        help|-h|--help) usage ;;
+        *)
+            log_error "未知子命令: $sub"
+            usage >&2
+            exit 64
+            ;;
+    esac
+}
+
+main "$@"
