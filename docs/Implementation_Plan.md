@@ -89,18 +89,28 @@ self-test 当前只覆盖第 1-3 行,其余 Phase 1a 完整测试矩阵见 `requ
 
 按 `requirements.md` 第 19 节 Phase 1b 清单。
 
-- [ ] `lib/crt.sh`:.ini 解析(Hostname / Username / Port hex+decimal 兼容 / Identity / PublicKey / Firewall Name / Protocol Name)
-- [ ] SSH2.ini 全局 Identity / PublicKey 回退
-- [ ] `${VDS_CONFIG_PATH}` 路径变量展开
-- [ ] `path_mappings`(Windows → macOS)转换
-- [ ] 协议过滤:仅 SSH2,Telnet/SSH1/Serial/Rlogin 拒绝
-- [ ] 跳板机递归 ≤3 层 + 循环引用检测,组装 `-J` 参数
-- [ ] `.ppk` 检测报错(不自动转换)
-- [ ] `lib/selector.sh`:`@path` / 关键词 / 临时参数 归一(三入口优先级)
-- [ ] 生产机判定接入(从 `@<path>` 提取 prod 关键词)
+### MVP 已完成(commit 待确定)
+
+- [x] `lib/crt.sh`:.ini 解析(Hostname / Username / Port hex+decimal 兼容 / Identity / PublicKey / Firewall Name / Protocol Name)
+- [x] SSH2.ini 全局 Identity / PublicKey 回退
+- [x] `${VDS_CONFIG_PATH}` 路径变量展开
+- [x] `path_mappings`(Windows → macOS)转换
+- [x] 协议过滤:仅 SSH2,Telnet/SSH1/Serial/Rlogin 拒绝
+- [x] `.ppk` 检测报错(不自动转换)
+- [x] `lib/selector.sh`:`@path` / 关键词 / 临时参数 归一(三入口优先级)
+- [x] 生产机判定接入(从 `@<path>` 提取 prod 关键词)
+- [x] **新增:Password V2 检测**:.ini 是密码登录(无 Identity + 有 Password V2)时,
+      给清晰错误提示三种方案(--ask-password / SecureCRT 改 key / Phase 2 password_refs)
+- [x] SKILL.md 完整版(主机解析三入口、prod 判定、`.ppk` 坑、密码登录处理)
+- [x] 单元测试:`/Users/bjarne/Work/安全工具/SecureCRT/Config/Sessions/10.32.49.7.ini`
+      实际解析,Port hex 解码 / 全局回退 / Password V2 检测全部正确
+
+### Phase 1b 剩余(待后续)
+
+- [ ] 跳板机递归 ≤3 层 + 循环引用检测,组装 `-J` 参数(MVP 仅警告不阻塞)
 - [ ] `sshops list <pattern>`、`sshops show <selector>`、`sshops crt-find <kw>`
-- [ ] SKILL.md 完整版(主机解析三入口、跳板机、prod 判定、`.ppk` 等坑)
-- [ ] 测试用例:`requirements.md` 第 18.2 节全覆盖
+- [ ] 完整测试用例:`requirements.md` 第 18.2 节(跳板机 / 协议拒绝 / Windows 路径映射)
+- [ ] 端到端验证:在真实主机 (10.32.49.7) 跑 `sshops run @10.32.49.7 "uptime"`
 
 ---
 

@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 # sshops — Claude Code 通过 WezTerm 跑 SSH 的 skill 主入口。
-# Phase 1a:仅支持临时参数(--host --user --key/--password),不解析 SecureCRT。
+#
+# 主机选择器三入口(优先级:命令行从左到右):
+#   1. @<相对路径>     SecureCRT session 精确匹配(@aws/edge → Sessions/aws/edge.ini)
+#   2. <关键词>        SecureCRT 模糊匹配(文件名 / Hostname 子串,唯一命中才接受)
+#   3. --host H --user U [--port P] [--key K | --password P | --ask-password]
+#                      临时参数,完全绕过 SecureCRT
+#
+# 当用户给的是 @path 或 keyword,user/port/key 都从 SecureCRT 自动取(含 SSH2.ini 全局 Identity 回退)。
 
 set -euo pipefail
 
-# 定位 SSHOPS_HOME(`pwd -P` 自动解析 symlink,等价于 realpath)
+# === 定位 SSHOPS_HOME ===
 _BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 export SSHOPS_HOME="${SSHOPS_HOME:-$(cd "$_BIN_DIR/.." && pwd -P)}"
 unset _BIN_DIR
 
-# 加载所有 lib(各自有 sourced guard,顺序不敏感但建议 common 先)
+# === 加载所有 lib(各自有 sourced guard,顺序不敏感) ===
 # shellcheck disable=SC1091
 source "$SSHOPS_HOME/lib/common.sh"
 # shellcheck disable=SC1091
@@ -21,43 +28,57 @@ source "$SSHOPS_HOME/lib/recorder.sh"
 # shellcheck disable=SC1091
 source "$SSHOPS_HOME/lib/safety.sh"
 # shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/crt.sh"
+# shellcheck disable=SC1091
+source "$SSHOPS_HOME/lib/selector.sh"
+# shellcheck disable=SC1091
 source "$SSHOPS_HOME/lib/project.sh"
 
 usage() {
     cat <<'EOF'
-sshops — SSH 远程运维 skill (Phase 1a)
+sshops — SSH 远程运维 skill (Phase 1b)
 
 用法:
-  sshops run    --host H --user U [--port P] [--key K | --password P | --ask-password] \
-                [--prod] [--i-mean-it] [--timeout SEC] "<cmd>"
-  sshops open   --host H --user U [...]                 仅 spawn pane,不跑命令
-  sshops close  --selector SEL                          关 pane(SEL = "user@host:port")
-  sshops list-panes                                     列当前项目所有 pane
-  sshops setup                                          交互式初始化配置
+  sshops run    <selector> "<cmd>"                跑命令并切片输出
+  sshops open   <selector>                        仅 spawn pane,不跑命令
+  sshops close  <selector>                        关 pane
+  sshops list-panes                               列当前项目所有 pane
+  sshops setup                                    交互式初始化配置
   sshops version
-  sshops help [<command>]
+  sshops help
 
-通用选项:
-  --host H            目标主机 (IP / 域名)
-  --user U            登录用户
-  --port P            端口 (默认 22)
+<selector> 三种形式:
+  @<相对路径>          SecureCRT session 精确,如 @aws/edge → Sessions/aws/edge.ini
+  <关键词>             SecureCRT 模糊匹配,如 cvm-01 / 10.32.49.7
+                       匹配文件名(去 .ini)或 Hostname 字段;多候选时报错列出
+  --host H --user U \  临时参数(完全绕过 SecureCRT)
+    [--port P] [--key K | --password P | --ask-password] [--prod]
+
+可选参数:
+  --port P            端口 (默认 22,若走 SecureCRT 用其字段)
   --key PATH          私钥路径
-  --password STR      明文密码 (sshpass 喂入,仅非 prod)
-  --ask-password      在你当前终端 prompt 一次密码 (Phase 1a 暂未实现,先用 --password)
-  --prod              标记目标为生产机,触发危险命令拦截
-  --i-mean-it         强制放行危险命令 (仅在用户明确确认时使用)
+  --password STR      明文密码 (sshpass 喂入)
+  --ask-password      在你当前终端 prompt 一次密码
+  --prod              标记目标为生产机,触发危险命令拦截 (临时参数模式才需要)
+  --i-mean-it         强制放行危险命令 (Claude 不会主动加,必须用户对话明确)
   --timeout SEC       命令注入超时,默认从 config.marker_timeout_seconds (30)
 
+例:
+  sshops run @aws/edge "uptime"                   走 SecureCRT
+  sshops run cvm-01 "uptime"                      关键词模糊匹配
+  sshops run 10.32.49.7 "uptime"                  IP 直查 SecureCRT
+  sshops run --host 10.1.2.3 --user root --key ~/k.pem "uptime"   临时参数
+
 输出:
-  sshops run 输出 JSON:{exit, duration_ms, output, session_id, cast_offset, blocked, dangerous}
+  sshops run 输出 JSON:{exit, duration_ms, output, session_id, cast_offset, selector, blocked, dangerous}
 EOF
 }
 
 cmd_version() {
-    echo "ssh-ops 0.1.0-phase1a"
+    echo "ssh-ops 0.2.0-phase1b"
 }
 
-# 解析公共参数。设置全局变量供命令使用。
+# 解析公共参数。命名选项写入 SSHOPS_*,位置参数累加到 SSHOPS_REMAINING 数组。
 _parse_common_args() {
     SSHOPS_HOST=""
     SSHOPS_USER=""
@@ -85,8 +106,7 @@ _parse_common_args() {
             --prod) SSHOPS_PROD_FLAG=1; shift ;;
             --i-mean-it) SSHOPS_I_MEAN_IT=1; shift ;;
             --timeout) SSHOPS_TIMEOUT="$2"; shift 2 ;;
-            --selector) SSHOPS_SELECTOR_OVERRIDE="$2"; shift 2 ;;
-            --) shift; SSHOPS_REMAINING+=("$@"); break ;;
+            --) shift; if (( $# > 0 )); then SSHOPS_REMAINING+=("$@"); fi; break ;;
             -*)
                 die 64 "未知参数: $1"
                 ;;
@@ -97,78 +117,129 @@ _parse_common_args() {
     done
 }
 
-# 临时参数生成 selector 字符串(不带 @,与 SecureCRT 路径风格区分)
-_tmp_selector() {
-    if [[ -n "${SSHOPS_SELECTOR_OVERRIDE:-}" ]]; then
-        printf '%s' "$SSHOPS_SELECTOR_OVERRIDE"
-    else
-        printf '%s@%s:%s' "$SSHOPS_USER" "$SSHOPS_HOST" "$SSHOPS_PORT"
+# selector 三入口归一 + 可选 cmd 提取
+# 参数:$1 = "1" 表示需要 cmd 文本,"0" 表示不需要(open / close)
+# 副作用:填充 SEL_*(由 selector_set_tmp / selector_resolve_crt 完成),
+#         若 need_cmd=1,填充 REM_CMD
+_resolve_selector_and_cmd() {
+    local need_cmd="${1:-1}"
+    REM_CMD=""
+
+    if [[ -n "$SSHOPS_HOST" && -n "$SSHOPS_USER" ]]; then
+        # 临时参数模式
+        selector_set_tmp "$SSHOPS_USER" "$SSHOPS_HOST" "$SSHOPS_PORT" "$SSHOPS_KEY"
+        if [[ "$need_cmd" == "1" ]]; then
+            [[ ${#SSHOPS_REMAINING[@]} -eq 0 ]] && die 64 "缺命令文本"
+            REM_CMD="${SSHOPS_REMAINING[*]}"
+        fi
+        return 0
+    fi
+
+    # SecureCRT 模式 — 第一个位置参数是 selector
+    if [[ ${#SSHOPS_REMAINING[@]} -eq 0 ]]; then
+        die 64 "缺 selector;用法见 sshops help"
+    fi
+    local selector_input="${SSHOPS_REMAINING[0]}"
+    selector_resolve_crt "$selector_input" || exit $?
+
+    # 密码登录主机检测:.ini 有 Password V2 + 没有可用 key + 用户没传 --password / --ask-password
+    if [[ "${SEL_PASSWORD_PRESENT:-0}" == "1" && -z "$SEL_KEY" && -z "$SSHOPS_PASSWORD" ]]; then
+        cat <<EOF >&2
+该主机 ($SEL_HOST) 在 SecureCRT 中是密码登录,但 SecureCRT 的 Password V2
+是私有加密格式,skill 不可解码(也不应该解码 — 升级 / 改 master password
+会让任何解码方案失效)。
+
+三种解决:
+  1. 现场输入密码:加 --ask-password
+       sshops run $selector_input --ask-password "<cmd>"
+  2. 在 SecureCRT 中给该主机配 SSH 私钥(Identity Filename V2),改 key 登录
+  3. 把密码迁移到外部后端,然后 config.json 加 password_refs 映射(Phase 2):
+       pass insert server/$(printf '%s' "$SEL_HOST" | tr '.' '-')
+       # 或 macOS keychain
+EOF
+        die 64 "需要密码或私钥才能连接"
+    fi
+
+    if [[ "$need_cmd" == "1" ]]; then
+        [[ ${#SSHOPS_REMAINING[@]} -lt 2 ]] && die 64 "缺命令文本"
+        # bash 3.2 + set -u 守护:数组切片在长度=1 时不展开
+        if [[ ${#SSHOPS_REMAINING[@]} -gt 1 ]]; then
+            REM_CMD="${SSHOPS_REMAINING[*]:1}"
+        fi
     fi
 }
 
-# 把 prod 标志转为 safety_gate 能识别的 selector 形式
-_prod_selector_marker() {
-    if (( SSHOPS_PROD_FLAG == 1 )); then
-        printf '__SSHOPS_TMP_PROD__'
+# 把当前 SEL_* 状态映射成 safety_gate 能识别的 selector 字符串
+_safety_selector() {
+    if [[ "$SEL_SOURCE" == "tmp" ]]; then
+        if (( SSHOPS_PROD_FLAG == 1 )); then
+            printf '__SSHOPS_TMP_PROD__'
+        else
+            printf '__SSHOPS_TMP_NONPROD__'
+        fi
     else
-        printf '__SSHOPS_TMP_NONPROD__'
+        # crt 模式:safety_gate 内部用 prod_keywords 对 @path 子串匹配
+        printf '%s' "$SEL_DISPLAY"
     fi
 }
 
 cmd_open() {
     _parse_common_args "$@"
-    [[ -z "$SSHOPS_HOST" ]] && die 64 "缺 --host"
-    [[ -z "$SSHOPS_USER" ]] && die 64 "缺 --user"
+    _resolve_selector_and_cmd 0
 
-    local selector; selector="$(_tmp_selector)"
     export SSHOPS_AUTH_TYPE SSHOPS_PASSWORD
-    pane_open "$selector" "$SSHOPS_USER" "$SSHOPS_HOST" "$SSHOPS_PORT" "$SSHOPS_KEY"
-    log_info "pane opened: selector=$selector pane_id=$SSHOPS_PANE_ID session_id=$SSHOPS_PANE_SESSION_ID"
-    cat <<EOF
-{"selector": "$selector", "pane_id": $SSHOPS_PANE_ID, "session_id": "$SSHOPS_PANE_SESSION_ID"}
-EOF
+    pane_open "$SEL_DISPLAY" "$SEL_USER" "$SEL_HOST" "$SEL_PORT" "$SEL_KEY"
+    log_info "pane opened: selector=$SEL_DISPLAY pane_id=$SSHOPS_PANE_ID session_id=$SSHOPS_PANE_SESSION_ID"
+    jq -n \
+        --arg sel "$SEL_DISPLAY" \
+        --argjson pid "$SSHOPS_PANE_ID" \
+        --arg sid "$SSHOPS_PANE_SESSION_ID" \
+        --arg user "$SEL_USER" \
+        --arg host "$SEL_HOST" \
+        --argjson port "$SEL_PORT" \
+        --arg key "$SEL_KEY" \
+        --arg src "$SEL_SOURCE" \
+        '{selector: $sel, source: $src, pane_id: $pid, session_id: $sid,
+          user: $user, host: $host, port: $port, key: $key}'
 }
 
 cmd_run() {
     _parse_common_args "$@"
-    [[ -z "$SSHOPS_HOST" ]] && die 64 "缺 --host"
-    [[ -z "$SSHOPS_USER" ]] && die 64 "缺 --user"
-    [[ ${#SSHOPS_REMAINING[@]} -eq 0 ]] && die 64 "缺命令文本"
+    _resolve_selector_and_cmd 1
 
-    local cmd="${SSHOPS_REMAINING[*]}"
-    local selector; selector="$(_tmp_selector)"
-    local prod_marker; prod_marker="$(_prod_selector_marker)"
+    local sel_str; sel_str="$(_safety_selector)"
 
     # 安全栏杆
     set +e
-    safety_gate "$prod_marker" "$cmd" "$SSHOPS_I_MEAN_IT"
+    safety_gate "$sel_str" "$REM_CMD" "$SSHOPS_I_MEAN_IT"
     local gate_rc=$?
     set -e
 
     if (( gate_rc == 5 )); then
         # 拦截 — 输出 blocked JSON,exit 5
-        local sid_for_block; sid_for_block="$(record_session_id "$SSHOPS_HOST")"
-        # 拦截记录:不需要 pane,直接写到一个临时 session 目录
-        record_init "$sid_for_block" "$selector" "$SSHOPS_HOST" "$SSHOPS_USER" "$SSHOPS_AUTH_TYPE" >/dev/null
-        record_append_command "$sid_for_block" "ai" "$selector" "$cmd" -1 0 1 1 "$(gen_nonce)"
+        local sid_for_block; sid_for_block="$(record_session_id "$SEL_HOST")"
+        record_init "$sid_for_block" "$SEL_DISPLAY" "$SEL_HOST" "$SEL_USER" "${SSHOPS_AUTH_TYPE:-key}" >/dev/null
+        record_append_command "$sid_for_block" "ai" "$SEL_DISPLAY" "$REM_CMD" -1 0 1 1 "$(gen_nonce)"
         record_finalize "$sid_for_block"
         jq -n \
             --arg sid "$sid_for_block" \
+            --arg sel "$SEL_DISPLAY" \
             --arg reason "$SSHOPS_GATE_REASON" \
-            --arg cmd "$cmd" \
-            '{exit: -1, blocked: true, dangerous: true, reason: $reason, session_id: $sid, output: "(not executed)"}'
+            --arg cmd "$REM_CMD" \
+            '{exit: -1, blocked: true, dangerous: true, reason: $reason,
+              selector: $sel, session_id: $sid, output: "(not executed)"}'
         exit 5
     fi
 
-    # 打开/复用 pane
+    # 打开 / 复用 pane
     export SSHOPS_AUTH_TYPE SSHOPS_PASSWORD
-    pane_open "$selector" "$SSHOPS_USER" "$SSHOPS_HOST" "$SSHOPS_PORT" "$SSHOPS_KEY"
+    pane_open "$SEL_DISPLAY" "$SEL_USER" "$SEL_HOST" "$SEL_PORT" "$SEL_KEY"
     local pane="$SSHOPS_PANE_ID"
     local sid="$SSHOPS_PANE_SESSION_ID"
 
     # 注入 + 切片
     set +e
-    marker_inject_and_capture "$pane" "$cmd" "${SSHOPS_TIMEOUT:-}"
+    marker_inject_and_capture "$pane" "$REM_CMD" "${SSHOPS_TIMEOUT:-}"
     local mrc=$?
     set -e
     (( mrc != 0 )) && exit "$mrc"
@@ -176,7 +247,7 @@ cmd_run() {
     # 记录
     local dgr=0
     [[ "${SSHOPS_GATE_DANGEROUS:-0}" == "1" ]] && dgr=1
-    record_append_command "$sid" "ai" "$selector" "$cmd" \
+    record_append_command "$sid" "ai" "$SEL_DISPLAY" "$REM_CMD" \
         "$SSHOPS_MARKER_EXIT" "$SSHOPS_MARKER_DURATION_MS" \
         "$dgr" 0 "$SSHOPS_MARKER_NONCE"
 
@@ -187,25 +258,21 @@ cmd_run() {
         --argjson dur "$SSHOPS_MARKER_DURATION_MS" \
         --argjson off "$offset" \
         --arg sid "$sid" \
+        --arg sel "$SEL_DISPLAY" \
         --arg out "$SSHOPS_MARKER_OUTPUT" \
         --argjson dgr "$dgr" \
-        '{exit: $exit, duration_ms: $dur, cast_offset: $off, session_id: $sid, dangerous: ($dgr == 1), blocked: false, output: $out}'
+        '{exit: $exit, duration_ms: $dur, cast_offset: $off,
+          selector: $sel, session_id: $sid,
+          dangerous: ($dgr == 1), blocked: false, output: $out}'
 
     exit "$SSHOPS_MARKER_EXIT"
 }
 
 cmd_close() {
     _parse_common_args "$@"
-    local selector
-    if [[ -n "${SSHOPS_SELECTOR_OVERRIDE:-}" ]]; then
-        selector="$SSHOPS_SELECTOR_OVERRIDE"
-    elif [[ -n "$SSHOPS_HOST" && -n "$SSHOPS_USER" ]]; then
-        selector="$(_tmp_selector)"
-    else
-        die 64 "需要 --selector 或 --host/--user"
-    fi
-    pane_close "$selector"
-    log_info "closed: $selector"
+    _resolve_selector_and_cmd 0
+    pane_close "$SEL_DISPLAY"
+    log_info "closed: $SEL_DISPLAY"
 }
 
 cmd_list_panes() {
