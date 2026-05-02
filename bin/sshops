@@ -141,10 +141,9 @@ _resolve_selector_and_cmd() {
     local selector_input="${SSHOPS_REMAINING[0]}"
     selector_resolve_crt "$selector_input" || exit $?
 
-    # 密码登录主机:.ini 有 Password V2 + 用户没传 --password / --ask-password
-    # 不阻塞 — 即便 Claude 子进程没 tty,让 pane_open 直接 spawn ssh,用户在 WezTerm
-    # pane 里手输密码,pane_open 的智能等待逻辑会自动检测密码 prompt 消失后接管。
-    if [[ "${SEL_PASSWORD_PRESENT:-0}" == "1" && -z "$SSHOPS_PASSWORD" ]]; then
+    # 密码登录主机:.ini 仅存 Password V2 且无 Identity key 时,才需要密码
+    # 若同时有 key,ssh -i 直接用 key(Password V2 只是 SecureCRT 历史记录)
+    if [[ "${SEL_PASSWORD_PRESENT:-0}" == "1" && -z "${SEL_KEY:-}" && -z "$SSHOPS_PASSWORD" ]]; then
         if read_password_tty "密码 (该主机 $SEL_HOST 在 SecureCRT 是密码登录): "; then
             # 用户在自己终端跑,有 tty:取密码用 sshpass 自动喂,登录无感
             SSHOPS_PASSWORD="$SSHOPS_TTY_PASSWORD"

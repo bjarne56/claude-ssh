@@ -58,15 +58,17 @@ sshops run --host 10.1.2.3 --user root --key ~/.ssh/k.pem "uptime"
 
 ## 3 决策流(用户给主机时怎么走)
 
+**关键原则:用户已经在 pane 里手动操作过 → 优先 peek,不要重复执行命令。**
+
 ```
-用户提到 X(IP / 主机名 / 关键词):
-   1. 先尝试 sshops run X "<cmd>"(让 skill 自己走 SecureCRT 模糊匹配)
-   2. 若失败提示「多个候选」→ 把候选列表给用户挑,带 @<路径>
-   3. 若失败提示「该主机是密码登录」→ 让用户加 --ask-password 重跑,或建议
-      他在 SecureCRT 给主机配 Identity 改 key 登录
-   4. 若失败提示「没找到」→ 主机不在 SecureCRT,询问用户:
-      - 你能给我 host/user/key 临时参数吗?
-      - 或者先在 SecureCRT 加这台主机
+用户问 X 主机上的某条信息(pane 已 open):
+   1. 先用 sshops peek <selector> 读当前 pane 画面
+   2. 如果画面内容已经能回答用户问题 → 直接回答,不要发任何命令
+   3. 如果画面不够/过期 → 再用 sshops run <selector> "<cmd>" 获取
+   4. 如果 pane 没 open → 先 sshops open 再决定用 run 还是等用户手敲
+
+用户提新命令要在 X 上执行:
+   → sshops run X "<cmd>"
 ```
 
 **绝对不要**默认让用户手输 `--user --port --key` 等参数 — SecureCRT 已经存了你不用是浪费用户时间。
@@ -74,7 +76,7 @@ sshops run --host 10.1.2.3 --user root --key ~/.ssh/k.pem "uptime"
 ## 4 何时不该用本 skill
 
 - 一次性 trivial 命令(如 `ssh host echo ok`)→ 直接 `Bash` 工具跑 ssh
-- TUI 程序(`vim`、`top`、`less`、`htop`、`watch`)→ marker 切片不工作,会卡到超时;让用户在 SecureCRT/iTerm 里手敲
+- TUI 程序(`vim`、`top`、`less`、`htop`、`watch`)→ 切片不工作,会卡到超时;让用户在 SecureCRT/iTerm 里手敲
 - 网络设备 CLI(华为 / 思科 / NetScaler / Juniper)→ 目标 shell 必须是 bash/zsh
 - 需要交互输入的命令(`sudo` 输密码、`git push` 输密码)→ 走 sshpass 或预配 sudoers / NOPASSWD
 
