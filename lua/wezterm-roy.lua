@@ -21,8 +21,9 @@
 local M = {}
 
 -- 规则 1: (no(t)?(connect)?)|((shut)?(down)?)|disabled|error|fail|invalid|fau...
+-- 自动修复:丢弃 1 个孤儿 `)`
 table.insert(M, {
-    regex = '(no(t)?(connect)?)|((shut)?(down)?)|disabled|error|fail|invalid|fault|BAD|conflict|mismatch|wrong|DENY|INVALID|DISABLE|unusable|DENIED|err-disable|infinity|inaccessible|unreachable|stop|dead|blocked|forbidden|refused)',
+    regex = '(no(t)?(connect)?)|((shut)?(down)?)|disabled|error|fail|invalid|fault|BAD|conflict|mismatch|wrong|DENY|INVALID|DISABLE|unusable|DENIED|err-disable|infinity|inaccessible|unreachable|stop|dead|blocked|forbidden|refused',
     fg = '#FF0000',
     bold = true,
 })

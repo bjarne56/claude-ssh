@@ -36,6 +36,69 @@ def bgr_to_rgb(bgr_hex: str) -> str:
     return f"#{rr.upper()}{gg.upper()}{bb.upper()}"
 
 
+def fix_regex_balance(regex: str):
+    """检测并修复 regex 括号不平衡。
+    返回 (修复后的 regex, 修复说明)。
+
+    SecureCRT .ini 中实际可见的不平衡多为"末尾孤儿 `)`":比如
+        (no(t)?(connect)?)|((shut)?(down)?)|disabled|...|refused)
+                                                                ^ 这个右括号没有配对
+    SecureCRT 自身的 regex 引擎宽容这种,但 fancy_regex 严格,会拒绝整个 config。
+
+    修复策略:
+    - 字符类 `[...]` 内部的 `(` `)` 不计
+    - 反斜杠转义的 `\(` `\)` 不计
+    - 顺序扫描,遇到 `)` 时若深度为 0,丢弃这个孤儿
+    - 遇到末尾 depth > 0(尾部缺 `)`)时,补足
+    """
+    depth = 0
+    in_class = False
+    escape = False
+    fixed = []
+    drops = 0
+    for ch in regex:
+        if escape:
+            escape = False
+            fixed.append(ch)
+            continue
+        if ch == "\\":
+            escape = True
+            fixed.append(ch)
+            continue
+        if ch == "[" and not in_class:
+            in_class = True
+            fixed.append(ch)
+            continue
+        if ch == "]" and in_class:
+            in_class = False
+            fixed.append(ch)
+            continue
+        if in_class:
+            fixed.append(ch)
+            continue
+        if ch == "(":
+            depth += 1
+            fixed.append(ch)
+        elif ch == ")":
+            if depth == 0:
+                drops += 1
+                continue
+            depth -= 1
+            fixed.append(ch)
+        else:
+            fixed.append(ch)
+
+    note_parts = []
+    if drops > 0:
+        note_parts.append(f"丢弃 {drops} 个孤儿 `)`")
+    if depth > 0:
+        # 末尾缺 `)`,补足
+        fixed.extend([")"] * depth)
+        note_parts.append(f"补 {depth} 个尾部 `)`")
+
+    return "".join(fixed), ", ".join(note_parts) if note_parts else None
+
+
 def read_ini(path: str) -> str:
     """SecureCRT .ini 可能用 UTF-16-LE(Windows 默认)/ UTF-8 / latin-1。
     先看 BOM,再尝试 UTF-8,最后用 latin-1 兜底。"""
@@ -143,12 +206,18 @@ def emit_lua(list_name: str, match_case: bool, rules: list, source_path: str) ->
         except ValueError as e:
             out.append(f"-- 规则 {i} 颜色解析失败:{e}")
             continue
-        regex_with_flags = f"{case_prefix}{rule['regex']}"
+
+        # 修复 SecureCRT 原 .ini 中可能存在的括号不平衡(对 fancy_regex 严格性)
+        fixed_regex, fix_note = fix_regex_balance(rule["regex"])
+        regex_with_flags = f"{case_prefix}{fixed_regex}"
+
         # 短预览注释,辅助阅读
         preview = rule["regex"]
         if len(preview) > 70:
             preview = preview[:67] + "..."
         out.append(f"-- 规则 {i}: {preview}")
+        if fix_note:
+            out.append(f"-- 自动修复:{fix_note}")
         out.append("table.insert(M, {")
         out.append(f"    regex = {lua_string_literal(regex_with_flags)},")
         out.append(f"    fg = '{rgb}',")
