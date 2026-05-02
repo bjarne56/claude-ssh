@@ -54,16 +54,9 @@ echo "录像目录(留空=每个项目录到自己根下的 .ssh-ops/recordings/
 echo "         填路径=全局固定位置,所有项目集中存)" >&2
 log_dir="$(ask "录像目录" "")"
 
-# 3. 默认并发
-parallel="$(ask "默认并发数(用于 fan,Phase 2)" "8")"
-
-# parallel 必须是数字(jq --argjson 要求合法 JSON)
-if ! [[ "$parallel" =~ ^[0-9]+$ ]]; then
-    echo "并发数必须是数字,收到: '$parallel'" >&2
-    exit 1
-fi
-
 # 写配置:tmp + mv 原子替换,避免 jq 失败留下半写文件
+# default_parallel / dangerous_patterns / ssh_options_* 等用 example 默认值,
+# 用户需要调整自己改 config.json,setup 不再问。
 tmp_cfg="$(mktemp "${TMPDIR:-/tmp}/sshops-config.XXXXXX")"
 trap 'rm -f "$tmp_cfg"' EXIT
 
@@ -71,13 +64,11 @@ if ! jq \
     --arg crt "$crt_dir" \
     --arg sess "$sessions_dir" \
     --arg log "$log_dir" \
-    --argjson par "$parallel" \
     '
     .securecrt_config_dir = $crt
     | .securecrt_sessions_dir = $sess
     | .log_dir = $log
-    | .default_parallel = $par
-    | del(._comment, ._path_mappings_comment)
+    | with_entries(select(.key | startswith("_") | not))
     ' "$EXAMPLE" > "$tmp_cfg"; then
     echo "jq 写配置失败" >&2
     exit 1
