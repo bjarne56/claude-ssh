@@ -165,8 +165,9 @@ _wait_for_pane_input_complete() {
     return 0
 }
 
-# pane_ensure_window:若无任何 pane 记录(第一台主机),创建新窗口。
-# 返回窗口 id。后续主机直接在该窗口上 split。
+# pane_ensure_window:确保 WezTerm 运行,返回项目窗口 id。
+# 若无窗口(首次连接):返回空字符串,pane_open 负责用新窗口 spawn ssh。
+# 若已有窗口:返回 window_id,pane_open 负责 split。
 pane_ensure_window() {
     wt_check
     local pid; pid="$(project_id)"
@@ -184,17 +185,9 @@ pane_ensure_window() {
         new="$(printf '%s' "$cur" | jq --arg p "$pid" 'del(.[$p])')"
         state_with_lock 10 panes_state_write_atomic "$new"
     fi
-    # 第一台主机:新建窗口,不占位,直接用 ssh 命令 spawn
-    local cwd; cwd="$(pwd -P)"
-    local new_pane
-    new_pane="$(wt_spawn_new_window "$cwd" "${SHELL:-/bin/zsh}")"
-    [[ -z "$new_pane" ]] && die 6 "wezterm spawn 失败"
-    win="$(wt_window_of_pane "$new_pane")"
-    [[ -z "$win" ]] && die 6 "无法获取窗口 id"
-    panes_set_window "$pid" "$win"
-    # 这个占位 pane 稍后会被关闭(pane_open 中第一个 ssh pane 独占窗口时)
-    SSHOPS_PLACEHOLDER_PANE="$new_pane"
-    printf '%s' "$win"
+    # 无窗口,返回空让 pane_open 用 --new-window 起第一个 ssh pane
+    printf ''
+    return 0
 }
 
 # wt_get_active_window:返回当前聚焦窗口的 window_id
@@ -273,20 +266,22 @@ pane_open() {
     local rec_argv=( asciinema rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )
 
     # 策略:
-    #   - 第一台主机(窗口内只有占位 pane):spawn --new-window,关闭占位,独占窗口
-    #   - 后续主机:在窗口上 split 分网格
-    local win; win="$(panes_get_window "$pid")"
-    local existing_panes
-    existing_panes="$(wt_list_json | jq --arg w "$win" '[.[] | select((.window_id|tostring) == $w)] | length')"
+    #   - 无项目窗口(首次连接):spawn --new-window,ssh pane 独占窗口
+    #   - 已有 1 个 pane(第二台主机):split right 50%
+    #   - 已有 2+ pane:split bottom 50%
+    local win; win="$(pane_ensure_window)"
+    local existing_panes=0
+    if [[ -n "$win" ]]; then
+        existing_panes="$(wt_list_json | jq --arg w "$win" '[.[] | select((.window_id|tostring) == $w)] | length')"
+    fi
     local new_pane
 
-    if [[ -n "${SSHOPS_PLACEHOLDER_PANE:-}" ]]; then
-        # 第一台主机:占位 pane 还在,关掉它,用新窗口重 spawn 让 ssh pane 独占
-        wt_kill_pane "$SSHOPS_PLACEHOLDER_PANE" 2>/dev/null || true
-        unset SSHOPS_PLACEHOLDER_PANE
+    if [[ -z "$win" ]]; then
+        # 第一台主机:直接 spawn 新窗口,ssh pane 独占
         new_pane="$(wt_spawn_new_window "$(pwd -P)" "${rec_argv[@]}")"
+        win="$(wt_window_of_pane "$new_pane")"
+        panes_set_window "$pid" "$win"
     elif (( existing_panes == 1 )); then
-        # 只有一台主机已在窗口内(且占位已关):第二台主机 → split
         local parent
         parent="$(wt_list_json | jq -r --arg w "$win" '
             [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[0].pane_id
