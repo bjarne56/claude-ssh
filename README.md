@@ -148,51 +148,31 @@ ssh-ops/
 
 如果你希望**全局集中存储**(所有项目录到同一位置,适合统一审计):在 `config.json` 里设 `"log_dir": "~/.ssh-recordings"`(或任意路径),目录结构为 `<log_dir>/<project_slug>/<session_id>/`。
 
-## 目标主机标准部署(推荐)
+## 默认审计方案(无需改目标主机)
 
-为获得最干净的审计 + 权限隔离,**每台 ssh-ops 接入的目标主机建一个专用 `claude` 用户**,skill 直接以这个账号登录。系统层 `last` / `who` / sudo log / journalctl 直接区分 AI 操作 vs 个人操作,不再依赖 PS1 字符串审计。
+skill **不需要在目标主机新建账号**,默认方案完全基于已有的 SecureCRT 配置 + PS1 字符串审计 + asciinema 录像:
 
-### 一次性部署脚本(在每台目标主机执行)
-
-```bash
-# 在目标主机以 root 跑
-sudo useradd -m -s /bin/bash claude
-sudo mkdir -p /home/claude/.ssh
-sudo chmod 700 /home/claude/.ssh
-
-# 把本机 ~/.ssh/claude.key.pub 公钥加进去
-echo '<你的 ai_user_key 对应公钥>' | sudo tee -a /home/claude/.ssh/authorized_keys
-sudo chmod 600 /home/claude/.ssh/authorized_keys
-sudo chown -R claude:claude /home/claude/.ssh
-
-# sudoers 配 NOPASSWD(skill 跑命令前自动 sudo,无需密码)
-echo 'claude ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/claude
-sudo chmod 440 /etc/sudoers.d/claude
-```
-
-### 本机一次性配置
-
-```bash
-# 1. 生成专用密钥对
-ssh-keygen -t ed25519 -f ~/.ssh/claude.key -C 'ssh-ops claude account' -N ''
-
-# 2. 编辑 config.json
-#    "ai_user": "claude"
-#    "ai_user_key": "~/.ssh/claude.key"
-```
-
-### 配置后的效果
-
-| 命令 | 行为 |
+| 信号 | 值 |
 |---|---|
-| `sshops run 10.32.49.7 "uptime"` | skill 解析 .ini 拿 host/port=60022 → ai_user 覆盖 user=claude key=claude.key → ssh -i claude.key -p 60022 claude@10.32.49.7 |
-| 远端 prompt | `[claude@host ~]$`(LOGIN==REAL_USER 简化,无重复)|
-| `last` 看到的登录 | claude(不是 roy)|
-| sudo log | claude 跑 sudo,大富的 roy 操作不混淆 |
+| ssh 登录用户 | 来自 SecureCRT .ini(如 roy)|
+| auto_sudo 切 root | 默认开启,目标主机需配 NOPASSWD 或 pane 内手输 sudo 密码 |
+| 远端 PS1 prompt | `[root(roy:claude)@host ~]#` 或 `[roy(roy:claude)@host ~]$` |
+| 录像 | 项目内 `.ssh-ops/recordings/<session-id>/`(stream.cast + commands.jsonl + meta.json) |
 
-### 留空 ai_user 等于不用此机制
+`(roy:claude)` 这个 prompt 信号意思是「**原 ssh 登录是 roy,当前操作者是 claude (AI)**」 — 谁查 asciinema 回放或站旁边看 pane 都能立即识别 AI vs 人的操作。这是 **不能新建专用账号场景下的标准做法**,大多数生产环境直接走这条路。
 
-`config.json` 里 `ai_user: ""` (默认)→ 保持现有行为(用 SecureCRT .ini 的 user + 全局 SSH2.ini 回退 + auto_sudo 切 root)。可以渐进部署,先一台主机加 claude 用户测试,稳定后扩展。
+## 进阶:目标主机有专用账号(可选)
+
+如果**你恰好能在目标主机建专用账号**(自己的实验环境 / 你管控的小集群),`config.json` 里设:
+
+```json
+"ai_user": "claude",
+"ai_user_key": "~/.ssh/claude.key"
+```
+
+skill 会用 `claude@host` 直接登录,跳过 auto_sudo,系统层 `last` / sudo log 也直接看到 claude(不再依赖 PS1 字符串)。
+
+部署步骤:本机 `ssh-keygen -t ed25519 -f ~/.ssh/claude.key -N ''`,然后 sshd 接受这个 key 的目标主机配置。**默认 `ai_user: ""` 不启用**,大多数受限环境用不上,留作高级选项。
 
 ---
 
