@@ -287,7 +287,7 @@ pane_open() {
     local win; win="$(wt_window_of_pane "$new_pane")"
     panes_set_window "$pid" "$win"
     # 设置 tab 标题为主机标识(否则显示 asciinema rec 命令)
-    wt_set_tab_title "$new_pane" "${user}@${host}"
+    wt_set_tab_title "$new_pane" "$host"
 
     [[ -z "$new_pane" ]] && die 6 "split-pane 失败 / split failed"
     record_set_pane "$sid" "$new_pane"
