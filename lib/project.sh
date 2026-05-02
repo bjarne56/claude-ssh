@@ -165,37 +165,30 @@ _wait_for_pane_input_complete() {
     return 0
 }
 
-# pane_ensure_window:确保当前项目有窗口,无则 spawn 新窗口的占位 pane(用 cwd 跑 zsh)
-# 注意:WezTerm 窗口必须有至少一个 pane 才能存在。spawn --new-window 时一并起 zsh
-# 之后 split 出去的 pane 才是真正的 ssh pane;这个占位 pane 留作"项目首页"。
+# pane_ensure_window:确保 WezTerm 运行 + 当前有活跃窗口可 split。
+# 不再创建专门的"项目窗口"和占位 pane,直接在 WezTerm 当前活跃窗口上 split。
+# 若无活跃窗口(WezTerm 刚启动),则在默认窗口上 spawn 第一个 pane。
 pane_ensure_window() {
     wt_check
-    local pid; pid="$(project_id)"
-    local win; win="$(panes_get_window "$pid")"
-    if [[ -n "$win" ]]; then
-        # 校验窗口仍存活
-        local exists
-        exists="$(wt_list_json | jq -r --arg w "$win" '.[] | select((.window_id|tostring) == $w) | .window_id' | head -1)"
-        if [[ -n "$exists" ]]; then
-            printf '%s' "$win"
-            return 0
-        fi
-        log_warn "窗口 $win 已不存在,重建"
-        # 清理 state
-        local cur new
-        cur="$(panes_state_read)"
-        new="$(printf '%s' "$cur" | jq --arg p "$pid" 'del(.[$p])')"
-        state_with_lock 10 panes_state_write_atomic "$new"
+    local win
+    win="$(wt_get_active_window)"
+    if [[ -z "$win" ]]; then
+        # WezTerm 在运行但没有任何窗口,创建一个
+        local cwd; cwd="$(pwd -P)"
+        local pane
+        pane="$(wt_spawn_new_window "$cwd" "${SHELL:-/bin/zsh}")"
+        [[ -z "$pane" ]] && die 6 "wezterm spawn 失败"
+        win="$(wt_window_of_pane "$pane")"
+        [[ -z "$win" ]] && die 6 "无法获取窗口 id"
     fi
-    # 新建窗口 + 一个占位 pane(默认 shell)
-    local cwd; cwd="$(pwd -P)"
-    local pane
-    pane="$(wt_spawn_new_window "$cwd" "${SHELL:-/bin/zsh}")"
-    [[ -z "$pane" ]] && die 6 "wezterm spawn 失败 / spawn failed"
-    win="$(wt_window_of_pane "$pane")"
-    [[ -z "$win" ]] && die 6 "无法获取窗口 id / get window id failed"
-    panes_set_window "$pid" "$win"
     printf '%s' "$win"
+}
+
+# wt_get_active_window:返回当前聚焦窗口的 window_id
+wt_get_active_window() {
+    wt_list_json | jq -r '
+        [.[] | select(.is_active == true)] | .[0].window_id // empty
+    '
 }
 
 # pane_open <selector> <ssh_argv...>
@@ -266,13 +259,13 @@ pane_open() {
 
     local rec_argv=( asciinema rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )
 
-    # 找父 pane:同项目窗口的任一 pane 都行;Phase 1a 简化为占位 pane
-    local win; win="$(panes_get_window "$pid")"
+    # 找父 pane:活跃窗口内 pane_id 最小的(通常是第一个 pane)
+    local win; win="$(wt_get_active_window)"
     local parent_pane
     parent_pane="$(wt_list_json | jq -r --arg w "$win" '
         [.[] | select((.window_id|tostring) == $w)] | sort_by(.pane_id) | .[0].pane_id // empty
     ')"
-    [[ -z "$parent_pane" ]] && die 6 "找不到项目窗口的任何 pane / no parent pane in window $win"
+    [[ -z "$parent_pane" ]] && die 6 "找不到活跃窗口的任何 pane / no parent pane in window $win"
 
     # split 策略:Phase 1a 简化为右侧 50%
     # TODO Phase 2: 完整 grid 算法在 lib/layout.sh
