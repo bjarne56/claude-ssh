@@ -30,19 +30,33 @@ pub fn build_ctx(home: &Path) -> ClientCtx {
 pub fn call_sync(home: &Path, req: IpcRequest) -> Result<Option<IpcResponse>> {
     let sock = ipc::default_sock_path(home);
     let no_spawn = std::env::var("SSHOPS_NO_AUTOSPAWN").as_deref() == Ok("1");
+    let timing = std::env::var("SSHOPS_DEBUG_TIMING").as_deref() == Ok("1");
+    let log = |name: &str, dt: f64| {
+        if timing {
+            eprintln!("[TIMING] cli {name:>22}: {dt:>7.2}ms");
+        }
+    };
 
+    let t_rt = std::time::Instant::now();
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
+    log("rt build", t_rt.elapsed().as_micros() as f64 / 1000.0);
 
     rt.block_on(async {
         // 第一次尝试: 直连
         if sock.exists() {
+            let t_conn = std::time::Instant::now();
             if let Ok(Ok(mut stream)) =
                 timeout(Duration::from_millis(200), UnixStream::connect(&sock)).await
             {
+                log("connect", t_conn.elapsed().as_micros() as f64 / 1000.0);
+                let t_w = std::time::Instant::now();
                 ipc::write_msg(&mut stream, &req).await?;
+                log("write+encode", t_w.elapsed().as_micros() as f64 / 1000.0);
+                let t_r = std::time::Instant::now();
                 let resp: IpcResponse = ipc::read_msg(&mut stream).await?;
+                log("read+decode (含服务端处理)", t_r.elapsed().as_micros() as f64 / 1000.0);
                 return Ok(Some(resp));
             }
             // socket 残留但 connect 失败 → daemon 已死, 清理 stale socket
@@ -52,17 +66,23 @@ pub fn call_sync(home: &Path, req: IpcRequest) -> Result<Option<IpcResponse>> {
             return Ok(None);
         }
         // auto-spawn daemon
+        let t_spawn = std::time::Instant::now();
         if try_spawn_daemon(home).is_err() {
             return Ok(None);
         }
+        log("spawn daemon", t_spawn.elapsed().as_micros() as f64 / 1000.0);
         // 等 socket 出现 + connect 成功, max 1s
         for _ in 0..20 {
             if sock.exists() {
                 if let Ok(Ok(mut stream)) =
                     timeout(Duration::from_millis(200), UnixStream::connect(&sock)).await
                 {
+                    let t_w = std::time::Instant::now();
                     ipc::write_msg(&mut stream, &req).await?;
+                    log("write+encode", t_w.elapsed().as_micros() as f64 / 1000.0);
+                    let t_r = std::time::Instant::now();
                     let resp: IpcResponse = ipc::read_msg(&mut stream).await?;
+                    log("read+decode (含服务端处理)", t_r.elapsed().as_micros() as f64 / 1000.0);
                     return Ok(Some(resp));
                 }
             }

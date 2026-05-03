@@ -234,10 +234,25 @@ fn build_target(r: &Resolved) -> pane::SshTarget {
 // cmd_run
 // ============================================================
 fn cmd_run(common: CommonArgs, no_daemon: bool) -> Result<()> {
+    let timing = std::env::var("SSHOPS_DEBUG_TIMING").as_deref() == Ok("1");
+    let t_main = std::time::Instant::now();
+    let log = |name: &str| {
+        if timing {
+            eprintln!(
+                "[TIMING] cli {name:>22}: {:>7.2}ms (total)",
+                t_main.elapsed().as_micros() as f64 / 1000.0
+            );
+        }
+    };
+    log("entry (clap parsed)");
     let home = sshops_home();
+    log("sshops_home()");
     if !no_daemon {
         if let Some(resp) = try_ipc_run(&home, &common)? {
-            return print_run_resp(resp);
+            log("ipc returned");
+            let r = print_run_resp(resp);
+            log("printed json");
+            return r;
         }
     }
     cmd_run_inproc(common)

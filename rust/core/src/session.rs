@@ -88,61 +88,32 @@ pub fn execute(
 /// - 不变 → 稳定, 退出; 变了 → 重置 (说明 cast 还在继续 flush)
 ///
 /// 比之前 100ms × 3 + 100ms × 3 = 600ms 串行等待快得多 (典型 ~40-80ms)
+/// 增量 parser 版本: 维护 SessionParser 持续状态, 永远只 read cast 新增字节.
+/// 单条 'o' 事件 JSON 多大都不丢数据 (跨多轮 polling 累积 line_buf).
+/// 内存上界: line_buf = 单条 'o' JSON 大小 (完整后被消费), out_tail = 16KB.
 pub fn wait_prompt_and_stable(recorder: &Recorder, start_byte: u64, timeout: Duration) -> bool {
+    use crate::incremental_parser::SessionParser;
     let deadline = Instant::now() + timeout;
     let poll = Duration::from_millis(10);
-    let mut prompt_seen_at_size: Option<u64> = None;
+    let mut parser = SessionParser::new(start_byte);
+    let mut prompt_seen_at_cursor: Option<u64> = None;
     while Instant::now() < deadline {
         let cur = recorder.cast_size();
-        if cur > start_byte {
-            if let Some(buf) = read_tail_with_complete_json_lines(recorder, start_byte, cur) {
-                let text = extract_o_concat(&buf);
-                let stripped = strip_ansi(&text);
-                if has_prompt_at_end(&stripped) {
-                    match prompt_seen_at_size {
-                        Some(prev) if prev == cur => return true,
-                        _ => prompt_seen_at_size = Some(cur),
-                    }
-                } else {
-                    prompt_seen_at_size = None;
-                }
+        if cur > parser.cursor() {
+            let _ = parser.poll_until(recorder, cur);
+        }
+        // 必须 out_tail 含 \n 才说明命令 echo 已流入 (排除 race: start 时旧 prompt 误判)
+        if parser.has_newline_in_tail() && parser.has_prompt_at_end() {
+            match prompt_seen_at_cursor {
+                Some(prev) if prev == parser.cursor() => return true,
+                _ => prompt_seen_at_cursor = Some(parser.cursor()),
             }
+        } else {
+            prompt_seen_at_cursor = None;
         }
         std::thread::sleep(poll);
     }
     false
-}
-
-/// 自适应读取末尾字节, 保证至少包含 1 个完整 JSON 行
-///
-/// 起始窗口 8KB, 没找到 '\n' 就加倍, 上限 256KB.
-/// 单条 'o' 事件 JSON > 256KB 极罕见 (PTY read buffer 通常 < 4KB),
-/// 真正触发时跳过本轮, 下一轮新增数据后再找.
-fn read_tail_with_complete_json_lines(
-    recorder: &Recorder,
-    start_byte: u64,
-    cur: u64,
-) -> Option<Vec<u8>> {
-    const INIT_WINDOW: u64 = 8 * 1024;
-    const MAX_WINDOW: u64 = 256 * 1024;
-    let mut window = INIT_WINDOW;
-    loop {
-        let read_from = cur.saturating_sub(window).max(start_byte);
-        let buf = recorder.read_cast_range(read_from, cur).ok()?;
-        // 已经从 start_byte 读起 — buf 自然完整 (cmd 注入起点之后所有 JSON 都完整)
-        if read_from == start_byte {
-            return Some(buf);
-        }
-        // 找首个 '\n', 跳过半截 JSON
-        if let Some(nl_pos) = buf.iter().position(|&b| b == b'\n') {
-            return Some(buf[nl_pos + 1..].to_vec());
-        }
-        // 没找到 — 加倍窗口
-        if window >= MAX_WINDOW {
-            return None; // 单条 'o' > 256KB, 跳过本轮
-        }
-        window = (window * 2).min(MAX_WINDOW);
-    }
 }
 
 /// 旧版 API 保留兼容
