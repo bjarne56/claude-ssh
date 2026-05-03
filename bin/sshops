@@ -16,6 +16,17 @@ _BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 export SSHOPS_HOME="${SSHOPS_HOME:-$(cd "$_BIN_DIR/.." && pwd -P)}"
 unset _BIN_DIR
 
+# === Rust 直通: Rust 已实现的子命令直接走 Rust 二进制 (3-7x 更快) ===
+# setup/version/help 等仍走 bash. SSHOPS_NO_RUST=1 强制全走 bash.
+_SSHOPS_RUST="$SSHOPS_HOME/rust/target/release/sshops-rs"
+if [[ -x "$_SSHOPS_RUST" && "${SSHOPS_NO_RUST:-0}" != "1" && $# -ge 1 ]]; then
+    case "$1" in
+        run|open|close|peek|list-panes|recent)
+            exec "$_SSHOPS_RUST" "$@"
+            ;;
+    esac
+fi
+
 # === 加载所有 lib(各自有 sourced guard,顺序不敏感) ===
 # shellcheck disable=SC1091
 source "$SSHOPS_HOME/lib/common.sh"
