@@ -19,6 +19,11 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
 dirs = "5"
+regex = "1"
+fs2 = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+which = "6"
 
 [profile.release]
 strip = true

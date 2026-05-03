@@ -9,7 +9,7 @@
 //!   S:"Firewall Name"        → 跳板机引用
 //!   S:"Protocol Name"        → 仅 SSH2
 
-use crate::config::Config;
+use crate::config::{expand_path, Config};
 use crate::{Error, Result};
 use std::path::{Path, PathBuf};
 
@@ -43,14 +43,17 @@ pub struct CrtParser {
 impl CrtParser {
     pub fn from_config(cfg: &Config) -> Result<Self> {
         let sd = cfg
-            .securecrt
-            .config_path
+            .securecrt_config_dir
             .as_ref()
-            .ok_or_else(|| Error::Config("securecrt.config_path 未配置".into()))?;
+            .ok_or_else(|| Error::Config("securecrt_config_dir 未配置".into()))?;
         let config_dir = expand_path(sd);
-        // sessions 目录: <config_dir>/Sessions
-        let sessions_dir = config_dir.join("Sessions");
-        let path_mappings = cfg.securecrt.path_mappings.clone();
+        // sessions 目录: 优先 securecrt_sessions_dir, 否则 <config_dir>/Sessions
+        let sessions_dir = cfg
+            .securecrt_sessions_dir
+            .as_ref()
+            .map(|s| expand_path(s))
+            .unwrap_or_else(|| config_dir.join("Sessions"));
+        let path_mappings = cfg.path_mappings.clone();
         let mut p = Self {
             sessions_dir,
             config_dir,
@@ -249,21 +252,6 @@ fn walk_ini(dir: &Path, visit: &mut dyn FnMut(&Path)) {
             }
         }
     }
-}
-
-/// 展开 ~ + $HOME (基本路径展开, 不递归)
-fn expand_path(s: &str) -> PathBuf {
-    let mut s = s.to_string();
-    if let Some(rest) = s.strip_prefix("~/") {
-        if let Some(home) = dirs::home_dir() {
-            s = home.join(rest).to_string_lossy().into_owned();
-        }
-    } else if s == "~" {
-        if let Some(home) = dirs::home_dir() {
-            s = home.to_string_lossy().into_owned();
-        }
-    }
-    PathBuf::from(s)
 }
 
 #[cfg(test)]

@@ -1,0 +1,225 @@
+//! pane 生命周期: ensure_window / open / close / wait_login_complete
+//!
+//! 移植自 lib/project.sh — 复用 wezterm pane 或 spawn 新 tab + cast-recorder 包 ssh,
+//! 智能等 ssh 登录 (检测 password / passphrase / yes/no prompt), auto_sudo 切 root, 注入 PS1.
+
+use crate::config::Config;
+use crate::recorder::{build_recorder_argv, Recorder};
+use crate::session::strip_ansi;
+use crate::state::{project_id, StateStore};
+use crate::wezterm_mux::WezTermClient;
+use crate::{Error, Result};
+use regex::Regex;
+use std::path::Path;
+use std::time::{Duration, Instant};
+
+#[derive(Debug, Clone)]
+pub struct OpenedPane {
+    pub pane_id: u64,
+    pub session_id: String,
+    pub recorder: Recorder,
+    pub reused: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct SshTarget {
+    pub user: String,
+    pub host: String,
+    pub port: u16,
+    pub key: Option<std::path::PathBuf>,
+    /// auth_type: "key" 或 "password"
+    pub auth_type: String,
+    /// 仅 password 模式: sshpass 喂入用
+    pub password: Option<String>,
+}
+
+/// pane_open: 复用现有 pane, 否则 spawn 新 tab 跑 cast-recorder + ssh
+///
+/// 返回 OpenedPane (含 pane_id / session_id / recorder).
+pub fn pane_open(
+    cfg: &Config,
+    sshops_home: &Path,
+    wez: &WezTermClient,
+    state: &StateStore,
+    selector: &str,
+    target: &SshTarget,
+) -> Result<OpenedPane> {
+    wez.ensure_running()?;
+
+    let pid = project_id();
+
+    // 已存在? alive 则复用
+    if let Some(existing) = state.get_pane(&pid, selector)? {
+        if wez.pane_alive(existing.pane_id) {
+            let recorder = Recorder::open(cfg, &existing.session_id)?;
+            return Ok(OpenedPane {
+                pane_id: existing.pane_id,
+                session_id: existing.session_id,
+                recorder,
+                reused: true,
+            });
+        }
+        // pane 失效, 清掉
+        state.remove_pane(&pid, selector)?;
+    }
+
+    // 录像准备
+    let sid = Recorder::make_session_id(&target.host);
+    let recorder = Recorder::init(cfg, &sid, selector, &target.host, &target.user, &target.auth_type)?;
+
+    // ssh argv
+    let mut ssh_argv: Vec<String> = vec!["ssh".into()];
+    for opt in &cfg.ssh_options_base {
+        ssh_argv.push(opt.clone());
+    }
+    if target.port != 22 {
+        ssh_argv.push("-p".into());
+        ssh_argv.push(target.port.to_string());
+    }
+    if let Some(k) = &target.key {
+        ssh_argv.push("-i".into());
+        ssh_argv.push(k.to_string_lossy().into_owned());
+    }
+    ssh_argv.push(format!("{}@{}", target.user, target.host));
+
+    // password 模式: sshpass 包一层
+    if target.auth_type == "password" {
+        if let Some(pw) = &target.password {
+            if which::which("sshpass").is_err() {
+                return Err(Error::Other("sshpass 未安装, 密码模式不可用".into()));
+            }
+            let mut wrapped = vec!["sshpass".into(), "-p".into(), pw.clone()];
+            wrapped.extend(ssh_argv);
+            ssh_argv = wrapped;
+        }
+    }
+
+    // cast-recorder argv
+    let rec_argv = build_recorder_argv(sshops_home, &recorder.cast_path, &ssh_argv);
+    let rec_argv_ref: Vec<&str> = rec_argv.iter().map(|s| s.as_str()).collect();
+
+    // spawn tab
+    let cwd = std::env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "/".into());
+    let pane_id = wez.spawn_tab(&cwd, &rec_argv_ref)?;
+
+    // 写 window_id 到 state
+    if let Some(win) = wez.window_of_pane(pane_id) {
+        state.set_window(&pid, win)?;
+    }
+
+    // tab 标题
+    let _ = wez.set_tab_title(pane_id, &target.host);
+    recorder.set_pane_id(pane_id)?;
+
+    // 等 ssh 启动 (3s 初始余量)
+    std::thread::sleep(Duration::from_secs(3));
+
+    // 等 ssh 登录: 检测 password / passphrase / yes/no prompt 消失
+    let login_timeout = std::env::var("SSHOPS_LOGIN_TIMEOUT")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(120);
+    if !wait_for_input_complete(wez, pane_id, Duration::from_secs(login_timeout), "ssh 登录") {
+        let _ = wez.kill_pane(pane_id);
+        let _ = recorder.finalize();
+        return Err(Error::Timeout(format!(
+            "ssh 登录超时 ({login_timeout}s), 用户未完成输入"
+        )));
+    }
+
+    // auto_sudo: 非 root 时 sudo -i
+    let mut sudo_active = false;
+    if cfg.auto_sudo && !cfg.auto_sudo_skip_users.iter().any(|u| u == &target.user) {
+        tracing::info!("auto_sudo: {} → root via sudo -i", target.user);
+        wez.send_text(pane_id, "sudo -i\r")?;
+        std::thread::sleep(Duration::from_secs(1));
+        if wait_for_input_complete(wez, pane_id, Duration::from_secs(60), "sudo -i") {
+            sudo_active = true;
+        } else {
+            tracing::warn!("sudo -i 超时, 后续命令在原 user shell 跑");
+        }
+    }
+
+    // PS1 注入 — REAL_USER=claude
+    let real_user = "claude";
+    let login_label = if sudo_active { "root" } else { target.user.as_str() };
+    let ps1_cmd = if login_label == real_user {
+        format!(
+            "export REAL_USER='{real_user}'; export PS1='[\\u@\\h \\W]\\$ '; clear\r"
+        )
+    } else {
+        format!(
+            "export REAL_USER='{real_user}'; export PS1='[\\u({login_label}:$REAL_USER)@\\h \\W]\\$ '; clear\r"
+        )
+    };
+    wez.send_text(pane_id, &ps1_cmd)?;
+
+    // 视觉标识
+    let _ = wez.set_user_var(pane_id, "sshops_actor", "ai");
+    let _ = wez.set_user_var(pane_id, "sshops_session_id", &sid);
+
+    // 持久化
+    state.add_pane(&pid, selector, pane_id, &sid)?;
+
+    Ok(OpenedPane {
+        pane_id,
+        session_id: sid,
+        recorder,
+        reused: false,
+    })
+}
+
+pub fn pane_close(
+    cfg: &Config,
+    wez: &WezTermClient,
+    state: &StateStore,
+    selector: &str,
+) -> Result<()> {
+    let pid = project_id();
+    if let Some(info) = state.get_pane(&pid, selector)? {
+        let _ = wez.kill_pane(info.pane_id);
+        if let Ok(rec) = Recorder::open(cfg, &info.session_id) {
+            let _ = rec.finalize();
+        }
+    }
+    state.remove_pane(&pid, selector)?;
+    Ok(())
+}
+
+/// 智能轮询 pane 末尾, 直到不再出现 password/passphrase/yes-no prompt
+/// 返回 true=已完成, false=超时
+pub fn wait_for_input_complete(
+    wez: &WezTermClient,
+    pane_id: u64,
+    timeout: Duration,
+    ctx: &str,
+) -> bool {
+    let re_input = Regex::new(
+        r"(?i)([Pp]assword|[Pp]assphrase|\[sudo\]\s+[Pp]assword|[Vv]erification code|[Cc]ode):\s*$|\(yes/no(?:/\[fingerprint\])?\)\?\s*$|[Aa]re you sure you want to",
+    )
+    .expect("regex compile");
+
+    let deadline = Instant::now() + timeout;
+    let mut notified = false;
+    while Instant::now() < deadline {
+        // 只看当前屏幕 (最快)
+        let raw = wez.get_text(pane_id, None).unwrap_or_default();
+        let stripped = strip_ansi(&raw);
+        let tail: String = stripped.lines().rev().take(5).collect::<Vec<_>>().join("\n");
+        if re_input.is_match(&tail) {
+            if !notified {
+                tracing::info!(
+                    "{ctx} 在等用户输入, 在 WezTerm pane {pane_id} 完成输入 (timeout={}s)",
+                    timeout.as_secs()
+                );
+                notified = true;
+            }
+            std::thread::sleep(Duration::from_secs(2));
+            continue;
+        }
+        return true;
+    }
+    false
+}

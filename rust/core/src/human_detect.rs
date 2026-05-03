@@ -24,6 +24,21 @@ impl InputGroup {
     }
 }
 
+/// 从字节区间提取 *human* 命令 (max_chunk_size <= 3, 且长度 > 1)
+///
+/// `cast_header_ts`: cast header.timestamp (unix sec), 用于算 ts_unix
+pub fn extract_human_commands(cast_bytes: &[u8], cast_header_ts: u64) -> Vec<HumanCmd> {
+    extract_input_groups(cast_bytes)
+        .into_iter()
+        .filter(|g| g.is_human() && g.content.len() > 1)
+        .map(|g| HumanCmd {
+            cmd: g.content,
+            cast_offset: (g.start_elapsed * 1000.0).round() / 1000.0,
+            ts_unix: cast_header_ts + g.start_elapsed as u64,
+        })
+        .collect()
+}
+
 /// 从 cast 文件 (JSONL) 字节区间提取 input groups
 pub fn extract_input_groups(cast_bytes: &[u8]) -> Vec<InputGroup> {
     let mut groups = Vec::new();
