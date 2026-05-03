@@ -96,10 +96,10 @@ export function usePlayer() {
       return;
     }
 
-    // 写当前事件
+    // 写当前事件 (只渲染 "o" 输出, 跳过 "i" 输入和 "x" 退出)
     const [, line] = events[idx];
     const parts = JSON.parse(line) as [number, string, string];
-    if (parts.length >= 3) {
+    if (parts.length >= 3 && parts[1] === "o") {
       termRef.current?.write(parts[2].replace(/\0/g, ""));
     }
 

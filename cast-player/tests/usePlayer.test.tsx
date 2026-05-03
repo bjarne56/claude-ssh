@@ -4,11 +4,18 @@ import { usePlayer, computeIdleSegments, IDLE_THRESHOLD } from '../src/usePlayer
 import type { LoadResult } from '../src/types';
 
 // 用 mock terminal 替代真实 xterm.js (jsdom 不支持 WebGL/canvas)
+// 全局共享的 write 日志, 测试间隔离
+const writeLog: string[] = [];
+
 vi.mock('@xterm/xterm', () => {
   return {
     Terminal: class {
-      reset = vi.fn();
-      write = vi.fn();
+      reset = vi.fn(() => {
+        writeLog.length = 0;
+      });
+      write = vi.fn((data: string) => {
+        writeLog.push(data);
+      });
       open = vi.fn();
       dispose = vi.fn();
       loadAddon = vi.fn();
@@ -63,6 +70,7 @@ function makeFixture(): LoadResult {
 describe('usePlayer hook', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    writeLog.length = 0;
   });
 
   test('初始状态 idle', () => {
@@ -345,6 +353,67 @@ describe('usePlayer hook', () => {
     // seekTo 不改 playState, 仍 playing
     expect(result.current.playState).toBe('playing');
     expect(result.current.elapsed).toBe(2.0);
+  });
+
+  test('回归: 只渲染 "o" 输出, 跳过 "i" 输入避免重复', async () => {
+    const fixture: LoadResult = {
+      ...makeFixture(),
+      events: [
+        // 模拟用户敲 ls + 终端 echo + 输出 + 用户敲 pwd + echo
+        [0.0, '[0.0,"o","[user@host]$ "]'],
+        [0.5, '[0.5,"i","ls\\r"]'],
+        [0.05, '[0.05,"o","ls\\r\\n"]'],
+        [0.1, '[0.1,"o","file1 file2\\r\\n"]'],
+        [0.0, '[0.0,"o","[user@host]$ "]'],
+        [1.0, '[1.0,"i","pwd\\r"]'],
+        [0.05, '[0.05,"o","pwd\\r\\n"]'],
+        [0.1, '[0.1,"o","/home/user\\r\\n"]'],
+      ],
+      index: {
+        header: { version: 3, width: 80, height: 24, term: null },
+        total_duration: 1.8,
+        events: [
+          { elapsed: 0.0, byte_offset: 0, event_type: 'output' },
+          { elapsed: 0.5, byte_offset: 30, event_type: 'input' },
+          { elapsed: 0.55, byte_offset: 60, event_type: 'output' },
+          { elapsed: 0.65, byte_offset: 90, event_type: 'output' },
+          { elapsed: 0.65, byte_offset: 120, event_type: 'output' },
+          { elapsed: 1.65, byte_offset: 150, event_type: 'input' },
+          { elapsed: 1.7, byte_offset: 180, event_type: 'output' },
+          { elapsed: 1.8, byte_offset: 210, event_type: 'output' },
+        ],
+      },
+    };
+
+    const { result } = renderHook(() => usePlayer());
+    const div = document.createElement('div');
+    act(() => result.current.initTerminal(div));
+    act(() => result.current.loadSession(fixture));
+
+    act(() => result.current.play());
+    // 推进到全部播完
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+
+    // 验证: 写入终端的内容不该含 "i" 类型的原始数据
+    // 只应该有 6 次 write (6 个 o 事件), 不该有 8 次
+    const oEventCount = fixture.events.filter((e) => {
+      const parsed = JSON.parse(e[1]);
+      return parsed[1] === 'o';
+    }).length;
+
+    expect(writeLog.length).toBe(oEventCount);
+    expect(oEventCount).toBe(6);
+
+    // 验证内容: 不该有 input 的 "ls\r" 或 "pwd\r" 单独出现
+    // (它们只能作为 output 的一部分出现, 含 \r\n)
+    const allWritten = writeLog.join('');
+    // input 数据是 "ls\r" / "pwd\r" (无 \n), output 是 "ls\r\n" / "pwd\r\n"
+    // 所以单独 "ls\r" 不该出现 — 但 "ls\r\n" 可以
+    expect(allWritten).not.toMatch(/ls\r(?!\n)/);
+    expect(allWritten).not.toMatch(/pwd\r(?!\n)/);
+    // 但 echo 的 "ls\r\n" 应该有
+    expect(allWritten).toContain('ls\r\n');
+    expect(allWritten).toContain('pwd\r\n');
   });
 });
 
