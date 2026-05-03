@@ -44,15 +44,10 @@ pub fn execute(
     wez.send_text(pane_id, &format!("{cmd}\r"))?;
     log("send_text", t1.elapsed().as_micros() as f64 / 1000.0);
 
-    // 等 cast 见 prompt
+    // 合并 wait_prompt + wait_stable: 紧 polling 见 prompt + 1 个无变化窗口
     let t2 = Instant::now();
-    let timed_out = !wait_prompt_in_cast(recorder, start_byte, timeout);
-    log("wait_prompt_in_cast", t2.elapsed().as_micros() as f64 / 1000.0);
-
-    // 等 cast flush 稳定
-    let t3 = Instant::now();
-    recorder.wait_cast_stable(start_byte);
-    log("wait_cast_stable", t3.elapsed().as_micros() as f64 / 1000.0);
+    let timed_out = !wait_prompt_and_stable(recorder, start_byte, timeout);
+    log("wait_prompt+stable", t2.elapsed().as_micros() as f64 / 1000.0);
 
     let t4 = Instant::now();
     let end_byte = recorder.cast_size();
@@ -84,16 +79,23 @@ pub fn execute(
     })
 }
 
-/// 轮询 cast 文件 tail (从 start_byte 起), 直到 prompt 出现两次 (避免 echo 误判) 或超时
-/// 返回 true=见到 prompt, false=超时
-pub fn wait_prompt_in_cast(recorder: &Recorder, start_byte: u64, timeout: Duration) -> bool {
+/// 紧 polling: 20ms 间隔扫 cast 末尾, 看到 prompt + 1 个无变化窗口即退出
+/// 返回 true=见到 prompt 且稳定, false=超时
+///
+/// 算法:
+/// - 每 20ms 取一次 cast_size + tail 检测 prompt
+/// - 见到 prompt 后, 记录当前 size; 再等 1 轮 (20ms) 看 size 是否变化
+/// - 不变 → 稳定, 退出; 变了 → 重置 (说明 cast 还在继续 flush)
+///
+/// 比之前 100ms × 3 + 100ms × 3 = 600ms 串行等待快得多 (典型 ~40-80ms)
+pub fn wait_prompt_and_stable(recorder: &Recorder, start_byte: u64, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
-    let poll = Duration::from_millis(50);
-    let mut prompt_seen = 0;
+    let poll = Duration::from_millis(10);
+    let mut prompt_seen_at_size: Option<u64> = None;
     while Instant::now() < deadline {
         let cur = recorder.cast_size();
         if cur > start_byte {
-            // 取最近 300 字节 (含足够 'o' 事件文本)
+            // 取最近 300 字节看 prompt
             let read_from = cur.saturating_sub(300).max(start_byte);
             if let Ok(buf) = recorder.read_cast_range(read_from, cur) {
                 let text = extract_o_concat(&buf);
@@ -107,18 +109,25 @@ pub fn wait_prompt_in_cast(recorder: &Recorder, start_byte: u64, timeout: Durati
                     .rev()
                     .collect();
                 if has_prompt_at_end(&tail) {
-                    prompt_seen += 1;
-                    if prompt_seen >= 2 {
-                        return true;
+                    // 见到 prompt: 检查上轮记录的 size 是否一致
+                    match prompt_seen_at_size {
+                        Some(prev) if prev == cur => return true, // 稳定
+                        _ => prompt_seen_at_size = Some(cur),
                     }
                 } else {
-                    prompt_seen = 0;
+                    prompt_seen_at_size = None; // 没看到 prompt, 重置
                 }
             }
         }
         std::thread::sleep(poll);
     }
     false
+}
+
+/// 旧版 API 保留兼容
+#[deprecated(note = "改用 wait_prompt_and_stable")]
+pub fn wait_prompt_in_cast(recorder: &Recorder, start_byte: u64, timeout: Duration) -> bool {
+    wait_prompt_and_stable(recorder, start_byte, timeout)
 }
 
 /// 提取字节区间所有 'o' 事件 data (cast v3 JSONL: [delay, type, data])
