@@ -155,13 +155,15 @@ input:focus, select:focus { border-color: var(--accent); }
 }
 
 /* ---- Controls ---- */
+.controls-bar-wrapper {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
 .controls-bar {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 12px;
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
+  padding: 8px 12px 4px;
   flex-wrap: wrap;
 }
 .controls-bar .group {
