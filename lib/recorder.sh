@@ -352,10 +352,12 @@ record_build_spawn_argv() {
     # 参数为 ssh_argv...
     # 用 cast-recorder (本地 fork 的 asciinema, 加了 immediate flush)
     # 解决 asciinema 默认 buffered IO 导致 cast 文件滞后 1-3s 的问题
-    local recorder; recorder="$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")/../bin/cast-recorder"
+    # 用 SSHOPS_HOME 而非 BASH_SOURCE (后者在某些调用栈为空, 导致 fallback 到不存在的 asciinema)
+    local recorder="${SSHOPS_HOME:-$(dirname "$(dirname "${BASH_SOURCE[0]}")")}/bin/cast-recorder"
     if [[ ! -x "$recorder" ]]; then
-        # fallback: 系统 asciinema (兼容未编译 cast-recorder 的环境)
-        recorder="asciinema"
+        # 严重错误: cast-recorder 应该跟项目一起部署
+        log_error "找不到 cast-recorder 二进制: $recorder (SSHOPS_HOME=${SSHOPS_HOME:-未设置})" >&2
+        return 1
     fi
 
     local ssh_cmd
