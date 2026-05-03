@@ -9,6 +9,7 @@ import { CommandPanel } from "./components/CommandPanel";
 import { SearchOverlay } from "./components/SearchOverlay";
 import { ExportDialog } from "./components/ExportDialog";
 import { detectLocale, setLocale, getLocale, useTranslation } from "./i18n";
+import { setAppLocale } from "./tauri-api";
 import "./index.css";
 
 // 启动时优先用户保存的偏好, 否则自动检测
@@ -17,6 +18,8 @@ const savedLocale = typeof localStorage !== "undefined"
   : null;
 setLocale(savedLocale || detectLocale());
 console.log(`Cast Player locale: ${getLocale()}`);
+// 同步到 Rust 端构建系统菜单 (异步, 不阻塞渲染)
+setAppLocale(getLocale());
 
 function App() {
   const { t } = useTranslation();

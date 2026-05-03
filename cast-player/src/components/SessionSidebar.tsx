@@ -4,6 +4,7 @@ import {
   getDefaultVideoDir,
   scanSessions,
   searchSessions,
+  setAppLocale,
 } from "../tauri-api";
 import { useTranslation, getLocale, setLocale } from "../i18n";
 
@@ -65,6 +66,8 @@ export function SessionSidebar({
     setLocale(newLocale);
     localStorage.setItem("cast-player-locale", newLocale);
     setCurrentLocale(newLocale);
+    // 通知 Rust 重建系统菜单
+    setAppLocale(newLocale);
     // 强制整个应用重渲染
     window.dispatchEvent(new Event("locale-changed"));
   };

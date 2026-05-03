@@ -48,3 +48,12 @@ export async function copyCastFile(
 ): Promise<string> {
   return invoke("copy_cast_file", { sessionDir, outputPath });
 }
+
+/// 通知 Rust 端切换 locale, 重建系统菜单
+export async function setAppLocale(locale: string): Promise<void> {
+  try {
+    await invoke("set_app_locale", { locale });
+  } catch (e) {
+    console.error("设置应用菜单 locale 失败:", e);
+  }
+}

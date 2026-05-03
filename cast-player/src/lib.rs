@@ -1,9 +1,19 @@
 pub mod cast_index;
+pub mod menu_i18n;
 
 use cast_index::*;
+use menu_i18n::*;
 use serde::Serialize;
 use std::path::PathBuf;
+use std::sync::Mutex;
+use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::{AppHandle, Manager};
 use walkdir::WalkDir;
+
+// 全局 locale (前端切换时通过 set_app_locale 命令更新)
+lazy_static::lazy_static! {
+    static ref CURRENT_LOCALE: Mutex<String> = Mutex::new(detect_system_locale());
+}
 
 // ---- Tauri Commands ----
 
@@ -213,12 +223,107 @@ fn get_default_video_dir() -> Result<String, String> {
     }
 }
 
+/// 前端切换语言时调用, 重建系统菜单
+#[tauri::command]
+fn set_app_locale(app: AppHandle, locale: String) -> Result<(), String> {
+    *CURRENT_LOCALE.lock().unwrap() = locale.clone();
+    let menu = build_localized_menu(&app, &locale).map_err(|e| format!("构建菜单失败: {e}"))?;
+    app.set_menu(menu).map_err(|e| format!("设置菜单失败: {e}"))?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_app_locale() -> String {
+    CURRENT_LOCALE.lock().unwrap().clone()
+}
+
+/// 根据 locale 构建本地化菜单
+fn build_localized_menu(app: &AppHandle, locale: &str) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    let l = labels_for(locale);
+
+    // App menu (macOS 左上角第一个菜单, 名字是 app 名)
+    let about_metadata = AboutMetadataBuilder::new()
+        .name(Some("Cast Player"))
+        .version(Some(env!("CARGO_PKG_VERSION")))
+        .build();
+
+    let app_submenu = SubmenuBuilder::new(app, "Cast Player")
+        .item(&PredefinedMenuItem::about(app, Some(&l.app.about), Some(about_metadata))?)
+        .separator()
+        .item(&PredefinedMenuItem::services(app, Some(&l.app.services))?)
+        .separator()
+        .item(&PredefinedMenuItem::hide(app, Some(&l.app.hide))?)
+        .item(&PredefinedMenuItem::hide_others(app, Some(&l.app.hide_others))?)
+        .item(&PredefinedMenuItem::show_all(app, Some(&l.app.show_all))?)
+        .separator()
+        .item(&PredefinedMenuItem::quit(app, Some(&l.app.quit))?)
+        .build()?;
+
+    // File menu
+    let file_submenu = SubmenuBuilder::with_id(app, "file", &l.file.title)
+        .item(&PredefinedMenuItem::close_window(app, Some(&l.file.close_window))?)
+        .build()?;
+
+    // Edit menu
+    let edit_submenu = SubmenuBuilder::with_id(app, "edit", &l.edit.title)
+        .item(&PredefinedMenuItem::undo(app, Some(&l.edit.undo))?)
+        .item(&PredefinedMenuItem::redo(app, Some(&l.edit.redo))?)
+        .separator()
+        .item(&PredefinedMenuItem::cut(app, Some(&l.edit.cut))?)
+        .item(&PredefinedMenuItem::copy(app, Some(&l.edit.copy))?)
+        .item(&PredefinedMenuItem::paste(app, Some(&l.edit.paste))?)
+        .item(&PredefinedMenuItem::select_all(app, Some(&l.edit.select_all))?)
+        .build()?;
+
+    // View menu
+    let fullscreen_item = MenuItemBuilder::with_id("toggle_fullscreen", &l.view.fullscreen)
+        .accelerator("CmdOrCtrl+Ctrl+F")
+        .build(app)?;
+    let view_submenu = SubmenuBuilder::with_id(app, "view", &l.view.title)
+        .item(&fullscreen_item)
+        .build()?;
+
+    // Window menu
+    let window_submenu = SubmenuBuilder::with_id(app, "window", &l.window.title)
+        .item(&PredefinedMenuItem::minimize(app, Some(&l.window.minimize))?)
+        .item(&PredefinedMenuItem::maximize(app, Some(&l.window.zoom))?)
+        .separator()
+        .item(&PredefinedMenuItem::bring_all_to_front(app, Some(&l.window.bring_to_front))?)
+        .build()?;
+
+    // Help menu
+    let help_submenu = SubmenuBuilder::with_id(app, "help", &l.help.title).build()?;
+
+    MenuBuilder::new(app)
+        .item(&app_submenu)
+        .item(&file_submenu)
+        .item(&edit_submenu)
+        .item(&view_submenu)
+        .item(&window_submenu)
+        .item(&help_submenu)
+        .build()
+}
+
 // ---- 入口 ----
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            // 启动时按系统 locale 建初始菜单
+            let initial_locale = CURRENT_LOCALE.lock().unwrap().clone();
+            let menu = build_localized_menu(app.handle(), &initial_locale)?;
+            app.set_menu(menu)?;
+            Ok(())
+        })
+        .on_menu_event(|app, event| {
+            if event.id() == "toggle_fullscreen" {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.set_fullscreen(!window.is_fullscreen().unwrap_or(false));
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             scan_sessions,
             load_session,
@@ -228,6 +333,8 @@ pub fn run() {
             export_commands_json,
             copy_cast_file,
             get_default_video_dir,
+            set_app_locale,
+            get_app_locale,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
