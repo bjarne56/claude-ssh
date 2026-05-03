@@ -240,16 +240,16 @@ export function usePlayer() {
   }, [seekTo]);
 
   // ---- session 加载 ----
+  // 即使 term 还没初始化也设置 refs, 这样 Player 挂载后初始化的 term 会拿到数据
   const loadSession = useCallback((data: LoadResult) => {
-    const term = termRef.current;
-    if (!term) return;
-
     stopTimer();
-    term.reset();
     eventsRef.current = data.events;
     indexRef.current = data.index.events;
     totalRef.current = data.index.total_duration;
     eventIdxRef.current = 0;
+
+    // 如果 term 已经存在, reset 它
+    termRef.current?.reset();
 
     setElapsed(0);
     setTotalDuration(data.index.total_duration);

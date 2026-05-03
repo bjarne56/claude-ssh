@@ -355,6 +355,29 @@ describe('usePlayer hook', () => {
     expect(result.current.elapsed).toBe(2.0);
   });
 
+  test('回归: 在 initTerminal 前调 loadSession 也不会丢数据', async () => {
+    const { result } = renderHook(() => usePlayer());
+    const div = document.createElement('div');
+
+    // 先 loadSession (terminal 还没初始化)
+    act(() => result.current.loadSession(makeFixture()));
+    // 没有报错也没有崩溃
+
+    // 然后 initTerminal
+    act(() => result.current.initTerminal(div));
+
+    // 再次 loadSession 应能正常设置 events
+    act(() => result.current.loadSession(makeFixture()));
+
+    expect(result.current.totalDuration).toBe(4.0);
+
+    // 点播放应能跑
+    act(() => result.current.play());
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.elapsed).toBe(0.0);
+    expect(result.current.playState).toBe('playing');
+  });
+
   test('回归: 只渲染 "o" 输出, 跳过 "i" 输入避免重复', async () => {
     const fixture: LoadResult = {
       ...makeFixture(),

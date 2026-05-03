@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { SessionSummary, LoadResult } from "./types";
 import { loadSession } from "./tauri-api";
 import { usePlayer } from "./usePlayer";
@@ -28,9 +28,11 @@ function App() {
       try {
         const dir = session.cast_path.replace(/\/stream\.cast$/, "");
         const data = await loadSession(dir);
+        // 注意: 不在这里调用 player.loadSession,
+        // 因为此时 Player 组件还没挂载, termRef 是 null。
+        // 改由下面的 useEffect 在 loadData 变化时调用 (此时 Player 已挂载)。
         setLoadData(data);
         setActiveSession(session);
-        player.loadSession(data);
         console.log(
           `Loaded session: ${data.events.length} events, ${data.index.total_duration.toFixed(1)}s, ${data.commands.length} cmds`
         );
@@ -40,8 +42,17 @@ function App() {
         setLoading(false);
       }
     },
-    [player]
+    []
   );
+
+  // 关键: 子组件 (Player) 的 useEffect 先于父组件的 useEffect 执行,
+  // 所以这里 player.loadSession 调用时 termRef 一定已经设置好了。
+  useEffect(() => {
+    if (loadData) {
+      player.loadSession(loadData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadData]);
 
   const handleSeekToCommand = useCallback(
     (castOffset: number) => {
