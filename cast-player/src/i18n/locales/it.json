@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Riproduzione Registrazione",
+    "emptyHint": "Seleziona una sessione dalla barra laterale o trascina un file .cast qui",
+    "shortcutHint": "Scorciatoie: Spazio riproduci/pausa, Ctrl+F cerca",
+    "readyStatus": "Pronto — seleziona una sessione",
+    "loading": "Caricamento..."
+  },
+  "sidebar": {
+    "title": "Registrazioni",
+    "searchPlaceholder": "Cerca host/utente/progetto...",
+    "refresh": "Aggiorna",
+    "noVideoDir": "Directory registrazioni non configurata",
+    "noSessions": "Nessuna registrazione. Directory:",
+    "loadFailed": "Caricamento fallito:",
+    "retry": "Riprova",
+    "allProjects": "Tutti i progetti",
+    "commandsCount": "cmd"
+  },
+  "controls": {
+    "stepBack30": "Indietro 30s",
+    "stepBack10": "Indietro 10s",
+    "stepBack5": "Indietro 5s",
+    "play": "Riproduci",
+    "pause": "Pausa",
+    "stop": "Ferma",
+    "restart": "Ricomincia",
+    "stepForward5": "Avanti 5s",
+    "stepForward10": "Avanti 10s",
+    "stepForward30": "Avanti 30s",
+    "skipIdle": "Salta tempi morti",
+    "changeSpeed": "Cambia velocità"
+  },
+  "commands": {
+    "title": "Comandi",
+    "totalCount": "Totale",
+    "dangerCount": "Pericolosi",
+    "filteredCount": "Filtrati",
+    "searchPlaceholder": "Cerca comandi...",
+    "regexPlaceholder": "Ricerca regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Solo pericolosi",
+    "noMatch": "Nessun comando corrispondente",
+    "loadFailed": "Caricamento sessione fallito:",
+    "castOffset": "Offset",
+    "duration": "Durata",
+    "exitCode": "Codice uscita"
+  },
+  "search": {
+    "placeholder": "Cerca nel terminale...",
+    "noMatch": "Nessun risultato",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Esporta Sessione",
+    "exporting": "Esportazione...",
+    "failed": "Esportazione fallita:",
+    "csv": "Esporta lista comandi (CSV)",
+    "json": "Esporta lista comandi (JSON)",
+    "cast": "Copia registrazione (.cast)",
+    "close": "Chiudi"
+  },
+  "status": {
+    "duration": "Durata"
+  }
+}

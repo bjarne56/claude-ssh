@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Відтворення Запису",
+    "emptyHint": "Виберіть сеанс на бічній панелі або перетягніть файл .cast сюди",
+    "shortcutHint": "Гарячі клавіші: Пробіл відтв./пауза, Ctrl+F пошук",
+    "readyStatus": "Готово — виберіть сеанс",
+    "loading": "Завантаження..."
+  },
+  "sidebar": {
+    "title": "Записи",
+    "searchPlaceholder": "Пошук хоста/користувача/проєкту...",
+    "refresh": "Оновити",
+    "noVideoDir": "Каталог записів не налаштовано",
+    "noSessions": "Немає записів. Каталог:",
+    "loadFailed": "Помилка завантаження:",
+    "retry": "Повторити",
+    "allProjects": "Усі проєкти",
+    "commandsCount": "кмд"
+  },
+  "controls": {
+    "stepBack30": "Назад 30с",
+    "stepBack10": "Назад 10с",
+    "stepBack5": "Назад 5с",
+    "play": "Відтв.",
+    "pause": "Пауза",
+    "stop": "Стоп",
+    "restart": "Заново",
+    "stepForward5": "Вперед 5с",
+    "stepForward10": "Вперед 10с",
+    "stepForward30": "Вперед 30с",
+    "skipIdle": "Пропуск бездіяльності",
+    "changeSpeed": "Змінити швидкість"
+  },
+  "commands": {
+    "title": "Команди",
+    "totalCount": "Всього",
+    "dangerCount": "Небезпечні",
+    "filteredCount": "Відфільтровано",
+    "searchPlaceholder": "Пошук команд...",
+    "regexPlaceholder": "Regex-пошук...",
+    "regexLabel": ".*",
+    "dangerOnly": "Лише небезпечні",
+    "noMatch": "Немає збігів",
+    "loadFailed": "Помилка завантаження сеансу:",
+    "castOffset": "Зсув",
+    "duration": "Тривалість",
+    "exitCode": "Код виходу"
+  },
+  "search": {
+    "placeholder": "Пошук у терміналі...",
+    "noMatch": "Немає збігів",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Експорт Сеансу",
+    "exporting": "Експорт...",
+    "failed": "Помилка експорту:",
+    "csv": "Експорт списку команд (CSV)",
+    "json": "Експорт списку команд (JSON)",
+    "cast": "Копіювати сирий запис (.cast)",
+    "close": "Закрити"
+  },
+  "status": {
+    "duration": "Тривалість"
+  }
+}

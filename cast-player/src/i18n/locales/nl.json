@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Opname Afspelen",
+    "emptyHint": "Kies een sessie uit de zijbalk of sleep een .cast-bestand hiernaartoe",
+    "shortcutHint": "Sneltoetsen: Spatie afspelen/pauzeren, Ctrl+F zoeken",
+    "readyStatus": "Gereed — selecteer een sessie",
+    "loading": "Laden..."
+  },
+  "sidebar": {
+    "title": "Opnamen",
+    "searchPlaceholder": "Zoek host/gebruiker/project...",
+    "refresh": "Vernieuwen",
+    "noVideoDir": "Geen opnamemap geconfigureerd",
+    "noSessions": "Geen opnamen. Map:",
+    "loadFailed": "Laden mislukt:",
+    "retry": "Opnieuw",
+    "allProjects": "Alle projecten",
+    "commandsCount": "cmd"
+  },
+  "controls": {
+    "stepBack30": "30s terug",
+    "stepBack10": "10s terug",
+    "stepBack5": "5s terug",
+    "play": "Afspelen",
+    "pause": "Pauze",
+    "stop": "Stop",
+    "restart": "Opnieuw starten",
+    "stepForward5": "5s vooruit",
+    "stepForward10": "10s vooruit",
+    "stepForward30": "30s vooruit",
+    "skipIdle": "Inactieve tijd overslaan",
+    "changeSpeed": "Snelheid wijzigen"
+  },
+  "commands": {
+    "title": "Opdrachten",
+    "totalCount": "Totaal",
+    "dangerCount": "Gevaarlijk",
+    "filteredCount": "Gefilterd",
+    "searchPlaceholder": "Opdrachten zoeken...",
+    "regexPlaceholder": "Regex zoeken...",
+    "regexLabel": ".*",
+    "dangerOnly": "Alleen gevaarlijke",
+    "noMatch": "Geen overeenkomende opdrachten",
+    "loadFailed": "Sessie laden mislukt:",
+    "castOffset": "Offset",
+    "duration": "Duur",
+    "exitCode": "Exitcode"
+  },
+  "search": {
+    "placeholder": "Zoeken in terminal...",
+    "noMatch": "Geen resultaat",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Sessie Exporteren",
+    "exporting": "Exporteren...",
+    "failed": "Exporteren mislukt:",
+    "csv": "Opdrachtenlijst exporteren (CSV)",
+    "json": "Opdrachtenlijst exporteren (JSON)",
+    "cast": "Ruwe opname kopiëren (.cast)",
+    "close": "Sluiten"
+  },
+  "status": {
+    "duration": "Duur"
+  }
+}

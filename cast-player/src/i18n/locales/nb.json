@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Opptaksavspilling",
+    "emptyHint": "Velg en økt fra sidepanelet eller dra en .cast-fil hit",
+    "shortcutHint": "Hurtigtaster: Mellomrom spill/pause, Ctrl+F søk",
+    "readyStatus": "Klar — velg en økt",
+    "loading": "Laster..."
+  },
+  "sidebar": {
+    "title": "Opptak",
+    "searchPlaceholder": "Søk vert/bruker/prosjekt...",
+    "refresh": "Oppdater",
+    "noVideoDir": "Ingen opptaksmappe konfigurert",
+    "noSessions": "Ingen opptak. Mappe:",
+    "loadFailed": "Innlasting mislyktes:",
+    "retry": "Prøv igjen",
+    "allProjects": "Alle prosjekter",
+    "commandsCount": "kmd"
+  },
+  "controls": {
+    "stepBack30": "30s tilbake",
+    "stepBack10": "10s tilbake",
+    "stepBack5": "5s tilbake",
+    "play": "Spill",
+    "pause": "Pause",
+    "stop": "Stopp",
+    "restart": "Start på nytt",
+    "stepForward5": "5s frem",
+    "stepForward10": "10s frem",
+    "stepForward30": "30s frem",
+    "skipIdle": "Hopp over ventetid",
+    "changeSpeed": "Endre hastighet"
+  },
+  "commands": {
+    "title": "Kommandoer",
+    "totalCount": "Totalt",
+    "dangerCount": "Farlig",
+    "filteredCount": "Filtrert",
+    "searchPlaceholder": "Søk kommandoer...",
+    "regexPlaceholder": "Regex-søk...",
+    "regexLabel": ".*",
+    "dangerOnly": "Bare farlige",
+    "noMatch": "Ingen treff",
+    "loadFailed": "Økt innlasting mislyktes:",
+    "castOffset": "Offset",
+    "duration": "Varighet",
+    "exitCode": "Utgangskode"
+  },
+  "search": {
+    "placeholder": "Søk i terminalen...",
+    "noMatch": "Ingen treff",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Eksporter Økt",
+    "exporting": "Eksporterer...",
+    "failed": "Eksport mislyktes:",
+    "csv": "Eksporter kommandoliste (CSV)",
+    "json": "Eksporter kommandoliste (JSON)",
+    "cast": "Kopier rått opptak (.cast)",
+    "close": "Lukk"
+  },
+  "status": {
+    "duration": "Varighet"
+  }
+}

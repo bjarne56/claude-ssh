@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Main Semula Rakaman",
+    "emptyHint": "Pilih sesi dari bar sisi atau seret fail .cast ke sini",
+    "shortcutHint": "Pintasan: Space main/jeda, Ctrl+F cari",
+    "readyStatus": "Sedia — pilih sesi",
+    "loading": "Memuatkan..."
+  },
+  "sidebar": {
+    "title": "Rakaman",
+    "searchPlaceholder": "Cari hos/pengguna/projek...",
+    "refresh": "Segar semula",
+    "noVideoDir": "Direktori rakaman tidak dikonfigurasi",
+    "noSessions": "Tiada rakaman. Direktori:",
+    "loadFailed": "Gagal memuat:",
+    "retry": "Cuba lagi",
+    "allProjects": "Semua Projek",
+    "commandsCount": "arih"
+  },
+  "controls": {
+    "stepBack30": "Undur 30s",
+    "stepBack10": "Undur 10s",
+    "stepBack5": "Undur 5s",
+    "play": "Main",
+    "pause": "Jeda",
+    "stop": "Henti",
+    "restart": "Mula semula",
+    "stepForward5": "Maju 5s",
+    "stepForward10": "Maju 10s",
+    "stepForward30": "Maju 30s",
+    "skipIdle": "Langkau masa melahu",
+    "changeSpeed": "Tukar kelajuan"
+  },
+  "commands": {
+    "title": "Arahan",
+    "totalCount": "Jumlah",
+    "dangerCount": "Bahaya",
+    "filteredCount": "Ditapis",
+    "searchPlaceholder": "Cari arahan...",
+    "regexPlaceholder": "Carian regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Hanya bahaya",
+    "noMatch": "Tiada arahan sepadan",
+    "loadFailed": "Gagal memuat sesi:",
+    "castOffset": "Ofset",
+    "duration": "Tempoh",
+    "exitCode": "Kod keluar"
+  },
+  "search": {
+    "placeholder": "Cari dalam terminal...",
+    "noMatch": "Tiada padanan",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Eksport Sesi",
+    "exporting": "Mengeksport...",
+    "failed": "Eksport gagal:",
+    "csv": "Eksport senarai arahan (CSV)",
+    "json": "Eksport senarai arahan (JSON)",
+    "cast": "Salin rakaman mentah (.cast)",
+    "close": "Tutup"
+  },
+  "status": {
+    "duration": "Tempoh"
+  }
+}

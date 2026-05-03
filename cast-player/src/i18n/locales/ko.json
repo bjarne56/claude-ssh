@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "녹화 재생",
+    "emptyHint": "왼쪽 사이드바에서 세션을 선택하거나 .cast 파일을 드롭하세요",
+    "shortcutHint": "단축키: Space 재생/일시정지, Ctrl+F 검색",
+    "readyStatus": "준비 완료 — 세션을 선택하세요",
+    "loading": "로딩 중..."
+  },
+  "sidebar": {
+    "title": "녹화 라이브러리",
+    "searchPlaceholder": "호스트/사용자/프로젝트 검색...",
+    "refresh": "새로고침",
+    "noVideoDir": "녹화 디렉토리가 설정되지 않았습니다",
+    "noSessions": "녹화가 없습니다. 디렉토리:",
+    "loadFailed": "로드 실패:",
+    "retry": "재시도",
+    "allProjects": "전체 프로젝트",
+    "commandsCount": "명령어"
+  },
+  "controls": {
+    "stepBack30": "30초 뒤로",
+    "stepBack10": "10초 뒤로",
+    "stepBack5": "5초 뒤로",
+    "play": "재생",
+    "pause": "일시정지",
+    "stop": "정지",
+    "restart": "처음부터 재생",
+    "stepForward5": "5초 앞으로",
+    "stepForward10": "10초 앞으로",
+    "stepForward30": "30초 앞으로",
+    "skipIdle": "유휴 시간 건너뛰기",
+    "changeSpeed": "재생 속도 변경"
+  },
+  "commands": {
+    "title": "명령어 목록",
+    "totalCount": "합계",
+    "dangerCount": "위험",
+    "filteredCount": "필터링됨",
+    "searchPlaceholder": "명령어 검색...",
+    "regexPlaceholder": "정규식 검색...",
+    "regexLabel": ".*",
+    "dangerOnly": "위험만",
+    "noMatch": "일치하는 명령어 없음",
+    "loadFailed": "세션 로드 실패:",
+    "castOffset": "오프셋",
+    "duration": "소요 시간",
+    "exitCode": "종료 코드"
+  },
+  "search": {
+    "placeholder": "터미널에서 검색...",
+    "noMatch": "일치 없음",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "세션 내보내기",
+    "exporting": "내보내는 중...",
+    "failed": "내보내기 실패:",
+    "csv": "명령어 목록 내보내기 (CSV)",
+    "json": "명령어 목록 내보내기 (JSON)",
+    "cast": "녹화 파일 복사 (.cast)",
+    "close": "닫기"
+  },
+  "status": {
+    "duration": "재생 시간"
+  }
+}

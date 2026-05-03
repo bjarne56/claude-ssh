@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Pag-playback ng Recording",
+    "emptyHint": "Pumili ng session mula sa sidebar o i-drag ang .cast file dito",
+    "shortcutHint": "Shortcut: Space play/pause, Ctrl+F hanapin",
+    "readyStatus": "Handa — pumili ng session",
+    "loading": "Naglo-load..."
+  },
+  "sidebar": {
+    "title": "Mga Recording",
+    "searchPlaceholder": "Maghanap ng host/user/proyekto...",
+    "refresh": "I-refresh",
+    "noVideoDir": "Walang naka-configure na recording directory",
+    "noSessions": "Walang recording. Directory:",
+    "loadFailed": "Nabigo ang pag-load:",
+    "retry": "Subukan muli",
+    "allProjects": "Lahat ng Proyekto",
+    "commandsCount": "cmd"
+  },
+  "controls": {
+    "stepBack30": "Bumalik 30s",
+    "stepBack10": "Bumalik 10s",
+    "stepBack5": "Bumalik 5s",
+    "play": "I-play",
+    "pause": "I-pause",
+    "stop": "Ihinto",
+    "restart": "I-restart",
+    "stepForward5": "Abante 5s",
+    "stepForward10": "Abante 10s",
+    "stepForward30": "Abante 30s",
+    "skipIdle": "Laktawan ang idle",
+    "changeSpeed": "Baguhin ang bilis"
+  },
+  "commands": {
+    "title": "Mga Utos",
+    "totalCount": "Kabuuan",
+    "dangerCount": "Mapanganib",
+    "filteredCount": "Nasala",
+    "searchPlaceholder": "Maghanap ng utos...",
+    "regexPlaceholder": "Regex na paghahanap...",
+    "regexLabel": ".*",
+    "dangerOnly": "Mapanganib lang",
+    "noMatch": "Walang tumutugmang utos",
+    "loadFailed": "Nabigo ang pag-load ng session:",
+    "castOffset": "Offset",
+    "duration": "Tagal",
+    "exitCode": "Exit code"
+  },
+  "search": {
+    "placeholder": "Maghanap sa terminal...",
+    "noMatch": "Walang tugma",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "I-export ang Session",
+    "exporting": "Nag-e-export...",
+    "failed": "Nabigo ang pag-export:",
+    "csv": "I-export ang listahan ng utos (CSV)",
+    "json": "I-export ang listahan ng utos (JSON)",
+    "cast": "Kopyahin ang raw recording (.cast)",
+    "close": "Isara"
+  },
+  "status": {
+    "duration": "Tagal"
+  }
+}

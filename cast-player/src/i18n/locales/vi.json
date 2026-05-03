@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Phát Lại Bản Ghi",
+    "emptyHint": "Chọn phiên từ thanh bên hoặc kéo thả tệp .cast vào đây",
+    "shortcutHint": "Phím tắt: Dấu cách phát/tạm dừng, Ctrl+F tìm kiếm",
+    "readyStatus": "Sẵn sàng — chọn phiên",
+    "loading": "Đang tải..."
+  },
+  "sidebar": {
+    "title": "Bản Ghi",
+    "searchPlaceholder": "Tìm máy chủ/người dùng/dự án...",
+    "refresh": "Làm mới",
+    "noVideoDir": "Chưa cấu hình thư mục ghi",
+    "noSessions": "Không có bản ghi. Thư mục:",
+    "loadFailed": "Tải thất bại:",
+    "retry": "Thử lại",
+    "allProjects": "Tất Cả Dự Án",
+    "commandsCount": "lệnh"
+  },
+  "controls": {
+    "stepBack30": "Lùi 30s",
+    "stepBack10": "Lùi 10s",
+    "stepBack5": "Lùi 5s",
+    "play": "Phát",
+    "pause": "Tạm dừng",
+    "stop": "Dừng",
+    "restart": "Phát lại từ đầu",
+    "stepForward5": "Tiến 5s",
+    "stepForward10": "Tiến 10s",
+    "stepForward30": "Tiến 30s",
+    "skipIdle": "Bỏ qua thời gian rảnh",
+    "changeSpeed": "Đổi tốc độ"
+  },
+  "commands": {
+    "title": "Danh Sách Lệnh",
+    "totalCount": "Tổng",
+    "dangerCount": "Nguy hiểm",
+    "filteredCount": "Đã lọc",
+    "searchPlaceholder": "Tìm lệnh...",
+    "regexPlaceholder": "Tìm regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Chỉ nguy hiểm",
+    "noMatch": "Không có lệnh khớp",
+    "loadFailed": "Tải phiên thất bại:",
+    "castOffset": "Độ lệch",
+    "duration": "Thời lượng",
+    "exitCode": "Mã thoát"
+  },
+  "search": {
+    "placeholder": "Tìm trong terminal...",
+    "noMatch": "Không khớp",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Xuất Phiên",
+    "exporting": "Đang xuất...",
+    "failed": "Xuất thất bại:",
+    "csv": "Xuất danh sách lệnh (CSV)",
+    "json": "Xuất danh sách lệnh (JSON)",
+    "cast": "Sao chép bản ghi thô (.cast)",
+    "close": "Đóng"
+  },
+  "status": {
+    "duration": "Thời lượng"
+  }
+}

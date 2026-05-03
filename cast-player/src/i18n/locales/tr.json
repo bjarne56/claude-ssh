@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Kayıt Oynatma",
+    "emptyHint": "Kenar çubuğundan bir oturum seçin veya bir .cast dosyasını buraya sürükleyin",
+    "shortcutHint": "Kısayollar: Boşluk oynat/duraklat, Ctrl+F ara",
+    "readyStatus": "Hazır — bir oturum seçin",
+    "loading": "Yükleniyor..."
+  },
+  "sidebar": {
+    "title": "Kayıtlar",
+    "searchPlaceholder": "Ana bilgisayar/kullanıcı/proje ara...",
+    "refresh": "Yenile",
+    "noVideoDir": "Kayıt dizini yapılandırılmadı",
+    "noSessions": "Kayıt yok. Dizin:",
+    "loadFailed": "Yükleme başarısız:",
+    "retry": "Yeniden dene",
+    "allProjects": "Tüm Projeler",
+    "commandsCount": "kmd"
+  },
+  "controls": {
+    "stepBack30": "30s geri",
+    "stepBack10": "10s geri",
+    "stepBack5": "5s geri",
+    "play": "Oynat",
+    "pause": "Duraklat",
+    "stop": "Durdur",
+    "restart": "Baştan başlat",
+    "stepForward5": "5s ileri",
+    "stepForward10": "10s ileri",
+    "stepForward30": "30s ileri",
+    "skipIdle": "Boşta geçen süreyi atla",
+    "changeSpeed": "Hızı değiştir"
+  },
+  "commands": {
+    "title": "Komutlar",
+    "totalCount": "Toplam",
+    "dangerCount": "Tehlikeli",
+    "filteredCount": "Filtrelendi",
+    "searchPlaceholder": "Komut ara...",
+    "regexPlaceholder": "Regex ara...",
+    "regexLabel": ".*",
+    "dangerOnly": "Sadece tehlikeli",
+    "noMatch": "Eşleşen komut yok",
+    "loadFailed": "Oturum yüklenemedi:",
+    "castOffset": "Ofset",
+    "duration": "Süre",
+    "exitCode": "Çıkış kodu"
+  },
+  "search": {
+    "placeholder": "Terminalde ara...",
+    "noMatch": "Eşleşme yok",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Oturumu Dışa Aktar",
+    "exporting": "Dışa aktarılıyor...",
+    "failed": "Dışa aktarma başarısız:",
+    "csv": "Komut listesini dışa aktar (CSV)",
+    "json": "Komut listesini dışa aktar (JSON)",
+    "cast": "Ham kaydı kopyala (.cast)",
+    "close": "Kapat"
+  },
+  "status": {
+    "duration": "Süre"
+  }
+}

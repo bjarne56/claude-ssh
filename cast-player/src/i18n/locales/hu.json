@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Felvétel Lejátszás",
+    "emptyHint": "Válasszon munkamenetet az oldalsávból, vagy húzzon ide egy .cast fájlt",
+    "shortcutHint": "Gyorsbillentyűk: Szóköz lejátszás/szünet, Ctrl+F keresés",
+    "readyStatus": "Kész — válasszon munkamenetet",
+    "loading": "Betöltés..."
+  },
+  "sidebar": {
+    "title": "Felvételek",
+    "searchPlaceholder": "Gazdagép/felhasználó/projekt keresése...",
+    "refresh": "Frissítés",
+    "noVideoDir": "Nincs beállítva felvételkönyvtár",
+    "noSessions": "Nincsenek felvételek. Könyvtár:",
+    "loadFailed": "Betöltés sikertelen:",
+    "retry": "Újra",
+    "allProjects": "Minden projekt",
+    "commandsCount": "par"
+  },
+  "controls": {
+    "stepBack30": "30s vissza",
+    "stepBack10": "10s vissza",
+    "stepBack5": "5s vissza",
+    "play": "Lejátszás",
+    "pause": "Szünet",
+    "stop": "Leállítás",
+    "restart": "Újraindítás",
+    "stepForward5": "5s előre",
+    "stepForward10": "10s előre",
+    "stepForward30": "30s előre",
+    "skipIdle": "Üresjárat átugrása",
+    "changeSpeed": "Sebesség váltás"
+  },
+  "commands": {
+    "title": "Parancsok",
+    "totalCount": "Összes",
+    "dangerCount": "Veszélyes",
+    "filteredCount": "Szűrve",
+    "searchPlaceholder": "Parancsok keresése...",
+    "regexPlaceholder": "Regex keresés...",
+    "regexLabel": ".*",
+    "dangerOnly": "Csak veszélyes",
+    "noMatch": "Nincs találat",
+    "loadFailed": "Munkamenet betöltése sikertelen:",
+    "castOffset": "Eltolás",
+    "duration": "Időtartam",
+    "exitCode": "Kilépési kód"
+  },
+  "search": {
+    "placeholder": "Keresés a terminálban...",
+    "noMatch": "Nincs találat",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Munkamenet Exportálása",
+    "exporting": "Exportálás...",
+    "failed": "Exportálás sikertelen:",
+    "csv": "Parancslista exportálása (CSV)",
+    "json": "Parancslista exportálása (JSON)",
+    "cast": "Nyers felvétel másolása (.cast)",
+    "close": "Bezárás"
+  },
+  "status": {
+    "duration": "Időtartam"
+  }
+}

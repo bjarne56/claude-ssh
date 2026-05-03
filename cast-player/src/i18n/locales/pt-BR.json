@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Reprodução de Gravação",
+    "emptyHint": "Selecione uma sessão na barra lateral ou arraste um arquivo .cast aqui",
+    "shortcutHint": "Atalhos: Espaço reproduzir/pausar, Ctrl+F buscar",
+    "readyStatus": "Pronto — selecione uma sessão",
+    "loading": "Carregando..."
+  },
+  "sidebar": {
+    "title": "Gravações",
+    "searchPlaceholder": "Buscar host/usuário/projeto...",
+    "refresh": "Atualizar",
+    "noVideoDir": "Diretório de gravações não configurado",
+    "noSessions": "Nenhuma gravação. Diretório:",
+    "loadFailed": "Falha ao carregar:",
+    "retry": "Tentar novamente",
+    "allProjects": "Todos os Projetos",
+    "commandsCount": "cmds"
+  },
+  "controls": {
+    "stepBack30": "Voltar 30s",
+    "stepBack10": "Voltar 10s",
+    "stepBack5": "Voltar 5s",
+    "play": "Reproduzir",
+    "pause": "Pausar",
+    "stop": "Parar",
+    "restart": "Reiniciar",
+    "stepForward5": "Avançar 5s",
+    "stepForward10": "Avançar 10s",
+    "stepForward30": "Avançar 30s",
+    "skipIdle": "Pular tempo ocioso",
+    "changeSpeed": "Mudar velocidade"
+  },
+  "commands": {
+    "title": "Comandos",
+    "totalCount": "Total",
+    "dangerCount": "Perigoso",
+    "filteredCount": "Filtrado",
+    "searchPlaceholder": "Buscar comandos...",
+    "regexPlaceholder": "Busca regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Apenas perigosos",
+    "noMatch": "Nenhum comando",
+    "loadFailed": "Falha ao carregar sessão:",
+    "castOffset": "Deslocamento",
+    "duration": "Duração",
+    "exitCode": "Código saída"
+  },
+  "search": {
+    "placeholder": "Buscar no terminal...",
+    "noMatch": "Sem correspondência",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Exportar Sessão",
+    "exporting": "Exportando...",
+    "failed": "Falha na exportação:",
+    "csv": "Exportar lista de comandos (CSV)",
+    "json": "Exportar lista de comandos (JSON)",
+    "cast": "Copiar gravação bruta (.cast)",
+    "close": "Fechar"
+  },
+  "status": {
+    "duration": "Duração"
+  }
+}

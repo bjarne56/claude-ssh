@@ -8,7 +8,12 @@ import { SessionSidebar } from "./components/SessionSidebar";
 import { CommandPanel } from "./components/CommandPanel";
 import { SearchOverlay } from "./components/SearchOverlay";
 import { ExportDialog } from "./components/ExportDialog";
+import { detectLocale, setLocale, getLocale } from "./i18n";
 import "./index.css";
+
+// 启动时自动检测系统 locale
+setLocale(detectLocale());
+console.log(`Cast Player locale: ${getLocale()}`);
 
 function App() {
   const player = usePlayer();

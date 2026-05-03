@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Relecture",
+    "emptyHint": "Choisissez une session dans la barre latérale ou déposez un fichier .cast ici",
+    "shortcutHint": "Raccourcis: Espace lecture/pause, Ctrl+F recherche",
+    "readyStatus": "Prêt — sélectionnez une session",
+    "loading": "Chargement..."
+  },
+  "sidebar": {
+    "title": "Enregistrements",
+    "searchPlaceholder": "Rechercher hôte/utilisateur/projet...",
+    "refresh": "Actualiser",
+    "noVideoDir": "Répertoire d'enregistrement non configuré",
+    "noSessions": "Aucun enregistrement. Répertoire:",
+    "loadFailed": "Échec du chargement:",
+    "retry": "Réessayer",
+    "allProjects": "Tous les projets",
+    "commandsCount": "cmdes"
+  },
+  "controls": {
+    "stepBack30": "Reculer 30s",
+    "stepBack10": "Reculer 10s",
+    "stepBack5": "Reculer 5s",
+    "play": "Lecture",
+    "pause": "Pause",
+    "stop": "Arrêt",
+    "restart": "Recommencer",
+    "stepForward5": "Avancer 5s",
+    "stepForward10": "Avancer 10s",
+    "stepForward30": "Avancer 30s",
+    "skipIdle": "Sauter les temps morts",
+    "changeSpeed": "Changer la vitesse"
+  },
+  "commands": {
+    "title": "Commandes",
+    "totalCount": "Total",
+    "dangerCount": "Dangereux",
+    "filteredCount": "Filtré",
+    "searchPlaceholder": "Rechercher des commandes...",
+    "regexPlaceholder": "Recherche regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Dangereux uniquement",
+    "noMatch": "Aucune commande correspondante",
+    "loadFailed": "Échec du chargement de la session:",
+    "castOffset": "Décalage",
+    "duration": "Durée",
+    "exitCode": "Code sortie"
+  },
+  "search": {
+    "placeholder": "Rechercher dans le terminal...",
+    "noMatch": "Aucun résultat",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Exporter la session",
+    "exporting": "Exportation...",
+    "failed": "Échec de l'exportation:",
+    "csv": "Exporter la liste des commandes (CSV)",
+    "json": "Exporter la liste des commandes (JSON)",
+    "cast": "Copier l'enregistrement brut (.cast)",
+    "close": "Fermer"
+  },
+  "status": {
+    "duration": "Durée"
+  }
+}

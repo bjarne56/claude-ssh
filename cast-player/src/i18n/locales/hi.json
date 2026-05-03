@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "रिकॉर्डिंग प्लेबैक",
+    "emptyHint": "साइडबार से एक सत्र चुनें या .cast फ़ाइल यहाँ ड्रॉप करें",
+    "shortcutHint": "शॉर्टकट: Space चलाएं/रोकें, Ctrl+F खोजें",
+    "readyStatus": "तैयार — एक सत्र चुनें",
+    "loading": "लोड हो रहा है..."
+  },
+  "sidebar": {
+    "title": "रिकॉर्डिंग",
+    "searchPlaceholder": "होस्ट/उपयोगकर्ता/प्रोजेक्ट खोजें...",
+    "refresh": "ताज़ा करें",
+    "noVideoDir": "रिकॉर्डिंग निर्देशिका कॉन्फ़िगर नहीं",
+    "noSessions": "कोई रिकॉर्डिंग नहीं। निर्देशिका:",
+    "loadFailed": "लोड विफल:",
+    "retry": "पुनः प्रयास",
+    "allProjects": "सभी प्रोजेक्ट",
+    "commandsCount": "कमांड"
+  },
+  "controls": {
+    "stepBack30": "30से पीछे",
+    "stepBack10": "10से पीछे",
+    "stepBack5": "5से पीछे",
+    "play": "चलाएं",
+    "pause": "रोकें",
+    "stop": "रोकें",
+    "restart": "पुनः आरंभ",
+    "stepForward5": "5से आगे",
+    "stepForward10": "10से आगे",
+    "stepForward30": "30से आगे",
+    "skipIdle": "निष्क्रिय समय छोड़ें",
+    "changeSpeed": "गति बदलें"
+  },
+  "commands": {
+    "title": "कमांड",
+    "totalCount": "कुल",
+    "dangerCount": "खतरनाक",
+    "filteredCount": "फ़िल्टर",
+    "searchPlaceholder": "कमांड खोजें...",
+    "regexPlaceholder": "रेजेक्स खोज...",
+    "regexLabel": ".*",
+    "dangerOnly": "केवल खतरनाक",
+    "noMatch": "कोई मिलान कमांड नहीं",
+    "loadFailed": "सत्र लोड विफल:",
+    "castOffset": "ऑफ़सेट",
+    "duration": "अवधि",
+    "exitCode": "एक्ज़िट कोड"
+  },
+  "search": {
+    "placeholder": "टर्मिनल में खोजें...",
+    "noMatch": "कोई मिलान नहीं",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "सत्र निर्यात करें",
+    "exporting": "निर्यात हो रहा है...",
+    "failed": "निर्यात विफल:",
+    "csv": "कमांड सूची निर्यात (CSV)",
+    "json": "कमांड सूची निर्यात (JSON)",
+    "cast": "कच्ची रिकॉर्डिंग कॉपी (.cast)",
+    "close": "बंद करें"
+  },
+  "status": {
+    "duration": "अवधि"
+  }
+}

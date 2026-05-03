@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "錄像回放",
+    "emptyHint": "從左側選擇一個工作階段開始回放，或拖放 .cast 檔案到此視窗",
+    "shortcutHint": "快速鍵: Space 播放/暫停, Ctrl+F 搜尋",
+    "readyStatus": "準備就緒 — 選擇一個工作階段",
+    "loading": "載入中..."
+  },
+  "sidebar": {
+    "title": "錄像庫",
+    "searchPlaceholder": "搜尋主機/使用者/專案...",
+    "refresh": "重新整理",
+    "noVideoDir": "未設定錄像目錄",
+    "noSessions": "暫無錄像。錄像目錄:",
+    "loadFailed": "載入失敗:",
+    "retry": "重試",
+    "allProjects": "全部專案",
+    "commandsCount": "指令"
+  },
+  "controls": {
+    "stepBack30": "快退 30s",
+    "stepBack10": "快退 10s",
+    "stepBack5": "快退 5s",
+    "play": "播放",
+    "pause": "暫停",
+    "stop": "停止",
+    "restart": "重新開始",
+    "stepForward5": "快進 5s",
+    "stepForward10": "快進 10s",
+    "stepForward30": "快進 30s",
+    "skipIdle": "自動跳過閒置時間",
+    "changeSpeed": "切換播放速度"
+  },
+  "commands": {
+    "title": "指令列表",
+    "totalCount": "總計",
+    "dangerCount": "危險",
+    "filteredCount": "已過濾",
+    "searchPlaceholder": "搜尋指令...",
+    "regexPlaceholder": "正則搜尋...",
+    "regexLabel": ".*",
+    "dangerOnly": "僅危險",
+    "noMatch": "暫無匹配指令",
+    "loadFailed": "載入工作階段失敗:",
+    "castOffset": "偏移",
+    "duration": "耗時",
+    "exitCode": "退出"
+  },
+  "search": {
+    "placeholder": "在終端機中搜尋...",
+    "noMatch": "無匹配",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "匯出工作階段",
+    "exporting": "匯出中...",
+    "failed": "匯出失敗:",
+    "csv": "匯出指令清單 (CSV)",
+    "json": "匯出指令清單 (JSON)",
+    "cast": "複製原始錄像檔案 (.cast)",
+    "close": "關閉"
+  },
+  "status": {
+    "duration": "時長"
+  }
+}

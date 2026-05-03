@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Cast Player",
+    "emptyHint": "Choose a session from the sidebar, or drag & drop a .cast file here",
+    "shortcutHint": "Shortcuts: Space play/pause, Ctrl+F search",
+    "readyStatus": "Ready — select a session",
+    "loading": "Loading..."
+  },
+  "sidebar": {
+    "title": "Recordings",
+    "searchPlaceholder": "Search host/user/project...",
+    "refresh": "Refresh",
+    "noVideoDir": "No recording directory configured",
+    "noSessions": "No recordings. Directory:",
+    "loadFailed": "Load failed:",
+    "retry": "Retry",
+    "allProjects": "All Projects",
+    "commandsCount": "cmds"
+  },
+  "controls": {
+    "stepBack30": "Rewind 30s",
+    "stepBack10": "Rewind 10s",
+    "stepBack5": "Rewind 5s",
+    "play": "Play",
+    "pause": "Pause",
+    "stop": "Stop",
+    "restart": "Restart",
+    "stepForward5": "Forward 5s",
+    "stepForward10": "Forward 10s",
+    "stepForward30": "Forward 30s",
+    "skipIdle": "Skip idle time",
+    "changeSpeed": "Change playback speed"
+  },
+  "commands": {
+    "title": "Commands",
+    "totalCount": "Total",
+    "dangerCount": "Danger",
+    "filteredCount": "Filtered",
+    "searchPlaceholder": "Search commands...",
+    "regexPlaceholder": "Regex search...",
+    "regexLabel": ".*",
+    "dangerOnly": "Danger only",
+    "noMatch": "No matching commands",
+    "loadFailed": "Failed to load session:",
+    "castOffset": "Offset",
+    "duration": "Duration",
+    "exitCode": "Exit"
+  },
+  "search": {
+    "placeholder": "Search in terminal...",
+    "noMatch": "No match",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Export Session",
+    "exporting": "Exporting...",
+    "failed": "Export failed:",
+    "csv": "Export command list (CSV)",
+    "json": "Export command list (JSON)",
+    "cast": "Copy raw recording (.cast)",
+    "close": "Close"
+  },
+  "status": {
+    "duration": "Duration"
+  }
+}

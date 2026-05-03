@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Воспроизведение Записи",
+    "emptyHint": "Выберите сеанс на боковой панели или перетащите файл .cast сюда",
+    "shortcutHint": "Горячие клавиши: Пробел воспр./пауза, Ctrl+F поиск",
+    "readyStatus": "Готово — выберите сеанс",
+    "loading": "Загрузка..."
+  },
+  "sidebar": {
+    "title": "Записи",
+    "searchPlaceholder": "Поиск хоста/пользователя/проекта...",
+    "refresh": "Обновить",
+    "noVideoDir": "Каталог записей не настроен",
+    "noSessions": "Нет записей. Каталог:",
+    "loadFailed": "Ошибка загрузки:",
+    "retry": "Повторить",
+    "allProjects": "Все проекты",
+    "commandsCount": "кмд"
+  },
+  "controls": {
+    "stepBack30": "Назад 30с",
+    "stepBack10": "Назад 10с",
+    "stepBack5": "Назад 5с",
+    "play": "Воспр.",
+    "pause": "Пауза",
+    "stop": "Стоп",
+    "restart": "Заново",
+    "stepForward5": "Вперёд 5с",
+    "stepForward10": "Вперёд 10с",
+    "stepForward30": "Вперёд 30с",
+    "skipIdle": "Пропуск бездействия",
+    "changeSpeed": "Скорость"
+  },
+  "commands": {
+    "title": "Команды",
+    "totalCount": "Всего",
+    "dangerCount": "Опасные",
+    "filteredCount": "Отфильтровано",
+    "searchPlaceholder": "Поиск команд...",
+    "regexPlaceholder": "Regex-поиск...",
+    "regexLabel": ".*",
+    "dangerOnly": "Только опасные",
+    "noMatch": "Нет совпадений",
+    "loadFailed": "Ошибка загрузки сеанса:",
+    "castOffset": "Смещение",
+    "duration": "Длит.",
+    "exitCode": "Код выхода"
+  },
+  "search": {
+    "placeholder": "Поиск в терминале...",
+    "noMatch": "Нет совпадений",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Экспорт Сеанса",
+    "exporting": "Экспорт...",
+    "failed": "Ошибка экспорта:",
+    "csv": "Экспорт списка команд (CSV)",
+    "json": "Экспорт списка команд (JSON)",
+    "cast": "Копировать сырую запись (.cast)",
+    "close": "Закрыть"
+  },
+  "status": {
+    "duration": "Длительность"
+  }
+}

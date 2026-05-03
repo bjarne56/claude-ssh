@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "הפעלת הקלטה",
+    "emptyHint": "בחר הפעלה מהסרגל הצידי או גרור קובץ cast. לכאן",
+    "shortcutHint": "קיצורי דרך: רווח הפעלה/השהיה, Ctrl+F חיפוש",
+    "readyStatus": "מוכן — בחר הפעלה",
+    "loading": "טוען..."
+  },
+  "sidebar": {
+    "title": "הקלטות",
+    "searchPlaceholder": "חפש מארח/משתמש/פרויקט...",
+    "refresh": "רענן",
+    "noVideoDir": "תיקיית הקלטות לא הוגדרה",
+    "noSessions": "אין הקלטות. תיקייה:",
+    "loadFailed": "הטעינה נכשלה:",
+    "retry": "נסה שוב",
+    "allProjects": "כל הפרויקטים",
+    "commandsCount": "פק"
+  },
+  "controls": {
+    "stepBack30": "30ש' אחורה",
+    "stepBack10": "10ש' אחורה",
+    "stepBack5": "5ש' אחורה",
+    "play": "הפעל",
+    "pause": "השהה",
+    "stop": "עצור",
+    "restart": "התחל מחדש",
+    "stepForward5": "5ש' קדימה",
+    "stepForward10": "10ש' קדימה",
+    "stepForward30": "30ש' קדימה",
+    "skipIdle": "דלג על זמן לא פעיל",
+    "changeSpeed": "שנה מהירות"
+  },
+  "commands": {
+    "title": "פקודות",
+    "totalCount": "סה\"כ",
+    "dangerCount": "מסוכן",
+    "filteredCount": "מסונן",
+    "searchPlaceholder": "חפש פקודות...",
+    "regexPlaceholder": "חיפוש רגקס...",
+    "regexLabel": ".*",
+    "dangerOnly": "מסוכנות בלבד",
+    "noMatch": "אין פקודות תואמות",
+    "loadFailed": "טעינת הפעלה נכשלה:",
+    "castOffset": "היסט",
+    "duration": "משך",
+    "exitCode": "קוד יציאה"
+  },
+  "search": {
+    "placeholder": "חפש במסוף...",
+    "noMatch": "אין תוצאות",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "ייצא הפעלה",
+    "exporting": "מייצא...",
+    "failed": "היצוא נכשל:",
+    "csv": "ייצא רשימת פקודות (CSV)",
+    "json": "ייצא רשימת פקודות (JSON)",
+    "cast": "העתק הקלטה גולמית (cast.)",
+    "close": "סגור"
+  },
+  "status": {
+    "duration": "משך"
+  }
+}

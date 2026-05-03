@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Redare Înregistrare",
+    "emptyHint": "Selectați o sesiune din bara laterală sau trageți un fișier .cast aici",
+    "shortcutHint": "Scurtături: Spațiu redare/pauză, Ctrl+F căutare",
+    "readyStatus": "Gata — selectați o sesiune",
+    "loading": "Încărcare..."
+  },
+  "sidebar": {
+    "title": "Înregistrări",
+    "searchPlaceholder": "Căutați gazdă/utilizator/proiect...",
+    "refresh": "Reîmprospătare",
+    "noVideoDir": "Directorul de înregistrări nu este configurat",
+    "noSessions": "Nicio înregistrare. Director:",
+    "loadFailed": "Încărcare eșuată:",
+    "retry": "Reîncercați",
+    "allProjects": "Toate proiectele",
+    "commandsCount": "cmd"
+  },
+  "controls": {
+    "stepBack30": "30s înapoi",
+    "stepBack10": "10s înapoi",
+    "stepBack5": "5s înapoi",
+    "play": "Redare",
+    "pause": "Pauză",
+    "stop": "Oprire",
+    "restart": "Reîncepe",
+    "stepForward5": "5s înainte",
+    "stepForward10": "10s înainte",
+    "stepForward30": "30s înainte",
+    "skipIdle": "Sari peste inactivitate",
+    "changeSpeed": "Schimbă viteza"
+  },
+  "commands": {
+    "title": "Comenzi",
+    "totalCount": "Total",
+    "dangerCount": "Periculos",
+    "filteredCount": "Filtrat",
+    "searchPlaceholder": "Căutați comenzi...",
+    "regexPlaceholder": "Căutare regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Doar periculoase",
+    "noMatch": "Nicio comandă potrivită",
+    "loadFailed": "Încărcare sesiune eșuată:",
+    "castOffset": "Decalaj",
+    "duration": "Durată",
+    "exitCode": "Cod ieșire"
+  },
+  "search": {
+    "placeholder": "Căutați în terminal...",
+    "noMatch": "Nicio potrivire",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Exportă Sesiune",
+    "exporting": "Se exportă...",
+    "failed": "Export eșuat:",
+    "csv": "Exportă lista de comenzi (CSV)",
+    "json": "Exportă lista de comenzi (JSON)",
+    "cast": "Copiază înregistrarea brută (.cast)",
+    "close": "Închide"
+  },
+  "status": {
+    "duration": "Durată"
+  }
+}

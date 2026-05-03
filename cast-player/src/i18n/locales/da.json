@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Optagelsesafspilning",
+    "emptyHint": "Vælg en session fra sidepanelet eller slip en .cast-fil her",
+    "shortcutHint": "Genveje: Mellemrum afspil/pause, Ctrl+F søg",
+    "readyStatus": "Klar — vælg en session",
+    "loading": "Indlæser..."
+  },
+  "sidebar": {
+    "title": "Optagelser",
+    "searchPlaceholder": "Søg vært/bruger/projekt...",
+    "refresh": "Opdater",
+    "noVideoDir": "Ingen optagelsesmappe konfigureret",
+    "noSessions": "Ingen optagelser. Mappe:",
+    "loadFailed": "Indlæsning fejlede:",
+    "retry": "Prøv igen",
+    "allProjects": "Alle projekter",
+    "commandsCount": "kmd"
+  },
+  "controls": {
+    "stepBack30": "30s tilbage",
+    "stepBack10": "10s tilbage",
+    "stepBack5": "5s tilbage",
+    "play": "Afspil",
+    "pause": "Pause",
+    "stop": "Stop",
+    "restart": "Genstart",
+    "stepForward5": "5s frem",
+    "stepForward10": "10s frem",
+    "stepForward30": "30s frem",
+    "skipIdle": "Spring inaktiv tid over",
+    "changeSpeed": "Skift hastighed"
+  },
+  "commands": {
+    "title": "Kommandoer",
+    "totalCount": "Total",
+    "dangerCount": "Farlig",
+    "filteredCount": "Filtreret",
+    "searchPlaceholder": "Søg kommandoer...",
+    "regexPlaceholder": "Regex-søg...",
+    "regexLabel": ".*",
+    "dangerOnly": "Kun farlige",
+    "noMatch": "Ingen matchende kommandoer",
+    "loadFailed": "Session indlæsning fejlede:",
+    "castOffset": "Offset",
+    "duration": "Varighed",
+    "exitCode": "Afslutningskode"
+  },
+  "search": {
+    "placeholder": "Søg i terminalen...",
+    "noMatch": "Ingen match",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Eksporter Session",
+    "exporting": "Eksporterer...",
+    "failed": "Eksport fejlede:",
+    "csv": "Eksporter kommandoliste (CSV)",
+    "json": "Eksporter kommandoliste (JSON)",
+    "cast": "Kopier rå optagelse (.cast)",
+    "close": "Luk"
+  },
+  "status": {
+    "duration": "Varighed"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Αναπαραγωγή Εγγραφής",
+    "emptyHint": "Επιλέξτε μια συνεδρία από την πλαϊνή μπάρα ή σύρετε ένα αρχείο .cast εδώ",
+    "shortcutHint": "Συντομεύσεις: Space αναπαραγωγή/παύση, Ctrl+F αναζήτηση",
+    "readyStatus": "Έτοιμο — επιλέξτε συνεδρία",
+    "loading": "Φόρτωση..."
+  },
+  "sidebar": {
+    "title": "Εγγραφές",
+    "searchPlaceholder": "Αναζήτηση κεντρικού υπολογιστή/χρήστη/έργου...",
+    "refresh": "Ανανέωση",
+    "noVideoDir": "Δεν έχει ρυθμιστεί φάκελος εγγραφών",
+    "noSessions": "Δεν υπάρχουν εγγραφές. Φάκελος:",
+    "loadFailed": "Αποτυχία φόρτωσης:",
+    "retry": "Επανάληψη",
+    "allProjects": "Όλα τα έργα",
+    "commandsCount": "εντ"
+  },
+  "controls": {
+    "stepBack30": "Πίσω 30s",
+    "stepBack10": "Πίσω 10s",
+    "stepBack5": "Πίσω 5s",
+    "play": "Αναπαραγωγή",
+    "pause": "Παύση",
+    "stop": "Διακοπή",
+    "restart": "Επανεκκίνηση",
+    "stepForward5": "Μπροστά 5s",
+    "stepForward10": "Μπροστά 10s",
+    "stepForward30": "Μπροστά 30s",
+    "skipIdle": "Παράλειψη αδράνειας",
+    "changeSpeed": "Αλλαγή ταχύτητας"
+  },
+  "commands": {
+    "title": "Εντολές",
+    "totalCount": "Σύνολο",
+    "dangerCount": "Επικίνδυνες",
+    "filteredCount": "Φιλτραρισμένες",
+    "searchPlaceholder": "Αναζήτηση εντολών...",
+    "regexPlaceholder": "Αναζήτηση regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Μόνο επικίνδυνες",
+    "noMatch": "Καμία αντιστοιχία",
+    "loadFailed": "Αποτυχία φόρτωσης συνεδρίας:",
+    "castOffset": "Μετατόπιση",
+    "duration": "Διάρκεια",
+    "exitCode": "Κωδικός εξόδου"
+  },
+  "search": {
+    "placeholder": "Αναζήτηση στο τερματικό...",
+    "noMatch": "Καμία αντιστοιχία",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Εξαγωγή Συνεδρίας",
+    "exporting": "Εξαγωγή...",
+    "failed": "Αποτυχία εξαγωγής:",
+    "csv": "Εξαγωγή λίστας εντολών (CSV)",
+    "json": "Εξαγωγή λίστας εντολών (JSON)",
+    "cast": "Αντιγραφή ακατέργαστης εγγραφής (.cast)",
+    "close": "Κλείσιμο"
+  },
+  "status": {
+    "duration": "Διάρκεια"
+  }
+}

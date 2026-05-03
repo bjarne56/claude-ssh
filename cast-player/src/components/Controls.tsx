@@ -1,5 +1,6 @@
 import type { CommandRecord, CastEventMeta } from "../types";
 import type { usePlayer } from "../usePlayer";
+import { useTranslation } from "../i18n";
 
 type PlayerHook = ReturnType<typeof usePlayer>;
 
@@ -21,6 +22,7 @@ export function Controls({
   commands,
   totalDuration,
 }: ControlsProps) {
+  const { t } = useTranslation();
   const {
     playState,
     elapsed,
@@ -44,7 +46,6 @@ export function Controls({
     seekTo(pct * totalDuration);
   };
 
-  // 命令标记点
   const markers = commands
     .filter((c) => c.cast_offset > 0 && c.cast_offset <= totalDuration)
     .map((c) => ({
@@ -77,55 +78,66 @@ export function Controls({
         <div className="group">
           <button
             onClick={() => stepBackward(30)}
-            title="快退 30s"
+            title={t("controls.stepBack30")}
             disabled={playState === "idle"}
           >
             ⏪ 30
           </button>
           <button
             onClick={() => stepBackward(10)}
-            title="快退 10s"
+            title={t("controls.stepBack10")}
             disabled={playState === "idle"}
           >
             ◀◀ 10
           </button>
           <button
             onClick={() => stepBackward(5)}
-            title="快退 5s"
+            title={t("controls.stepBack5")}
             disabled={playState === "idle"}
           >
             ◀ 5
           </button>
         </div>
         <div className="group">
-          <button onClick={togglePlay} title={playState === "playing" ? "暂停" : "播放"}>
+          <button
+            onClick={togglePlay}
+            title={playState === "playing" ? t("controls.pause") : t("controls.play")}
+          >
             {playState === "playing" ? "⏸" : "▶"}
           </button>
-          <button onClick={stop} title="停止" disabled={playState === "idle"}>
+          <button
+            onClick={stop}
+            title={t("controls.stop")}
+            disabled={playState === "idle"}
+          >
             ⏹
           </button>
-          <button onClick={restart} title="重新开始" disabled={playState === "idle"}>
+          <button
+            onClick={restart}
+            title={t("controls.restart")}
+            disabled={playState === "idle"}
+          >
             ↺
           </button>
         </div>
         <div className="group">
           <button
             onClick={() => stepForward(5)}
-            title="快进 5s"
+            title={t("controls.stepForward5")}
             disabled={playState === "idle"}
           >
             5 ▶
           </button>
           <button
             onClick={() => stepForward(10)}
-            title="快进 10s"
+            title={t("controls.stepForward10")}
             disabled={playState === "idle"}
           >
             10 ▶▶
           </button>
           <button
             onClick={() => stepForward(30)}
-            title="快进 30s"
+            title={t("controls.stepForward30")}
             disabled={playState === "idle"}
           >
             30 ⏩
@@ -135,12 +147,16 @@ export function Controls({
         <div className="group">
           <button
             onClick={toggleSkipIdle}
-            title="自动跳过空闲时间"
+            title={t("controls.skipIdle")}
             className={skipIdle ? "primary" : ""}
           >
             {skipIdle ? "⚡" : "⏳"}
           </button>
-          <button onClick={cycleSpeed} title="切换倍速" className="speed-badge">
+          <button
+            onClick={cycleSpeed}
+            title={t("controls.changeSpeed")}
+            className="speed-badge"
+          >
             {speed}x
           </button>
         </div>

@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Přehrávání Záznamu",
+    "emptyHint": "Vyberte relaci z postranního panelu nebo sem přetáhněte soubor .cast",
+    "shortcutHint": "Zkratky: Mezerník přehrát/pozastavit, Ctrl+F hledat",
+    "readyStatus": "Připraveno — vyberte relaci",
+    "loading": "Načítání..."
+  },
+  "sidebar": {
+    "title": "Záznamy",
+    "searchPlaceholder": "Hledat hostitele/uživatele/projekt...",
+    "refresh": "Obnovit",
+    "noVideoDir": "Adresář záznamů není nakonfigurován",
+    "noSessions": "Žádné záznamy. Adresář:",
+    "loadFailed": "Načítání selhalo:",
+    "retry": "Zkusit znovu",
+    "allProjects": "Všechny projekty",
+    "commandsCount": "přík"
+  },
+  "controls": {
+    "stepBack30": "30s zpět",
+    "stepBack10": "10s zpět",
+    "stepBack5": "5s zpět",
+    "play": "Přehrát",
+    "pause": "Pozastavit",
+    "stop": "Zastavit",
+    "restart": "Od začátku",
+    "stepForward5": "5s vpřed",
+    "stepForward10": "10s vpřed",
+    "stepForward30": "30s vpřed",
+    "skipIdle": "Přeskočit nečinnost",
+    "changeSpeed": "Změnit rychlost"
+  },
+  "commands": {
+    "title": "Příkazy",
+    "totalCount": "Celkem",
+    "dangerCount": "Nebezpečné",
+    "filteredCount": "Filtrováno",
+    "searchPlaceholder": "Hledat příkazy...",
+    "regexPlaceholder": "Regex hledání...",
+    "regexLabel": ".*",
+    "dangerOnly": "Jen nebezpečné",
+    "noMatch": "Žádné odpovídající příkazy",
+    "loadFailed": "Načtení relace selhalo:",
+    "castOffset": "Posun",
+    "duration": "Trvání",
+    "exitCode": "Návratový kód"
+  },
+  "search": {
+    "placeholder": "Hledat v terminálu...",
+    "noMatch": "Žádná shoda",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Exportovat Relaci",
+    "exporting": "Exportuji...",
+    "failed": "Export selhal:",
+    "csv": "Exportovat seznam příkazů (CSV)",
+    "json": "Exportovat seznam příkazů (JSON)",
+    "cast": "Kopírovat surový záznam (.cast)",
+    "close": "Zavřít"
+  },
+  "status": {
+    "duration": "Trvání"
+  }
+}

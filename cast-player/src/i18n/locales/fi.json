@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Tallenteen Toisto",
+    "emptyHint": "Valitse istunto sivupalkista tai pudota .cast-tiedosto tähän",
+    "shortcutHint": "Pikanäppäimet: Välilyönti toista/tauko, Ctrl+F haku",
+    "readyStatus": "Valmis — valitse istunto",
+    "loading": "Ladataan..."
+  },
+  "sidebar": {
+    "title": "Tallenteet",
+    "searchPlaceholder": "Hae isäntä/käyttäjä/projekti...",
+    "refresh": "Päivitä",
+    "noVideoDir": "Tallennuskansiota ei ole määritetty",
+    "noSessions": "Ei tallenteita. Kansio:",
+    "loadFailed": "Lataus epäonnistui:",
+    "retry": "Yritä uudelleen",
+    "allProjects": "Kaikki projektit",
+    "commandsCount": "kmd"
+  },
+  "controls": {
+    "stepBack30": "30s taakse",
+    "stepBack10": "10s taakse",
+    "stepBack5": "5s taakse",
+    "play": "Toista",
+    "pause": "Tauko",
+    "stop": "Pysäytä",
+    "restart": "Aloita alusta",
+    "stepForward5": "5s eteen",
+    "stepForward10": "10s eteen",
+    "stepForward30": "30s eteen",
+    "skipIdle": "Ohita joutoaika",
+    "changeSpeed": "Vaihda nopeutta"
+  },
+  "commands": {
+    "title": "Komennot",
+    "totalCount": "Yhteensä",
+    "dangerCount": "Vaarallinen",
+    "filteredCount": "Suodatettu",
+    "searchPlaceholder": "Hae komentoja...",
+    "regexPlaceholder": "Regex-haku...",
+    "regexLabel": ".*",
+    "dangerOnly": "Vain vaaralliset",
+    "noMatch": "Ei vastaavia komentoja",
+    "loadFailed": "Istunnon lataus epäonnistui:",
+    "castOffset": "Siirtymä",
+    "duration": "Kesto",
+    "exitCode": "Paluukoodi"
+  },
+  "search": {
+    "placeholder": "Hae terminaalista...",
+    "noMatch": "Ei tuloksia",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Vie Istunto",
+    "exporting": "Viedään...",
+    "failed": "Vienti epäonnistui:",
+    "csv": "Vie komentoluettelo (CSV)",
+    "json": "Vie komentoluettelo (JSON)",
+    "cast": "Kopioi raaka tallenne (.cast)",
+    "close": "Sulje"
+  },
+  "status": {
+    "duration": "Kesto"
+  }
+}

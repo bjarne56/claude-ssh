@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Reproducir Grabación",
+    "emptyHint": "Seleccione una sesión de la barra lateral o arrastre un archivo .cast aquí",
+    "shortcutHint": "Atajos: Espacio reproducir/pausar, Ctrl+F buscar",
+    "readyStatus": "Listo — seleccione una sesión",
+    "loading": "Cargando..."
+  },
+  "sidebar": {
+    "title": "Grabaciones",
+    "searchPlaceholder": "Buscar host/usuario/proyecto...",
+    "refresh": "Actualizar",
+    "noVideoDir": "Directorio de grabaciones no configurado",
+    "noSessions": "Sin grabaciones. Directorio:",
+    "loadFailed": "Error al cargar:",
+    "retry": "Reintentar",
+    "allProjects": "Todos los proyectos",
+    "commandsCount": "cmds"
+  },
+  "controls": {
+    "stepBack30": "Retroceder 30s",
+    "stepBack10": "Retroceder 10s",
+    "stepBack5": "Retroceder 5s",
+    "play": "Reproducir",
+    "pause": "Pausa",
+    "stop": "Detener",
+    "restart": "Reiniciar",
+    "stepForward5": "Avanzar 5s",
+    "stepForward10": "Avanzar 10s",
+    "stepForward30": "Avanzar 30s",
+    "skipIdle": "Saltar tiempo inactivo",
+    "changeSpeed": "Cambiar velocidad"
+  },
+  "commands": {
+    "title": "Comandos",
+    "totalCount": "Total",
+    "dangerCount": "Peligroso",
+    "filteredCount": "Filtrado",
+    "searchPlaceholder": "Buscar comandos...",
+    "regexPlaceholder": "Búsqueda regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Solo peligrosos",
+    "noMatch": "Sin comandos coincidentes",
+    "loadFailed": "Error al cargar sesión:",
+    "castOffset": "Desplazamiento",
+    "duration": "Duración",
+    "exitCode": "Código salida"
+  },
+  "search": {
+    "placeholder": "Buscar en la terminal...",
+    "noMatch": "Sin coincidencias",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Exportar Sesión",
+    "exporting": "Exportando...",
+    "failed": "Error al exportar:",
+    "csv": "Exportar lista de comandos (CSV)",
+    "json": "Exportar lista de comandos (JSON)",
+    "cast": "Copiar grabación original (.cast)",
+    "close": "Cerrar"
+  },
+  "status": {
+    "duration": "Duración"
+  }
+}

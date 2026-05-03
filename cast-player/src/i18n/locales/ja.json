@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "録画再生",
+    "emptyHint": "左のサイドバーからセッションを選択するか、.cast ファイルをドロップしてください",
+    "shortcutHint": "ショートカット: Space 再生/一時停止, Ctrl+F 検索",
+    "readyStatus": "準備完了 — セッションを選択してください",
+    "loading": "読み込み中..."
+  },
+  "sidebar": {
+    "title": "録画ライブラリ",
+    "searchPlaceholder": "ホスト/ユーザー/プロジェクトを検索...",
+    "refresh": "更新",
+    "noVideoDir": "録画ディレクトリが設定されていません",
+    "noSessions": "録画がありません。ディレクトリ:",
+    "loadFailed": "読み込み失敗:",
+    "retry": "再試行",
+    "allProjects": "すべてのプロジェクト",
+    "commandsCount": "コマンド"
+  },
+  "controls": {
+    "stepBack30": "30秒戻る",
+    "stepBack10": "10秒戻る",
+    "stepBack5": "5秒戻る",
+    "play": "再生",
+    "pause": "一時停止",
+    "stop": "停止",
+    "restart": "最初から再生",
+    "stepForward5": "5秒進む",
+    "stepForward10": "10秒進む",
+    "stepForward30": "30秒進む",
+    "skipIdle": "アイドル時間をスキップ",
+    "changeSpeed": "再生速度を変更"
+  },
+  "commands": {
+    "title": "コマンド一覧",
+    "totalCount": "合計",
+    "dangerCount": "危険",
+    "filteredCount": "フィルター済み",
+    "searchPlaceholder": "コマンドを検索...",
+    "regexPlaceholder": "正規表現で検索...",
+    "regexLabel": ".*",
+    "dangerOnly": "危険のみ",
+    "noMatch": "一致するコマンドがありません",
+    "loadFailed": "セッションの読み込みに失敗:",
+    "castOffset": "オフセット",
+    "duration": "所要時間",
+    "exitCode": "終了コード"
+  },
+  "search": {
+    "placeholder": "端末内を検索...",
+    "noMatch": "一致なし",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "セッションをエクスポート",
+    "exporting": "エクスポート中...",
+    "failed": "エクスポート失敗:",
+    "csv": "コマンド一覧をエクスポート (CSV)",
+    "json": "コマンド一覧をエクスポート (JSON)",
+    "cast": "録画ファイルをコピー (.cast)",
+    "close": "閉じる"
+  },
+  "status": {
+    "duration": "再生時間"
+  }
+}

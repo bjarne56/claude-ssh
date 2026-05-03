@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "تشغيل التسجيل",
+    "emptyHint": "اختر جلسة من الشريط الجانبي أو اسحب ملف .cast هنا",
+    "shortcutHint": "الاختصارات: مسافة تشغيل/إيقاف, Ctrl+F بحث",
+    "readyStatus": "جاهز — اختر جلسة",
+    "loading": "..."
+  },
+  "sidebar": {
+    "title": "التسجيلات",
+    "searchPlaceholder": "بحث مضيف/مستخدم/مشروع...",
+    "refresh": "تحديث",
+    "noVideoDir": "لم يتم تكوين دليل التسجيلات",
+    "noSessions": "لا توجد تسجيلات. الدليل:",
+    "loadFailed": "فشل التحميل:",
+    "retry": "إعادة المحاولة",
+    "allProjects": "كل المشاريع",
+    "commandsCount": "أمر"
+  },
+  "controls": {
+    "stepBack30": "للخلف 30ث",
+    "stepBack10": "للخلف 10ث",
+    "stepBack5": "للخلف 5ث",
+    "play": "تشغيل",
+    "pause": "إيقاف مؤقت",
+    "stop": "إيقاف",
+    "restart": "إعادة التشغيل",
+    "stepForward5": "للأمام 5ث",
+    "stepForward10": "للأمام 10ث",
+    "stepForward30": "للأمام 30ث",
+    "skipIdle": "تخطي وقت الخمول",
+    "changeSpeed": "تغيير السرعة"
+  },
+  "commands": {
+    "title": "الأوامر",
+    "totalCount": "المجموع",
+    "dangerCount": "خطر",
+    "filteredCount": "تمت التصفية",
+    "searchPlaceholder": "بحث عن أوامر...",
+    "regexPlaceholder": "بحث تعبير نمطي...",
+    "regexLabel": ".*",
+    "dangerOnly": "الخطرة فقط",
+    "noMatch": "لا توجد أوامر مطابقة",
+    "loadFailed": "فشل تحميل الجلسة:",
+    "castOffset": "الإزاحة",
+    "duration": "المدة",
+    "exitCode": "كود الخروج"
+  },
+  "search": {
+    "placeholder": "بحث في الطرفية...",
+    "noMatch": "لا توجد نتائج",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "تصدير الجلسة",
+    "exporting": "...",
+    "failed": "فشل التصدير:",
+    "csv": "تصدير قائمة الأوامر (CSV)",
+    "json": "تصدير قائمة الأوامر (JSON)",
+    "cast": "نسخ التسجيل الخام (.cast)",
+    "close": "إغلاق"
+  },
+  "status": {
+    "duration": "المدة"
+  }
+}

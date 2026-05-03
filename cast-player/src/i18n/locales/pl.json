@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Odtwarzanie Nagrania",
+    "emptyHint": "Wybierz sesję z panelu bocznego lub przeciągnij plik .cast tutaj",
+    "shortcutHint": "Skróty: Spacja odtwarzanie/pauza, Ctrl+F szukaj",
+    "readyStatus": "Gotowy — wybierz sesję",
+    "loading": "Ładowanie..."
+  },
+  "sidebar": {
+    "title": "Nagrania",
+    "searchPlaceholder": "Szukaj hosta/użytkownika/projektu...",
+    "refresh": "Odśwież",
+    "noVideoDir": "Nie skonfigurowano katalogu nagrań",
+    "noSessions": "Brak nagrań. Katalog:",
+    "loadFailed": "Błąd ładowania:",
+    "retry": "Ponów",
+    "allProjects": "Wszystkie projekty",
+    "commandsCount": "pol"
+  },
+  "controls": {
+    "stepBack30": "30s wstecz",
+    "stepBack10": "10s wstecz",
+    "stepBack5": "5s wstecz",
+    "play": "Odtwarzaj",
+    "pause": "Pauza",
+    "stop": "Stop",
+    "restart": "Od nowa",
+    "stepForward5": "5s do przodu",
+    "stepForward10": "10s do przodu",
+    "stepForward30": "30s do przodu",
+    "skipIdle": "Pomiń czas bezczynności",
+    "changeSpeed": "Zmień prędkość"
+  },
+  "commands": {
+    "title": "Polecenia",
+    "totalCount": "Razem",
+    "dangerCount": "Niebezpieczne",
+    "filteredCount": "Przefiltrowane",
+    "searchPlaceholder": "Szukaj poleceń...",
+    "regexPlaceholder": "Szukaj regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Tylko niebezpieczne",
+    "noMatch": "Brak pasujących poleceń",
+    "loadFailed": "Błąd ładowania sesji:",
+    "castOffset": "Przesunięcie",
+    "duration": "Czas trwania",
+    "exitCode": "Kod wyjścia"
+  },
+  "search": {
+    "placeholder": "Szukaj w terminalu...",
+    "noMatch": "Brak wyników",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Eksportuj Sesję",
+    "exporting": "Eksportowanie...",
+    "failed": "Błąd eksportu:",
+    "csv": "Eksportuj listę poleceń (CSV)",
+    "json": "Eksportuj listę poleceń (JSON)",
+    "cast": "Kopiuj surowe nagranie (.cast)",
+    "close": "Zamknij"
+  },
+  "status": {
+    "duration": "Czas trwania"
+  }
+}

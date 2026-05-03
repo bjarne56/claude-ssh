@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Aufzeichnungswiedergabe",
+    "emptyHint": "Wählen Sie eine Sitzung aus der Seitenleiste oder ziehen Sie eine .cast-Datei hierher",
+    "shortcutHint": "Tastenkürzel: Leertaste Wiedergabe/Pause, Strg+F Suche",
+    "readyStatus": "Bereit — Sitzung auswählen",
+    "loading": "Laden..."
+  },
+  "sidebar": {
+    "title": "Aufzeichnungen",
+    "searchPlaceholder": "Host/Benutzer/Projekt suchen...",
+    "refresh": "Aktualisieren",
+    "noVideoDir": "Kein Aufzeichnungsverzeichnis konfiguriert",
+    "noSessions": "Keine Aufzeichnungen. Verzeichnis:",
+    "loadFailed": "Laden fehlgeschlagen:",
+    "retry": "Wiederholen",
+    "allProjects": "Alle Projekte",
+    "commandsCount": "Befehle"
+  },
+  "controls": {
+    "stepBack30": "30s zurück",
+    "stepBack10": "10s zurück",
+    "stepBack5": "5s zurück",
+    "play": "Wiedergabe",
+    "pause": "Pause",
+    "stop": "Stopp",
+    "restart": "Neustart",
+    "stepForward5": "5s vor",
+    "stepForward10": "10s vor",
+    "stepForward30": "30s vor",
+    "skipIdle": "Leerlauf überspringen",
+    "changeSpeed": "Geschwindigkeit ändern"
+  },
+  "commands": {
+    "title": "Befehlsliste",
+    "totalCount": "Gesamt",
+    "dangerCount": "Gefährlich",
+    "filteredCount": "Gefiltert",
+    "searchPlaceholder": "Befehle suchen...",
+    "regexPlaceholder": "Regex-Suche...",
+    "regexLabel": ".*",
+    "dangerOnly": "Nur gefährliche",
+    "noMatch": "Keine passenden Befehle",
+    "loadFailed": "Sitzung laden fehlgeschlagen:",
+    "castOffset": "Offset",
+    "duration": "Dauer",
+    "exitCode": "Exit-Code"
+  },
+  "search": {
+    "placeholder": "Im Terminal suchen...",
+    "noMatch": "Kein Treffer",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Sitzung exportieren",
+    "exporting": "Exportiere...",
+    "failed": "Export fehlgeschlagen:",
+    "csv": "Befehlsliste exportieren (CSV)",
+    "json": "Befehlsliste exportieren (JSON)",
+    "cast": "Rohaufzeichnung kopieren (.cast)",
+    "close": "Schließen"
+  },
+  "status": {
+    "duration": "Dauer"
+  }
+}

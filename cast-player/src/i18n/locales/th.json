@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "เล่นบันทึก",
+    "emptyHint": "เลือกเซสชันจากแถบด้านข้างหรือลากไฟล์ .cast มาที่นี่",
+    "shortcutHint": "ทางลัด: สเปซบาร์ เล่น/หยุด, Ctrl+F ค้นหา",
+    "readyStatus": "พร้อม — เลือกเซสชัน",
+    "loading": "กำลังโหลด..."
+  },
+  "sidebar": {
+    "title": "บันทึก",
+    "searchPlaceholder": "ค้นหาโฮสต์/ผู้ใช้/โปรเจกต์...",
+    "refresh": "รีเฟรช",
+    "noVideoDir": "ไม่ได้ตั้งค่าไดเรกทอรีบันทึก",
+    "noSessions": "ไม่มีบันทึก ไดเรกทอรี:",
+    "loadFailed": "โหลดล้มเหลว:",
+    "retry": "ลองอีกครั้ง",
+    "allProjects": "โปรเจกต์ทั้งหมด",
+    "commandsCount": "คำสั่ง"
+  },
+  "controls": {
+    "stepBack30": "ถอยหลัง 30วิ",
+    "stepBack10": "ถอยหลัง 10วิ",
+    "stepBack5": "ถอยหลัง 5วิ",
+    "play": "เล่น",
+    "pause": "หยุดชั่วคราว",
+    "stop": "หยุด",
+    "restart": "เริ่มใหม่",
+    "stepForward5": "เดินหน้า 5วิ",
+    "stepForward10": "เดินหน้า 10วิ",
+    "stepForward30": "เดินหน้า 30วิ",
+    "skipIdle": "ข้ามเวลาว่าง",
+    "changeSpeed": "เปลี่ยนความเร็ว"
+  },
+  "commands": {
+    "title": "คำสั่ง",
+    "totalCount": "ทั้งหมด",
+    "dangerCount": "อันตราย",
+    "filteredCount": "กรองแล้ว",
+    "searchPlaceholder": "ค้นหาคำสั่ง...",
+    "regexPlaceholder": "ค้นหาด้วย regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "เฉพาะอันตราย",
+    "noMatch": "ไม่พบคำสั่งที่ตรงกัน",
+    "loadFailed": "โหลดเซสชันล้มเหลว:",
+    "castOffset": "ออฟเซ็ต",
+    "duration": "ระยะเวลา",
+    "exitCode": "รหัสออก"
+  },
+  "search": {
+    "placeholder": "ค้นหาในเทอร์มินัล...",
+    "noMatch": "ไม่พบ",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "ส่งออกเซสชัน",
+    "exporting": "กำลังส่งออก...",
+    "failed": "ส่งออกล้มเหลว:",
+    "csv": "ส่งออกรายการคำสั่ง (CSV)",
+    "json": "ส่งออกรายการคำสั่ง (JSON)",
+    "cast": "คัดลอกบันทึกดิบ (.cast)",
+    "close": "ปิด"
+  },
+  "status": {
+    "duration": "ระยะเวลา"
+  }
+}

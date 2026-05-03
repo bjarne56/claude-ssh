@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Pemutaran Rekaman",
+    "emptyHint": "Pilih sesi dari bilah sisi atau seret file .cast ke sini",
+    "shortcutHint": "Pintasan: Spasi putar/jeda, Ctrl+F cari",
+    "readyStatus": "Siap — pilih sesi",
+    "loading": "Memuat..."
+  },
+  "sidebar": {
+    "title": "Rekaman",
+    "searchPlaceholder": "Cari host/pengguna/proyek...",
+    "refresh": "Segarkan",
+    "noVideoDir": "Direktori rekaman tidak dikonfigurasi",
+    "noSessions": "Tidak ada rekaman. Direktori:",
+    "loadFailed": "Gagal memuat:",
+    "retry": "Coba lagi",
+    "allProjects": "Semua Proyek",
+    "commandsCount": "prh"
+  },
+  "controls": {
+    "stepBack30": "Mundur 30dtk",
+    "stepBack10": "Mundur 10dtk",
+    "stepBack5": "Mundur 5dtk",
+    "play": "Putar",
+    "pause": "Jeda",
+    "stop": "Berhenti",
+    "restart": "Mulai ulang",
+    "stepForward5": "Maju 5dtk",
+    "stepForward10": "Maju 10dtk",
+    "stepForward30": "Maju 30dtk",
+    "skipIdle": "Lewati waktu diam",
+    "changeSpeed": "Ubah kecepatan"
+  },
+  "commands": {
+    "title": "Perintah",
+    "totalCount": "Total",
+    "dangerCount": "Bahaya",
+    "filteredCount": "Difilter",
+    "searchPlaceholder": "Cari perintah...",
+    "regexPlaceholder": "Pencarian regex...",
+    "regexLabel": ".*",
+    "dangerOnly": "Hanya berbahaya",
+    "noMatch": "Tidak ada perintah cocok",
+    "loadFailed": "Gagal memuat sesi:",
+    "castOffset": "Offset",
+    "duration": "Durasi",
+    "exitCode": "Kode keluar"
+  },
+  "search": {
+    "placeholder": "Cari di terminal...",
+    "noMatch": "Tidak cocok",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Ekspor Sesi",
+    "exporting": "Mengekspor...",
+    "failed": "Ekspor gagal:",
+    "csv": "Ekspor daftar perintah (CSV)",
+    "json": "Ekspor daftar perintah (JSON)",
+    "cast": "Salin rekaman mentah (.cast)",
+    "close": "Tutup"
+  },
+  "status": {
+    "duration": "Durasi"
+  }
+}

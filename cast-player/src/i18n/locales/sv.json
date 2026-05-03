@@ -1,0 +1,67 @@
+{
+  "app": {
+    "title": "Inspelningsuppspelning",
+    "emptyHint": "Välj en session från sidopanelen eller släpp en .cast-fil här",
+    "shortcutHint": "Genvägar: Mellanslag spela/pausa, Ctrl+F sök",
+    "readyStatus": "Redo — välj en session",
+    "loading": "Laddar..."
+  },
+  "sidebar": {
+    "title": "Inspelningar",
+    "searchPlaceholder": "Sök värd/användare/projekt...",
+    "refresh": "Uppdatera",
+    "noVideoDir": "Ingen inspelningsmapp konfigurerad",
+    "noSessions": "Inga inspelningar. Mapp:",
+    "loadFailed": "Laddning misslyckades:",
+    "retry": "Försök igen",
+    "allProjects": "Alla projekt",
+    "commandsCount": "kmd"
+  },
+  "controls": {
+    "stepBack30": "30s bakåt",
+    "stepBack10": "10s bakåt",
+    "stepBack5": "5s bakåt",
+    "play": "Spela",
+    "pause": "Paus",
+    "stop": "Stopp",
+    "restart": "Börja om",
+    "stepForward5": "5s framåt",
+    "stepForward10": "10s framåt",
+    "stepForward30": "30s framåt",
+    "skipIdle": "Hoppa över vilotid",
+    "changeSpeed": "Ändra hastighet"
+  },
+  "commands": {
+    "title": "Kommandon",
+    "totalCount": "Totalt",
+    "dangerCount": "Farligt",
+    "filteredCount": "Filtrerat",
+    "searchPlaceholder": "Sök kommandon...",
+    "regexPlaceholder": "Regex-sök...",
+    "regexLabel": ".*",
+    "dangerOnly": "Endast farliga",
+    "noMatch": "Inga matchande kommandon",
+    "loadFailed": "Session laddades inte:",
+    "castOffset": "Offset",
+    "duration": "Varaktighet",
+    "exitCode": "Utgångskod"
+  },
+  "search": {
+    "placeholder": "Sök i terminalen...",
+    "noMatch": "Ingen träff",
+    "caseSensitive": "Aa",
+    "regex": ".*"
+  },
+  "export": {
+    "title": "Exportera Session",
+    "exporting": "Exporterar...",
+    "failed": "Export misslyckades:",
+    "csv": "Exportera kommandolista (CSV)",
+    "json": "Exportera kommandolista (JSON)",
+    "cast": "Kopiera rå inspelning (.cast)",
+    "close": "Stäng"
+  },
+  "status": {
+    "duration": "Varaktighet"
+  }
+}

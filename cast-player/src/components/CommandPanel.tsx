@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CommandRecord } from "../types";
 import { DANGEROUS_PATTERNS } from "../types";
+import { useTranslation } from "../i18n";
 
 interface CommandPanelProps {
   commands: CommandRecord[];
@@ -13,7 +14,6 @@ interface CommandPanelProps {
 
 function formatTime(ts: string): string {
   if (!ts) return "";
-  // 取 HH:MM:SS 部分
   try {
     const d = new Date(ts);
     return d.toLocaleTimeString();
@@ -30,6 +30,7 @@ export function CommandPanel({
   commandCount,
   dangerousCount,
 }: CommandPanelProps) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState("");
   const [regexMode, setRegexMode] = useState(false);
   const [showDangerousOnly, setShowDangerousOnly] = useState(false);
@@ -51,7 +52,6 @@ export function CommandPanel({
         const re = new RegExp(q, "i");
         filtered = filtered.filter((c) => re.test(c.cmd));
       } catch {
-        // 无效正则,退回普通搜索
         filtered = filtered.filter((c) =>
           c.cmd.toLowerCase().includes(q.toLowerCase())
         );
@@ -62,7 +62,6 @@ export function CommandPanel({
     }
   }
 
-  // 判断当前 active 命令
   let activeIdx = -1;
   for (let i = 0; i < commands.length; i++) {
     if (commands[i].cast_offset <= elapsed) {
@@ -98,41 +97,63 @@ export function CommandPanel({
   return (
     <div className="command-panel">
       <div className="command-panel-header">
-        <h3>命令列表</h3>
+        <h3>{t("commands.title")}</h3>
         <div className="command-panel-stats">
-          <span>总计: {commandCount}</span>
-          <span style={{ color: "var(--danger)" }}>危险: {dangerousCount}</span>
-          <span>已过滤: {filtered.length}</span>
+          <span>{t("commands.totalCount")}: {commandCount}</span>
+          <span style={{ color: "var(--danger)" }}>
+            {t("commands.dangerCount")}: {dangerousCount}
+          </span>
+          <span>{t("commands.filteredCount")}: {filtered.length}</span>
         </div>
         <input
           type="text"
-          placeholder={regexMode ? "正则搜索..." : "搜索命令..."}
+          placeholder={regexMode ? t("commands.regexPlaceholder") : t("commands.searchPlaceholder")}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, cursor: "pointer", color: regexMode ? "var(--accent)" : "var(--text-muted)" }}>
+          <label
+            style={{
+              fontSize: 11,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              cursor: "pointer",
+              color: regexMode ? "var(--accent)" : "var(--text-muted)",
+            }}
+          >
             <input
               type="checkbox"
               checked={regexMode}
               onChange={(e) => setRegexMode(e.target.checked)}
             />
-            .*
+            {t("commands.regexLabel")}
           </label>
-          <label style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4, cursor: "pointer", color: showDangerousOnly ? "var(--danger)" : "var(--text-muted)" }}>
+          <label
+            style={{
+              fontSize: 11,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              cursor: "pointer",
+              color: showDangerousOnly ? "var(--danger)" : "var(--text-muted)",
+            }}
+          >
             <input
               type="checkbox"
               checked={showDangerousOnly}
               onChange={(e) => setShowDangerousOnly(e.target.checked)}
             />
-            仅危险
+            {t("commands.dangerOnly")}
           </label>
         </div>
       </div>
       <div className="command-list">
         {filtered.length === 0 && (
-          <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>
-            暂无匹配命令
+          <div
+            style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}
+          >
+            {t("commands.noMatch")}
           </div>
         )}
         {filtered.map((cmd, i) => {
@@ -147,12 +168,10 @@ export function CommandPanel({
               key={cmd.nonce || `${cmd.ts}-${i}`}
               className={`command-item ${isDangerous ? "dangerous" : ""} ${isActive ? "active" : ""}`}
               onClick={() => onSeek(cmd.cast_offset)}
-              title={`偏移: ${cmd.cast_offset.toFixed(1)}s | 耗时: ${cmd.duration_ms}ms | 退出: ${cmd.exit}`}
+              title={`${t("commands.castOffset")}: ${cmd.cast_offset.toFixed(1)}s | ${t("commands.duration")}: ${cmd.duration_ms}ms | ${t("commands.exitCode")}: ${cmd.exit}`}
             >
               <div className="cmd-text">
-                {filter
-                  ? highlightText(cmd.cmd, filter)
-                  : cmd.cmd}
+                {filter ? highlightText(cmd.cmd, filter) : cmd.cmd}
               </div>
               <div className="cmd-meta">
                 <span>{formatTime(cmd.ts)}</span>
