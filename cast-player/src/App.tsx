@@ -70,9 +70,13 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData]);
 
+  // 点击命令时回退一段, 让用户能看到 prompt 出现 + 用户敲命令的过程,
+  // 而非直接跳到命令已经执行后。
+  const COMMAND_LEAD_IN_SECONDS = 3.0;
   const handleSeekToCommand = useCallback(
     (castOffset: number) => {
-      player.seekTo(castOffset);
+      const target = Math.max(0, castOffset - COMMAND_LEAD_IN_SECONDS);
+      player.seekTo(target);
       if (player.playState !== "playing") player.play();
     },
     [player]
