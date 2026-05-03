@@ -1,0 +1,72 @@
+diff --git a/src/cmd/session.rs b/src/cmd/session.rs
+index 4ead302..fffca1b 100644
+--- a/src/cmd/session.rs
++++ b/src/cmd/session.rs
+@@ -20,6 +20,7 @@ use crate::cli::{self, Format, RelayTarget};
+ use crate::config::{self, Config};
+ use crate::encoder::{AsciicastV2Encoder, AsciicastV3Encoder, Encoder, RawEncoder, TextEncoder};
+ use crate::file_writer::FileWriter;
++use crate::unix_socket_output::UnixSocketOutput;
+ use crate::forwarder;
+ use crate::hash;
+ use crate::locale;
+@@ -100,6 +101,19 @@ impl cli::Session {
+             outputs.push(Box::new(output));
+         }
+ 
++        // ssh-ops fork: cast 文件旁建 unix socket (路径 = file + ".sock")
++        // ssh-ops 直连读 raw PTY output, 跳过 cast flush + jq 解析
++        if let Some(file_path) = &self.output_file {
++            let pb = std::path::PathBuf::from(file_path);
++            let file_name = pb.file_name()
++                .and_then(|n| n.to_str())
++                .unwrap_or("stream");
++            let sock_path = pb.with_file_name(format!("{file_name}.sock"));
++            if let Ok(out) = UnixSocketOutput::new(sock_path) {
++                outputs.push(Box::new(out));
++            }
++        }
++
+         let server = listener.map(|listener| {
+             tokio::spawn(server::serve(
+                 listener,
+diff --git a/src/file_writer.rs b/src/file_writer.rs
+index 3b38836..dad5c7b 100644
+--- a/src/file_writer.rs
++++ b/src/file_writer.rs
+@@ -82,7 +82,12 @@ impl session::Output for LiveFileWriter {
+             .write_all(&self.encoder.event(event.into()))
+             .await
+         {
+-            Ok(_) => Ok(()),
++            Ok(_) => {
++                // ssh-ops fork: 每个 event 后立即 flush 到磁盘,
++                // 确保 ssh-ops 切片能立即读到 (上游 asciinema 默认 buffered, 滞后 1-3s)
++                let _ = self.writer.flush().await;
++                Ok(())
++            }
+ 
+             Err(e) => {
+                 let _ = self
+@@ -96,7 +101,8 @@ impl session::Output for LiveFileWriter {
+     }
+ 
+     async fn flush(&mut self) -> io::Result<()> {
+-        self.writer.write_all(&self.encoder.flush()).await
++        self.writer.write_all(&self.encoder.flush()).await?;
++        self.writer.flush().await
+     }
+ }
+ 
+diff --git a/src/main.rs b/src/main.rs
+index ddae4fb..6f6c0a9 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -20,6 +20,7 @@ mod session;
+ mod status;
+ mod stream;
+ mod tty;
++mod unix_socket_output;
+ mod util;
+ 
+ use std::process::{ExitCode, Termination};
