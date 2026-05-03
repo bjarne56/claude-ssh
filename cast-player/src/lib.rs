@@ -24,6 +24,11 @@ pub struct SessionSummary {
     pub host: String,
     pub user: String,
     pub started_at: String,
+    /// AI 命令数 (从 meta.json 读)
+    pub ai_command_count: u64,
+    /// 手动键入命令数 (从 cast 提取)
+    pub human_command_count: u64,
+    /// 总命令数 (ai + human, 用于侧栏显示)
     pub command_count: u64,
     pub cast_path: String,
     pub meta_path: String,
@@ -72,13 +77,27 @@ fn scan_sessions(video_dir: String) -> Result<Vec<SessionSummary>, String> {
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
 
+                // 快速扫描 cast 提取手动命令数 (1132 events ≈ 10ms)
+                let human_count = match CastIndex::read_all_events(&cast_path) {
+                    Ok(events) => {
+                        let groups = extract_input_groups(&events);
+                        let ai_cmds = load_commands(&commands_path).unwrap_or_default();
+                        let merged = merge_commands_with_inputs(ai_cmds, &events);
+                        let _ = groups;
+                        merged.iter().filter(|c| c.actor == "human").count() as u64
+                    }
+                    Err(_) => 0,
+                };
+
                 sessions.push(SessionSummary {
                     session_id: meta.session_id.clone(),
                     project,
                     host: meta.host_resolved.clone(),
                     user: meta.user.clone(),
                     started_at: meta.started_at.clone(),
-                    command_count: meta.command_count,
+                    ai_command_count: meta.command_count,
+                    human_command_count: human_count,
+                    command_count: meta.command_count + human_count,
                     cast_path: cast_path.to_string_lossy().to_string(),
                     meta_path: meta_path.to_string_lossy().to_string(),
                     commands_path: commands_path.to_string_lossy().to_string(),
@@ -208,6 +227,21 @@ fn copy_cast_file(session_dir: String, output_path: String) -> Result<String, St
     let cast_path = dir.join("stream.cast");
     std::fs::copy(&cast_path, &output_path).map_err(|e| format!("复制文件失败: {e}"))?;
     Ok(format!("已复制录像文件到 {}", output_path))
+}
+
+/// 删除 session 整个目录 (含 stream.cast / meta.json / commands.jsonl / annotations.jsonl)
+#[tauri::command]
+fn delete_session(session_dir: String) -> Result<String, String> {
+    let dir = PathBuf::from(&session_dir);
+    if !dir.exists() {
+        return Err(format!("目录不存在: {session_dir}"));
+    }
+    // 安全检查: 必须是 session 目录 (含 stream.cast 或 meta.json)
+    if !dir.join("stream.cast").exists() && !dir.join("meta.json").exists() {
+        return Err(format!("非 session 目录, 拒绝删除: {session_dir}"));
+    }
+    std::fs::remove_dir_all(&dir).map_err(|e| format!("删除失败: {e}"))?;
+    Ok(format!("已删除 {}", session_dir))
 }
 
 #[tauri::command]
@@ -357,6 +391,7 @@ pub fn run() {
             export_commands_csv,
             export_commands_json,
             copy_cast_file,
+            delete_session,
             get_default_video_dir,
             set_app_locale,
             get_app_locale,

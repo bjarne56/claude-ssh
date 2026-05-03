@@ -6,6 +6,8 @@ export interface SessionSummary {
   host: string;
   user: string;
   started_at: string;
+  ai_command_count: number;
+  human_command_count: number;
   command_count: number;
   cast_path: string;
   meta_path: string;

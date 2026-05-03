@@ -57,3 +57,8 @@ export async function setAppLocale(locale: string): Promise<void> {
     console.error("设置应用菜单 locale 失败:", e);
   }
 }
+
+/// 删除 session 整个目录
+export async function deleteSession(sessionDir: string): Promise<string> {
+  return invoke("delete_session", { sessionDir });
+}

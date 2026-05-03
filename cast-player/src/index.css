@@ -135,6 +135,29 @@ input:focus, select:focus { border-color: var(--accent); }
   border: 1px solid transparent;
   margin-bottom: 2px;
   transition: background 0.1s;
+  position: relative;
+}
+.session-delete-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 3px;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s, background 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.session-card:hover .session-delete-btn {
+  opacity: 0.7;
+}
+.session-delete-btn:hover {
+  opacity: 1 !important;
+  color: var(--danger);
+  background: var(--bg-tertiary);
 }
 .session-card:hover { background: var(--bg-surface); }
 .session-card.active {

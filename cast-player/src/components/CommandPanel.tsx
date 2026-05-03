@@ -10,16 +10,31 @@ interface CommandPanelProps {
   totalDuration: number;
   commandCount: number;
   dangerousCount: number;
+  sessionStartedAt: string; // ISO 时间, 用于给无 ts 的 human/inject 命令算时间
 }
 
+/** 用 session 起始时间 + cast offset 给 human 命令算实际钟表时间 */
+function timeFromOffset(startedAt: string, offset: number): string {
+  if (!startedAt) return "";
+  const cleaned = startedAt.replace(/\.\d?[A-Za-z]+Z$/i, ".000Z");
+  const start = new Date(cleaned);
+  if (isNaN(start.getTime())) return "";
+  const t = new Date(start.getTime() + offset * 1000);
+  return t.toLocaleTimeString(undefined, { hour12: false });
+}
+
+/** 解析 ts, 兼容 ssh-ops 写入的 strftime 残留 ".3NZ" 等不规范格式 */
 function formatTime(ts: string): string {
   if (!ts) return "";
-  try {
-    const d = new Date(ts);
-    return d.toLocaleTimeString();
-  } catch {
-    return ts.slice(11, 19) || ts;
+  // 修正 strftime 残留: ".3NZ" / ".%3NZ" → ".000Z"
+  const cleaned = ts.replace(/\.\d?[A-Za-z]+Z$/i, ".000Z").replace(/\.%3NZ$/i, ".000Z");
+  const d = new Date(cleaned);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleTimeString(undefined, { hour12: false });
   }
+  // fallback: 直接从 ISO 字符串截取 HH:MM:SS
+  const m = ts.match(/T(\d{2}:\d{2}:\d{2})/);
+  return m ? m[1] : ts;
 }
 
 export function CommandPanel({
@@ -29,6 +44,7 @@ export function CommandPanel({
   totalDuration: _totalDuration,
   commandCount,
   dangerousCount,
+  sessionStartedAt,
 }: CommandPanelProps) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState("");
@@ -200,9 +216,11 @@ export function CommandPanel({
                 {filter ? highlightText(cmd.cmd, filter) : cmd.cmd}
               </div>
               <div className="cmd-meta">
-                {cmd.ts && <span>{formatTime(cmd.ts)}</span>}
+                <span>
+                  {cmd.ts ? formatTime(cmd.ts) : timeFromOffset(sessionStartedAt, cmd.input_start_offset || cmd.cast_offset)}
+                </span>
                 <span>{cmd.cast_offset.toFixed(1)}s</span>
-                {!isHuman && cmd.exit !== 0 && <span>exit:{cmd.exit}</span>}
+                {cmd.exit !== 0 && <span>exit:{cmd.exit}</span>}
               </div>
             </div>
           );

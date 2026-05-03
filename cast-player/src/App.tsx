@@ -118,6 +118,12 @@ function App() {
       <SessionSidebar
         onSelect={handleSelectSession}
         activeSessionId={activeSession?.session_id ?? null}
+        onSessionDeleted={(deletedId) => {
+          if (activeSession?.session_id === deletedId) {
+            setActiveSession(null);
+            setLoadData(null);
+          }
+        }}
       />
 
       <div className="main-column">
@@ -161,8 +167,9 @@ function App() {
                 elapsed={player.elapsed}
                 onSeek={handleSeekToCommand}
                 totalDuration={loadData.index.total_duration}
-                commandCount={loadData.meta.command_count}
-                dangerousCount={loadData.meta.dangerous_count}
+                commandCount={loadData.commands.length}
+                dangerousCount={loadData.commands.filter((c) => c.dangerous).length}
+                sessionStartedAt={loadData.meta.started_at}
               />
             </div>
             <div className="status-bar">
