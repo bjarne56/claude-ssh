@@ -6,6 +6,8 @@ export interface SessionSummary {
   host: string;
   user: string;
   started_at: string;
+  /** Cast 真实开始的 unix 时间戳 (秒). 用于本地时区显示 */
+  cast_timestamp: number | null;
   ai_command_count: number;
   human_command_count: number;
   command_count: number;

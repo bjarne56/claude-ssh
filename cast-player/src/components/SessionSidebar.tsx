@@ -8,6 +8,28 @@ import {
   setVideoDir as saveVideoDir,
 } from "../tauri-api";
 import { open } from "@tauri-apps/plugin-dialog";
+
+/** UTC unix 秒 → 本机本地时间 "YYYY-MM-DD HH:mm"
+ *  Rust 端 cast.timestamp / started_at 都是 UTC,
+ *  Date 对象 + toLocaleString("sv-SE") 输出 ISO 风格本机时区 */
+function fmtLocal(unixSec: number | null, fallbackIso: string): string {
+  let d: Date;
+  if (unixSec && unixSec > 0) {
+    d = new Date(unixSec * 1000);
+  } else {
+    d = new Date(fallbackIso.replace(/\.\d?[A-Za-z]+Z$/i, ".000Z"));
+  }
+  if (isNaN(d.getTime())) return fallbackIso.slice(0, 16).replace("T", " ");
+  // sv-SE 输出 "YYYY-MM-DD HH:mm" 格式 (瑞典 ISO 风格), 自动用本机时区
+  return d.toLocaleString("sv-SE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
 import { useTranslation } from "../i18n";
 
 interface SessionSidebarProps {
@@ -219,8 +241,8 @@ export function SessionSidebar({
                   </span>
                 )}
               </span>
-              <span>
-                {s.started_at.slice(0, 16).replace("T", " ")}
+              <span title={`UTC: ${s.started_at}`}>
+                {fmtLocal(s.cast_timestamp, s.started_at)}
               </span>
             </div>
             <div className="meta" style={{ fontSize: 10 }}>

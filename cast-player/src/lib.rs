@@ -24,6 +24,8 @@ pub struct SessionSummary {
     pub host: String,
     pub user: String,
     pub started_at: String,
+    /// Cast 真实开始的 unix 时间戳 (秒). 用于显示准确本地时间
+    pub cast_timestamp: Option<u64>,
     /// AI 命令数 (从 meta.json 读)
     pub ai_command_count: u64,
     /// 手动键入命令数 (从 cast 提取)
@@ -77,17 +79,21 @@ fn scan_sessions(video_dir: String) -> Result<Vec<SessionSummary>, String> {
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_default();
 
-                // 快速扫描 cast 提取手动命令数 (1132 events ≈ 10ms)
-                let human_count = match CastIndex::read_all_events(&cast_path) {
-                    Ok(events) => {
-                        let groups = extract_input_groups(&events);
-                        let ai_cmds = load_commands(&commands_path).unwrap_or_default();
-                        let merged = merge_commands_with_inputs(ai_cmds, &events);
-                        let _ = groups;
-                        merged.iter().filter(|c| c.actor == "human").count() as u64
-                    }
-                    Err(_) => 0,
-                };
+                // 快速扫描 cast: 读 header timestamp + 提取手动命令数
+                let (cast_timestamp, human_count) =
+                    match CastIndex::read_all_events(&cast_path) {
+                        Ok(events) => {
+                            let ai_cmds = load_commands(&commands_path).unwrap_or_default();
+                            let merged = merge_commands_with_inputs(ai_cmds, &events);
+                            let h = merged.iter().filter(|c| c.actor == "human").count() as u64;
+                            // 读 header timestamp (CastIndex::build 会解析整个 header)
+                            let ts = CastIndex::build(&cast_path)
+                                .ok()
+                                .and_then(|idx| idx.header.timestamp);
+                            (ts, h)
+                        }
+                        Err(_) => (None, 0),
+                    };
 
                 sessions.push(SessionSummary {
                     session_id: meta.session_id.clone(),
@@ -95,6 +101,7 @@ fn scan_sessions(video_dir: String) -> Result<Vec<SessionSummary>, String> {
                     host: meta.host_resolved.clone(),
                     user: meta.user.clone(),
                     started_at: meta.started_at.clone(),
+                    cast_timestamp,
                     ai_command_count: meta.command_count,
                     human_command_count: human_count,
                     command_count: meta.command_count + human_count,
