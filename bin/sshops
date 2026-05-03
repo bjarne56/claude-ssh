@@ -240,8 +240,8 @@ cmd_run() {
     local t_send_start t_send_end t_poll_end t_cast_end
     t_send_start="$(now_ms)"
 
-    # 命令发送前的 cast offset (作为切片起点)
-    local start_offset; start_offset="$(record_cast_offset "$sid")"
+    # 命令发送前的 cast 字节偏移 (作为切片起点 — 不依赖时间, 不会错位)
+    local start_byte; start_byte="$(record_cast_size "$sid")"
 
     wt_send_text "$pane" "$REM_CMD"
     t_send_end="$(now_ms)"
@@ -266,10 +266,15 @@ cmd_run() {
     done
     t_poll_end="$(now_ms)"
 
-    # 切片: 从 cast 文件提取 [start_offset, end_offset] 的输出
-    # cast 文件流式写入, 完整保留所有输出, 无 scrollback 限制
-    local end_offset; end_offset="$(record_cast_offset "$sid")"
-    local raw_output; raw_output="$(record_extract_output "$sid" "$start_offset" "$end_offset" 2>/dev/null || true)"
+    # 切片: 从 cast 字节偏移开始读到末尾 (等 flush 稳定), 拼接所有 'o' 事件
+    if [[ "$debug_timing" == "1" ]]; then
+        log_info "TIMING_RANGE: start_byte=$start_byte" >&2
+    fi
+    local raw_output; raw_output="$(record_extract_output_from_byte "$sid" "$start_byte" 2>/dev/null || true)"
+    if [[ "$debug_timing" == "1" ]]; then
+        local raw_len; raw_len="${#raw_output}"
+        log_info "TIMING_RAW: raw_output_bytes=$raw_len first50=${raw_output:0:50}" >&2
+    fi
     # strip ANSI + 去掉首行命令 echo + 末行 prompt
     local output
     output="$(printf '%s' "$raw_output" | strip_ansi | sed '1d;$d')"

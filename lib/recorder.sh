@@ -141,68 +141,66 @@ record_set_pane() {
     jq --argjson p "$pane" '.wezterm_pane_id = $p' "$dir/meta.json" > "$tmp" && mv "$tmp" "$dir/meta.json"
 }
 
-# record_cast_offset <session_id>:打印当前距离录制开始的秒数(浮点)
+# record_cast_offset <session_id>:打印当前距离 cast 真正开始的秒数(浮点)
+# 优先用 cast 文件 header 的 timestamp (asciinema 真实开始时刻),
+# fallback .start_ts (record_init 时刻, 早于 cast)
 record_cast_offset() {
     local sid="$1"
     local dir; dir="$(record_session_dir "$sid")"
-    [[ -f "$dir/.start_ts" ]] || { printf '0'; return 0; }
-    local start; start="$(cat "$dir/.start_ts")"
+    local cast="$dir/stream.cast"
+    local base=""
+    if [[ -f "$cast" ]]; then
+        # 第一行 header 的 timestamp 字段 (cast v3 unix 秒)
+        base="$(head -1 "$cast" 2>/dev/null | jq -r '.timestamp // empty' 2>/dev/null)"
+    fi
+    if [[ -z "$base" ]] && [[ -f "$dir/.start_ts" ]]; then
+        base="$(cat "$dir/.start_ts")"
+    fi
+    [[ -z "$base" ]] && { printf '0'; return 0; }
     local now; now="$(date -u '+%s.%N')"
-    awk -v a="$now" -v b="$start" 'BEGIN { printf "%.3f", a - b }'
+    awk -v a="$now" -v b="$base" 'BEGIN { printf "%.3f", a - b }'
 }
 
-# record_extract_output <session_id> <start_offset> <end_offset>
-# 从 stream.cast 提取 [start_offset, end_offset] 时间范围内所有 "o" 输出
-# 拼接为完整文本输出到 stdout。
-# 不依赖 wezterm scrollback, 命令多大输出都不丢。
-# 等待 cast 文件 fsync (asciinema 异步 flush, 可能需要等几百 ms)
-record_extract_output() {
-    local sid="$1" start="$2" end="$3"
+# record_cast_size <session_id>: 输出 cast 文件当前字节大小 (用于切片起点)
+record_cast_size() {
+    local sid="$1"
+    local dir; dir="$(record_session_dir "$sid")"
+    local cast="$dir/stream.cast"
+    [[ -f "$cast" ]] && wc -c < "$cast" | tr -d ' ' || printf '0'
+}
+
+# record_extract_output_from_byte <session_id> <start_byte>
+# 从 cast 字节偏移开始读到末尾, 等 cast flush 稳定后, 提取所有 'o' 事件 data
+# 不依赖时间偏移 (asciinema header.timestamp 不可靠), 只看实际写入字节
+record_extract_output_from_byte() {
+    local sid="$1" start_byte="$2"
     local dir; dir="$(record_session_dir "$sid")"
     local cast="$dir/stream.cast"
     [[ -f "$cast" ]] || return 1
 
-    # 等 cast 文件 fsync 完整 (asciinema 异步写, 给 200ms 缓冲)
-    sleep 0.2
+    # 等 cast 文件大小稳定: 连续 3 次相同大小 (asciinema flush 完毕)
+    # 最多等 3 秒, 100ms 粒度
+    local prev=-1 same=0
+    local i
+    for ((i=0; i<30; i++)); do
+        local cur; cur="$(wc -c < "$cast" 2>/dev/null | tr -d ' ')"
+        if [[ "$cur" == "$prev" ]] && (( cur > start_byte )); then
+            same=$((same + 1))
+            if (( same >= 3 )); then break; fi
+        else
+            same=0
+        fi
+        prev="$cur"
+        sleep 0.1
+    done
 
-    awk -v START="$start" -v END="$end" '
-    BEGIN { elapsed=0 }
-    NR==1 { next }   # 跳过 header 行
-    {
-        # 解析 [delay, "type", "data"] — 用简单的 JSON-array 切分
-        # delay
-        match($0, /^\[[ \t]*([0-9.]+)[ \t]*,/, m1)
-        if (!m1[1]) next
-        delay = m1[1] + 0
-        elapsed += delay
-        if (elapsed < START) next
-        if (elapsed > END) exit
-
-        # type
-        match($0, /,[ \t]*"([oixs])"[ \t]*,/, m2)
-        if (m2[1] != "o") next
-
-        # data: 从第二个逗号到最后一个 "] 之间
-        # 找到 "data" 的起始 " 和结尾 "
-        idx_open = index($0, "\",\"") + 3   # 第一个 ","" 之后
-        if (idx_open <= 3) next
-        # 倒数第一个 "]
-        line = $0
-        idx_close = match(line, /"[ \t]*\]/)
-        if (idx_close == 0) next
-        data = substr(line, idx_open, idx_close - idx_open)
-
-        # 反转义 JSON: \\ \" \n \r \t \uXXXX
-        gsub(/\\\\/, "\x01", data)
-        gsub(/\\"/, "\"", data)
-        gsub(/\\n/, "\n", data)
-        gsub(/\\r/, "\r", data)
-        gsub(/\\t/, "\t", data)
-        gsub(/\x01/, "\\", data)
-
-        printf "%s", data
-    }
-    ' "$cast"
+    # 从 start_byte+1 读到末尾, jq 解析所有 'o' 事件
+    tail -c "+$((start_byte + 1))" "$cast" 2>/dev/null | jq -rs '
+        reduce .[] as $e (
+            "";
+            if ($e[1] == "o") then . + ($e[2] // "") else . end
+        )
+    ' 2>/dev/null
 }
 
 # record_append_command <session_id> <actor> <host> <cmd> <exit> <duration_ms> <dangerous> <blocked> <nonce>
