@@ -61,6 +61,59 @@ pub struct HelpMenu {
     pub title: String,
 }
 
+/// 语言菜单的 title (出现在菜单栏, 帮助菜单前)
+pub fn language_menu_title(locale: &str) -> &'static str {
+    match locale {
+        "zh-CN" => "语言", "zh-TW" => "語言", "ja" => "言語", "ko" => "언어",
+        "fr" => "Langue", "de" => "Sprache", "es" => "Idioma", "it" => "Lingua",
+        "pt-BR" | "pt" => "Idioma", "ru" => "Язык", "uk" => "Мова",
+        "pl" => "Język", "cs" => "Jazyk", "hu" => "Nyelv", "ro" => "Limbă",
+        "nl" => "Taal", "sv" => "Språk", "nb" => "Språk", "da" => "Sprog",
+        "fi" => "Kieli", "el" => "Γλώσσα", "ar" => "اللغة", "he" => "שפה",
+        "tr" => "Dil", "hi" => "भाषा", "id" => "Bahasa", "ms" => "Bahasa",
+        "fil" => "Wika", "vi" => "Ngôn ngữ", "th" => "ภาษา",
+        _ => "Language",
+    }
+}
+
+/// 31 国 locale 列表 (code, 显示名)
+pub fn supported_locales() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("en", "English"),
+        ("zh-CN", "简体中文"),
+        ("zh-TW", "繁體中文"),
+        ("ja", "日本語"),
+        ("ko", "한국어"),
+        ("fr", "Français"),
+        ("de", "Deutsch"),
+        ("es", "Español"),
+        ("it", "Italiano"),
+        ("pt-BR", "Português (BR)"),
+        ("pt", "Português"),
+        ("ru", "Русский"),
+        ("uk", "Українська"),
+        ("pl", "Polski"),
+        ("cs", "Čeština"),
+        ("hu", "Magyar"),
+        ("ro", "Română"),
+        ("nl", "Nederlands"),
+        ("sv", "Svenska"),
+        ("nb", "Norsk Bokmål"),
+        ("da", "Dansk"),
+        ("fi", "Suomi"),
+        ("el", "Ελληνικά"),
+        ("ar", "العربية"),
+        ("he", "עברית"),
+        ("tr", "Türkçe"),
+        ("hi", "हिन्दी"),
+        ("id", "Indonesia"),
+        ("ms", "Melayu"),
+        ("fil", "Filipino"),
+        ("vi", "Tiếng Việt"),
+        ("th", "ไทย"),
+    ]
+}
+
 /// 拿到指定 locale 的菜单 labels (locale 不存在则 fallback en)
 pub fn labels_for(locale: &str) -> MenuLabels {
     LABELS

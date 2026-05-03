@@ -6,8 +6,8 @@ use menu_i18n::*;
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
-use tauri::{AppHandle, Manager};
+use tauri::menu::{AboutMetadataBuilder, CheckMenuItemBuilder, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::{AppHandle, Emitter, Manager};
 use walkdir::WalkDir;
 
 // 全局 locale (前端切换时通过 set_app_locale 命令更新)
@@ -291,6 +291,16 @@ fn build_localized_menu(app: &AppHandle, locale: &str) -> tauri::Result<tauri::m
         .item(&PredefinedMenuItem::bring_all_to_front(app, Some(&l.window.bring_to_front))?)
         .build()?;
 
+    // Language submenu — id 形如 "lang:zh-CN", 选中态用 CheckMenuItem
+    let mut lang_builder = SubmenuBuilder::with_id(app, "language", language_menu_title(locale));
+    for (code, name) in supported_locales() {
+        let item = CheckMenuItemBuilder::with_id(format!("lang:{}", code), name)
+            .checked(code == locale)
+            .build(app)?;
+        lang_builder = lang_builder.item(&item);
+    }
+    let language_submenu = lang_builder.build()?;
+
     // Help menu
     let help_submenu = SubmenuBuilder::with_id(app, "help", &l.help.title).build()?;
 
@@ -300,6 +310,7 @@ fn build_localized_menu(app: &AppHandle, locale: &str) -> tauri::Result<tauri::m
         .item(&edit_submenu)
         .item(&view_submenu)
         .item(&window_submenu)
+        .item(&language_submenu)
         .item(&help_submenu)
         .build()
 }
@@ -318,10 +329,22 @@ pub fn run() {
             Ok(())
         })
         .on_menu_event(|app, event| {
-            if event.id() == "toggle_fullscreen" {
+            let id = event.id().0.as_str();
+            if id == "toggle_fullscreen" {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.set_fullscreen(!window.is_fullscreen().unwrap_or(false));
                 }
+                return;
+            }
+            // 语言切换: id 形如 "lang:zh-CN"
+            if let Some(new_locale) = id.strip_prefix("lang:") {
+                let locale_str = new_locale.to_string();
+                *CURRENT_LOCALE.lock().unwrap() = locale_str.clone();
+                if let Ok(menu) = build_localized_menu(app, &locale_str) {
+                    let _ = app.set_menu(menu);
+                }
+                // 通知前端同步切换 (前端会更新 i18n + localStorage)
+                let _ = app.emit("locale-changed-from-menu", locale_str);
             }
         })
         .invoke_handler(tauri::generate_handler![

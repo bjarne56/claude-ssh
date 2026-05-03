@@ -10,6 +10,7 @@ import { SearchOverlay } from "./components/SearchOverlay";
 import { ExportDialog } from "./components/ExportDialog";
 import { detectLocale, setLocale, getLocale, useTranslation } from "./i18n";
 import { setAppLocale } from "./tauri-api";
+import { listen } from "@tauri-apps/api/event";
 import "./index.css";
 
 // 启动时优先用户保存的偏好, 否则自动检测
@@ -36,6 +37,19 @@ function App() {
     const handler = () => setLangTick((n) => n + 1);
     window.addEventListener("locale-changed", handler);
     return () => window.removeEventListener("locale-changed", handler);
+  }, []);
+
+  // 监听 Rust 端 (顶部 Language 菜单) 触发的语言切换
+  useEffect(() => {
+    const unlisten = listen<string>("locale-changed-from-menu", (event) => {
+      const newLocale = event.payload;
+      setLocale(newLocale);
+      localStorage.setItem("cast-player-locale", newLocale);
+      setLangTick((n) => n + 1);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
   }, []);
 
   const handleSelectSession = useCallback(

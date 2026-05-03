@@ -4,45 +4,8 @@ import {
   getDefaultVideoDir,
   scanSessions,
   searchSessions,
-  setAppLocale,
 } from "../tauri-api";
-import { useTranslation, getLocale, setLocale } from "../i18n";
-
-// 支持的语言列表 (locale code → 显示名)
-const LOCALES: { code: string; name: string }[] = [
-  { code: "en", name: "English" },
-  { code: "zh-CN", name: "简体中文" },
-  { code: "zh-TW", name: "繁體中文" },
-  { code: "ja", name: "日本語" },
-  { code: "ko", name: "한국어" },
-  { code: "fr", name: "Français" },
-  { code: "de", name: "Deutsch" },
-  { code: "es", name: "Español" },
-  { code: "it", name: "Italiano" },
-  { code: "pt-BR", name: "Português (BR)" },
-  { code: "pt", name: "Português" },
-  { code: "ru", name: "Русский" },
-  { code: "uk", name: "Українська" },
-  { code: "pl", name: "Polski" },
-  { code: "cs", name: "Čeština" },
-  { code: "hu", name: "Magyar" },
-  { code: "ro", name: "Română" },
-  { code: "nl", name: "Nederlands" },
-  { code: "sv", name: "Svenska" },
-  { code: "nb", name: "Norsk Bokmål" },
-  { code: "da", name: "Dansk" },
-  { code: "fi", name: "Suomi" },
-  { code: "el", name: "Ελληνικά" },
-  { code: "ar", name: "العربية" },
-  { code: "he", name: "עברית" },
-  { code: "tr", name: "Türkçe" },
-  { code: "hi", name: "हिन्दी" },
-  { code: "id", name: "Indonesia" },
-  { code: "ms", name: "Melayu" },
-  { code: "fil", name: "Filipino" },
-  { code: "vi", name: "Tiếng Việt" },
-  { code: "th", name: "ไทย" },
-];
+import { useTranslation } from "../i18n";
 
 interface SessionSidebarProps {
   onSelect: (session: SessionSummary) => void;
@@ -60,17 +23,6 @@ export function SessionSidebar({
   const [videoDir, setVideoDir] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
-  const [currentLocale, setCurrentLocale] = useState(getLocale());
-
-  const handleLocaleChange = (newLocale: string) => {
-    setLocale(newLocale);
-    localStorage.setItem("cast-player-locale", newLocale);
-    setCurrentLocale(newLocale);
-    // 通知 Rust 重建系统菜单
-    setAppLocale(newLocale);
-    // 强制整个应用重渲染
-    window.dispatchEvent(new Event("locale-changed"));
-  };
 
   const loadSessions = useCallback(async () => {
     try {
@@ -115,21 +67,7 @@ export function SessionSidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <h2>{t("sidebar.title")}</h2>
-          <select
-            value={currentLocale}
-            onChange={(e) => handleLocaleChange(e.target.value)}
-            title={t("app.language")}
-            style={{ fontSize: 11, maxWidth: 140 }}
-          >
-            {LOCALES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <h2>{t("sidebar.title")}</h2>
         <input
           type="text"
           placeholder={t("sidebar.searchPlaceholder")}
