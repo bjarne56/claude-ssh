@@ -29,20 +29,35 @@ pub fn execute(
     cmd: &str,
     timeout: Duration,
 ) -> Result<ExecuteOutcome> {
+    let timing = std::env::var("SSHOPS_DEBUG_TIMING").as_deref() == Ok("1");
+    let log = |name: &str, dt: f64| {
+        if timing {
+            eprintln!("[TIMING]   ↳ {name:>26}: {dt:>7.2}ms");
+        }
+    };
+
     let t0 = Instant::now();
     let start_byte = recorder.cast_size();
 
     // 注入命令 (\r 触发执行)
+    let t1 = Instant::now();
     wez.send_text(pane_id, &format!("{cmd}\r"))?;
+    log("send_text", t1.elapsed().as_micros() as f64 / 1000.0);
 
     // 等 cast 见 prompt
+    let t2 = Instant::now();
     let timed_out = !wait_prompt_in_cast(recorder, start_byte, timeout);
+    log("wait_prompt_in_cast", t2.elapsed().as_micros() as f64 / 1000.0);
 
     // 等 cast flush 稳定
+    let t3 = Instant::now();
     recorder.wait_cast_stable(start_byte);
+    log("wait_cast_stable", t3.elapsed().as_micros() as f64 / 1000.0);
 
+    let t4 = Instant::now();
     let end_byte = recorder.cast_size();
     let raw = recorder.extract_output(start_byte, end_byte)?;
+    log("extract_output", t4.elapsed().as_micros() as f64 / 1000.0);
 
     // strip ANSI + 去首行 (命令 echo) + 去末行 (prompt)
     let cleaned = strip_ansi(&raw);

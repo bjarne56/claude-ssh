@@ -684,6 +684,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ssh-ops-daemon"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "chrono",
+ "fs2",
+ "serde",
+ "serde_json",
+ "ssh-ops-core",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

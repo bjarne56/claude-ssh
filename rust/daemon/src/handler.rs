@@ -1,0 +1,456 @@
+//! IPC request → response 路由
+//!
+//! 现阶段直接调 core::pane / session (同步执行, 一次一个请求 await).
+//! 真正的并发由 tokio runtime 多 worker 线程提供 — 不同请求独立处理.
+
+use crate::DaemonState;
+use ssh_ops_core::{
+    config::expand_path,
+    human_detect, ipc::{
+        ClientCtx, IpcRequest, IpcResponse, OpenResp, PaneEntry, PanesResp, RunResp, SelectorSpec,
+        StatusInfo, PROTO_VERSION,
+    }, pane::{self, SshTarget}, recorder::{gen_nonce, Recorder}, safety::safety_gate, selector::{resolve_crt, resolve_tmp, ResolvedSelector, Source}, session::{execute, strip_ansi}, state::{self, StateStore}, state_dir, wezterm_mux::WezTermClient,
+};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
+
+pub async fn dispatch(req: IpcRequest, state: Arc<Mutex<DaemonState>>) -> IpcResponse {
+    {
+        let mut s = state.lock().await;
+        s.req_count += 1;
+        s.last_req_at = Instant::now();
+    }
+    match req {
+        IpcRequest::Ping => IpcResponse::Pong,
+        IpcRequest::Shutdown => {
+            tracing::info!("收到 Shutdown 请求, 退出");
+            let sock = {
+                let s = state.lock().await;
+                ssh_ops_core::ipc::default_sock_path(&s.home)
+            };
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                let _ = std::fs::remove_file(&sock);
+                std::process::exit(0);
+            });
+            IpcResponse::Bye
+        }
+        IpcRequest::Status => {
+            let s = state.lock().await;
+            let st = StateStore::new(&state_dir(&s.home)).ok();
+            let panes_count = st
+                .as_ref()
+                .and_then(|st| st.read().ok())
+                .map(|ps| ps.projects.values().map(|p| p.panes.len()).sum())
+                .unwrap_or(0);
+            IpcResponse::Status(StatusInfo {
+                uptime_secs: s.started_at.elapsed().as_secs(),
+                req_count: s.req_count,
+                pane_count: panes_count,
+                session_count: panes_count, // 简化: 1 pane = 1 session
+                started_at: s.started_at_iso.clone(),
+            })
+        }
+        IpcRequest::Run { ctx, selector, cmd, timeout_ms, i_mean_it, auto_human } => {
+            handle_run(state, ctx, selector, cmd, timeout_ms, i_mean_it, auto_human)
+                .await
+                .unwrap_or_else(|e| IpcResponse::Error(format!("run: {e}")))
+        }
+        IpcRequest::Open { ctx, selector } => handle_open(state, ctx, selector)
+            .await
+            .unwrap_or_else(|e| IpcResponse::Error(format!("open: {e}"))),
+        IpcRequest::Close { ctx, selector } => handle_close(state, ctx, selector)
+            .await
+            .unwrap_or_else(|e| IpcResponse::Error(format!("close: {e}"))),
+        IpcRequest::Peek { ctx, selector } => handle_peek(state, ctx, selector)
+            .await
+            .unwrap_or_else(|e| IpcResponse::Error(format!("peek: {e}"))),
+        IpcRequest::ListPanes { ctx } => handle_list_panes(state, ctx)
+            .await
+            .unwrap_or_else(|e| IpcResponse::Error(format!("list-panes: {e}"))),
+        IpcRequest::Recent { ctx, selector, seconds } => {
+            handle_recent(state, ctx, selector, seconds)
+                .await
+                .unwrap_or_else(|e| IpcResponse::Error(format!("recent: {e}")))
+        }
+    }
+}
+
+fn check_proto(ctx: &ClientCtx) -> Result<(), IpcResponse> {
+    if ctx.proto != PROTO_VERSION {
+        return Err(IpcResponse::Error(format!(
+            "proto 版本不兼容: client={} server={}",
+            ctx.proto, PROTO_VERSION
+        )));
+    }
+    Ok(())
+}
+
+/// SelectorSpec → ResolvedSelector + (auth_type, password, safety_selector)
+fn resolve_selector(
+    state_guard: &DaemonState,
+    spec: &SelectorSpec,
+) -> anyhow::Result<(ResolvedSelector, String, Option<String>, String)> {
+    match spec {
+        SelectorSpec::Crt(input) => {
+            let parser = state_guard
+                .crt_parser
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("CrtParser 未初始化 (检查 securecrt_config_dir)"))?;
+            let sel = resolve_crt(parser, input).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let safety = sel.display.clone();
+            // password 模式 + 无 key + cli 没传 password: daemon 端无法 prompt, 让用户在 pane 手输
+            let auth = if sel.password_present && sel.key.is_none() {
+                "password".to_string()
+            } else {
+                "key".into()
+            };
+            Ok((sel, auth, None, safety))
+        }
+        SelectorSpec::Tmp { user, host, port, key, prod, auth_type, password } => {
+            let sel = resolve_tmp(user, host, Some(*port), key.clone());
+            let safety = if *prod {
+                "__SSHOPS_TMP_PROD__".to_string()
+            } else {
+                "__SSHOPS_TMP_NONPROD__".into()
+            };
+            Ok((sel, auth_type.clone(), password.clone(), safety))
+        }
+    }
+}
+
+fn build_target(sel: &ResolvedSelector, auth_type: &str, password: Option<String>) -> SshTarget {
+    SshTarget {
+        user: sel.user.clone(),
+        host: sel.host.clone(),
+        port: sel.port,
+        key: sel.key.clone(),
+        auth_type: auth_type.to_string(),
+        password,
+    }
+}
+
+// === Run ===================================================================
+
+async fn handle_run(
+    state: Arc<Mutex<DaemonState>>,
+    ctx: ClientCtx,
+    selector: SelectorSpec,
+    cmd: String,
+    timeout_ms: u64,
+    i_mean_it: bool,
+    auto_human: bool,
+) -> anyhow::Result<IpcResponse> {
+    if let Err(r) = check_proto(&ctx) {
+        return Ok(r);
+    }
+    // 锁内只做 selector 解析 + safety 计算, 然后释放, 让 spawn_blocking 跑重活
+    let (sel, auth_type, password, safety_sel, cfg, home) = {
+        let s = state.lock().await;
+        let (sel, auth, pw, safety) = resolve_selector(&s, &selector)?;
+        (sel, auth, pw, safety, s.cfg.clone(), s.home.clone())
+    };
+    let gate = safety_gate(&cmd, &safety_sel, i_mean_it, &cfg);
+    if gate.blocked {
+        let sid = Recorder::make_session_id(&sel.host);
+        let rec = Recorder::init(&cfg, &sid, &sel.display, &sel.host, &sel.user, &auth_type)?;
+        let _ = rec.append_command("ai", &sel.display, &cmd, -1, 0, true, true, &gen_nonce());
+        let _ = rec.finalize();
+        return Ok(IpcResponse::Run(RunResp {
+            exit: -1,
+            output: "(not executed)".into(),
+            duration_ms: 0,
+            cast_offset: 0.0,
+            session_id: sid,
+            selector: sel.display,
+            dangerous: true,
+            blocked: true,
+            reason: Some(gate.reason),
+            recent_human_activity: vec![],
+        }));
+    }
+
+    // 重活在 blocking 池里跑 (内部都是同步 IO + thread::sleep)
+    let sel_clone = sel.clone();
+    let target = build_target(&sel, &auth_type, password);
+    let project_id_str = ctx.project_id.clone();
+
+    let res = tokio::task::spawn_blocking(move || -> anyhow::Result<RunResp> {
+        // 把 cli 端的 project_id 通过 env 注入 (state::project_id 优先读 env)
+        std::env::set_var("SSHOPS_PROJECT", &project_id_str);
+
+        let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
+        let store = StateStore::new(&state_dir(&home))?;
+        let opened = pane::pane_open(&cfg, &home, &wez, &store, &sel_clone.display, &target)?;
+        let recorder = opened.recorder;
+        let pane_id = opened.pane_id;
+
+        // recent_human_activity
+        let mut recent_human = Vec::new();
+        if auto_human {
+            let last = recorder.read_last_ai_byte();
+            let cur = recorder.cast_size();
+            if cur > last {
+                let buf = recorder.read_cast_range(last, cur).unwrap_or_default();
+                let header_ts = cast_header_ts(&recorder.cast_path).unwrap_or(0.0) as u64;
+                recent_human = human_detect::extract_human_commands(&buf, header_ts);
+                for h in &recent_human {
+                    let nonce = format!("human-{}", h.cast_offset);
+                    let _ = recorder.append_command(
+                        "human",
+                        &sel_clone.display,
+                        &h.cmd,
+                        0,
+                        0,
+                        false,
+                        false,
+                        &nonce,
+                    );
+                }
+            }
+        }
+
+        let outcome = execute(
+            &wez,
+            pane_id,
+            &recorder,
+            &cmd,
+            Duration::from_millis(timeout_ms),
+        )?;
+
+        recorder.append_command(
+            "ai",
+            &sel_clone.display,
+            &cmd,
+            outcome.exit,
+            outcome.duration_ms,
+            gate.dangerous,
+            false,
+            &gen_nonce(),
+        )?;
+        if auto_human {
+            let _ = recorder.write_last_ai_byte(recorder.cast_size());
+        }
+
+        Ok(RunResp {
+            exit: outcome.exit,
+            output: outcome.output,
+            duration_ms: outcome.duration_ms,
+            cast_offset: outcome.cast_offset,
+            session_id: recorder.session_id,
+            selector: sel_clone.display,
+            dangerous: gate.dangerous,
+            blocked: false,
+            reason: None,
+            recent_human_activity: recent_human,
+        })
+    })
+    .await??;
+
+    Ok(IpcResponse::Run(res))
+}
+
+// === Open ===================================================================
+
+async fn handle_open(
+    state: Arc<Mutex<DaemonState>>,
+    ctx: ClientCtx,
+    selector: SelectorSpec,
+) -> anyhow::Result<IpcResponse> {
+    if let Err(r) = check_proto(&ctx) {
+        return Ok(r);
+    }
+    let (sel, auth_type, password, _, cfg, home) = {
+        let s = state.lock().await;
+        let (sel, auth, pw, safety) = resolve_selector(&s, &selector)?;
+        (sel, auth, pw, safety, s.cfg.clone(), s.home.clone())
+    };
+    let target = build_target(&sel, &auth_type, password);
+    let sel_clone = sel.clone();
+    let project_id_str = ctx.project_id.clone();
+    let resp = tokio::task::spawn_blocking(move || -> anyhow::Result<OpenResp> {
+        std::env::set_var("SSHOPS_PROJECT", &project_id_str);
+        let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
+        let store = StateStore::new(&state_dir(&home))?;
+        let opened = pane::pane_open(&cfg, &home, &wez, &store, &sel_clone.display, &target)?;
+        Ok(OpenResp {
+            selector: sel_clone.display.clone(),
+            source: match sel_clone.source {
+                Source::Crt => "crt".into(),
+                Source::Tmp => "tmp".into(),
+            },
+            pane_id: opened.pane_id,
+            session_id: opened.session_id,
+            user: sel_clone.user,
+            host: sel_clone.host,
+            port: sel_clone.port,
+            key: sel_clone
+                .key
+                .as_ref()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            reused: opened.reused,
+        })
+    })
+    .await??;
+    Ok(IpcResponse::Open(resp))
+}
+
+// === Close ==================================================================
+
+async fn handle_close(
+    state: Arc<Mutex<DaemonState>>,
+    ctx: ClientCtx,
+    selector: SelectorSpec,
+) -> anyhow::Result<IpcResponse> {
+    if let Err(r) = check_proto(&ctx) {
+        return Ok(r);
+    }
+    let (sel, _, _, _, cfg, home) = {
+        let s = state.lock().await;
+        let (sel, auth, pw, safety) = resolve_selector(&s, &selector)?;
+        (sel, auth, pw, safety, s.cfg.clone(), s.home.clone())
+    };
+    let project_id_str = ctx.project_id.clone();
+    let sel_display = sel.display.clone();
+    tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
+        std::env::set_var("SSHOPS_PROJECT", &project_id_str);
+        let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
+        let store = StateStore::new(&state_dir(&home))?;
+        pane::pane_close(&cfg, &wez, &store, &sel_display)?;
+        Ok(())
+    })
+    .await??;
+    Ok(IpcResponse::Closed)
+}
+
+// === Peek ===================================================================
+
+async fn handle_peek(
+    state: Arc<Mutex<DaemonState>>,
+    ctx: ClientCtx,
+    selector: SelectorSpec,
+) -> anyhow::Result<IpcResponse> {
+    if let Err(r) = check_proto(&ctx) {
+        return Ok(r);
+    }
+    let (sel, _, _, _, cfg, home) = {
+        let s = state.lock().await;
+        let (sel, auth, pw, safety) = resolve_selector(&s, &selector)?;
+        (sel, auth, pw, safety, s.cfg.clone(), s.home.clone())
+    };
+    let project_id_str = ctx.project_id.clone();
+    let sel_display = sel.display.clone();
+    let text = tokio::task::spawn_blocking(move || -> anyhow::Result<String> {
+        std::env::set_var("SSHOPS_PROJECT", &project_id_str);
+        let store = StateStore::new(&state_dir(&home))?;
+        let pid = state::project_id();
+        let info = store
+            .get_pane(&pid, &sel_display)?
+            .ok_or_else(|| anyhow::anyhow!("未找到 pane: {sel_display}"))?;
+        let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
+        if !wez.pane_alive(info.pane_id) {
+            anyhow::bail!("pane 已失效: {sel_display}");
+        }
+        let raw = wez.get_text(info.pane_id, Some(50000))?;
+        Ok(strip_ansi(&raw))
+    })
+    .await??;
+    Ok(IpcResponse::Peek(text))
+}
+
+// === ListPanes ==============================================================
+
+async fn handle_list_panes(
+    state: Arc<Mutex<DaemonState>>,
+    ctx: ClientCtx,
+) -> anyhow::Result<IpcResponse> {
+    if let Err(r) = check_proto(&ctx) {
+        return Ok(r);
+    }
+    let home = { state.lock().await.home.clone() };
+    let project_id_str = ctx.project_id.clone();
+    let resp = tokio::task::spawn_blocking(move || -> anyhow::Result<PanesResp> {
+        std::env::set_var("SSHOPS_PROJECT", &project_id_str);
+        let store = StateStore::new(&state_dir(&home))?;
+        let pid = state::project_id();
+        let proj = store.project_state(&pid)?.unwrap_or_default();
+        let panes: Vec<(String, PaneEntry)> = proj
+            .panes
+            .iter()
+            .map(|(s, info)| {
+                (
+                    s.clone(),
+                    PaneEntry {
+                        pane_id: info.pane_id,
+                        session_id: info.session_id.clone(),
+                        started_at: info.started_at.clone(),
+                    },
+                )
+            })
+            .collect();
+        Ok(PanesResp {
+            wezterm_window_id: proj.wezterm_window_id,
+            started_at: proj.started_at,
+            panes,
+        })
+    })
+    .await??;
+    Ok(IpcResponse::Panes(resp))
+}
+
+// === Recent =================================================================
+
+async fn handle_recent(
+    state: Arc<Mutex<DaemonState>>,
+    ctx: ClientCtx,
+    selector: SelectorSpec,
+    seconds: u64,
+) -> anyhow::Result<IpcResponse> {
+    if let Err(r) = check_proto(&ctx) {
+        return Ok(r);
+    }
+    let (sel, _, _, _, cfg, home) = {
+        let s = state.lock().await;
+        let (sel, auth, pw, safety) = resolve_selector(&s, &selector)?;
+        (sel, auth, pw, safety, s.cfg.clone(), s.home.clone())
+    };
+    let project_id_str = ctx.project_id.clone();
+    let sel_display = sel.display.clone();
+    let recent = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<human_detect::HumanCmd>> {
+        std::env::set_var("SSHOPS_PROJECT", &project_id_str);
+        let store = StateStore::new(&state_dir(&home))?;
+        let pid = state::project_id();
+        let info = store
+            .get_pane(&pid, &sel_display)?
+            .ok_or_else(|| anyhow::anyhow!("未找到 pane: {sel_display}"))?;
+        let recorder = Recorder::open(&cfg, &info.session_id)?;
+        let size = recorder.cast_size();
+        let buf = recorder.read_cast_range(0, size).unwrap_or_default();
+        let header_ts = cast_header_ts(&recorder.cast_path).unwrap_or(0.0) as u64;
+        let all = human_detect::extract_human_commands(&buf, header_ts);
+        let now = chrono::Utc::now().timestamp() as u64;
+        let cutoff = now.saturating_sub(seconds);
+        Ok(all.into_iter().filter(|h| h.ts_unix >= cutoff).collect())
+    })
+    .await??;
+    Ok(IpcResponse::Recent(recent))
+}
+
+// === helpers ================================================================
+
+fn cast_header_ts(cast: &std::path::Path) -> Option<f64> {
+    use std::io::BufRead;
+    let f = std::fs::File::open(cast).ok()?;
+    let mut reader = std::io::BufReader::new(f);
+    let mut line = String::new();
+    reader.read_line(&mut line).ok()?;
+    let v: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
+    v.get("timestamp").and_then(|t| t.as_f64())
+}
+
+#[allow(dead_code)]
+fn _unused() {
+    let _ = expand_path;
+}

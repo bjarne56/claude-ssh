@@ -7,7 +7,9 @@ use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use serde_json::json;
 use ssh_ops_core::{
-    config, human_detect, pane,
+    config, human_detect,
+    ipc::{IpcRequest, IpcResponse},
+    pane,
     recorder::{gen_nonce, Recorder},
     safety::safety_gate,
     securecrt::CrtParser,
@@ -19,9 +21,14 @@ use ssh_ops_core::{
 use std::path::PathBuf;
 use std::time::Duration;
 
+mod ipc_client;
+
 #[derive(Parser, Debug)]
-#[command(version, about = "ssh-ops Rust 重写 (Phase B)")]
+#[command(version, about = "ssh-ops Rust 重写 (Phase B/C)")]
 struct Cli {
+    /// 强制 in-process 模式 (跳过 daemon, 用于调试 / fallback)
+    #[arg(long, global = true)]
+    no_daemon: bool,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -45,6 +52,10 @@ enum Cmd {
         #[arg(long, default_value_t = 60)]
         seconds: u64,
     },
+    /// 查 daemon 状态 (不可达则报错)
+    DaemonStatus,
+    /// 优雅停 daemon
+    DaemonStop,
 }
 
 /// 公共参数 (跟 bash 版 CLI 兼容)
@@ -85,13 +96,16 @@ fn main() -> Result<()> {
         .init();
 
     let cli = Cli::parse();
+    let no_daemon = cli.no_daemon;
     match cli.cmd {
-        Cmd::Run(c) => cmd_run(c),
-        Cmd::Open(c) => cmd_open(c),
-        Cmd::Close(c) => cmd_close(c),
-        Cmd::Peek(c) => cmd_peek(c),
-        Cmd::ListPanes => cmd_list_panes(),
-        Cmd::Recent { common, seconds } => cmd_recent(common, seconds),
+        Cmd::Run(c) => cmd_run(c, no_daemon),
+        Cmd::Open(c) => cmd_open(c, no_daemon),
+        Cmd::Close(c) => cmd_close(c, no_daemon),
+        Cmd::Peek(c) => cmd_peek(c, no_daemon),
+        Cmd::ListPanes => cmd_list_panes(no_daemon),
+        Cmd::Recent { common, seconds } => cmd_recent(common, seconds, no_daemon),
+        Cmd::DaemonStatus => cmd_daemon_status(),
+        Cmd::DaemonStop => cmd_daemon_stop(),
     }
 }
 
@@ -219,14 +233,92 @@ fn build_target(r: &Resolved) -> pane::SshTarget {
 // ============================================================
 // cmd_run
 // ============================================================
-fn cmd_run(common: CommonArgs) -> Result<()> {
+fn cmd_run(common: CommonArgs, no_daemon: bool) -> Result<()> {
     let home = sshops_home();
+    if !no_daemon {
+        if let Some(resp) = try_ipc_run(&home, &common)? {
+            return print_run_resp(resp);
+        }
+    }
+    cmd_run_inproc(common)
+}
+
+fn try_ipc_run(home: &std::path::Path, common: &CommonArgs) -> Result<Option<IpcResponse>> {
+    let using_tmp = common.host.is_some() && common.user.is_some();
+    let spec = ipc_client::build_selector_spec(
+        &common.args,
+        common.host.as_deref(),
+        common.user.as_deref(),
+        common.port,
+        common.key.as_deref(),
+        common.prod,
+        common.password.as_deref(),
+        common.ask_password,
+    )?;
+    let cmd_text = ipc_client::cmd_text_from(&common.args, using_tmp)?;
+    let req = IpcRequest::Run {
+        ctx: ipc_client::build_ctx(home),
+        selector: spec,
+        cmd: cmd_text,
+        timeout_ms: common.timeout.unwrap_or(30) * 1000,
+        i_mean_it: common.i_mean_it,
+        auto_human: std::env::var("SSHOPS_NO_AUTO_HUMAN").as_deref() != Ok("1"),
+    };
+    ipc_client::call_sync(home, req)
+}
+
+fn print_run_resp(resp: IpcResponse) -> Result<()> {
+    match resp {
+        IpcResponse::Run(r) => {
+            let resp = json!({
+                "exit": r.exit,
+                "duration_ms": r.duration_ms,
+                "cast_offset": r.cast_offset,
+                "selector": r.selector,
+                "session_id": r.session_id,
+                "dangerous": r.dangerous,
+                "blocked": r.blocked,
+                "reason": r.reason,
+                "output": r.output,
+                "recent_human_activity": r.recent_human_activity,
+            });
+            println!("{}", serde_json::to_string(&resp)?);
+            if r.blocked {
+                std::process::exit(5);
+            }
+            Ok(())
+        }
+        IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+        other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+    }
+}
+
+fn cmd_run_inproc(common: CommonArgs) -> Result<()> {
+    let timing = std::env::var("SSHOPS_DEBUG_TIMING").as_deref() == Ok("1");
+    let t_main = std::time::Instant::now();
+    let mut t_prev = t_main;
+    let mut log_step = |name: &str| {
+        if timing {
+            let now = std::time::Instant::now();
+            let dt = now.duration_since(t_prev).as_micros() as f64 / 1000.0;
+            let total = now.duration_since(t_main).as_micros() as f64 / 1000.0;
+            eprintln!("[TIMING] {name:>30}: dt={dt:>7.2}ms  total={total:>7.2}ms");
+            t_prev = now;
+        }
+    };
+    log_step("entry");
+
+    let home = sshops_home();
+    log_step("sshops_home()");
     let cfg = config::load(&home)?;
+    log_step("config::load");
     let r = resolve(&common, true, &cfg)?;
+    log_step("resolve(selector + cmd)");
     let cmd_text = r.cmd.clone().unwrap();
 
     // safety gate
     let gate = safety_gate(&cmd_text, &r.safety_selector, common.i_mean_it, &cfg);
+    log_step("safety_gate");
     if gate.blocked {
         // 单独写一个录像目录留存 blocked 记录
         let sid = Recorder::make_session_id(&r.sel.host);
@@ -253,6 +345,7 @@ fn cmd_run(common: CommonArgs) -> Result<()> {
     let opened = pane::pane_open(&cfg, &home, &wez, &store, &r.sel.display, &target)?;
     let pane_id = opened.pane_id;
     let recorder = opened.recorder;
+    log_step(if opened.reused { "pane_open (reused)" } else { "pane_open (spawn)" });
 
     // recent_human_activity: 扫上次 ai run 之后到现在的 cast 区间
     let auto_human = std::env::var("SSHOPS_NO_AUTO_HUMAN").as_deref() != Ok("1");
@@ -280,10 +373,12 @@ fn cmd_run(common: CommonArgs) -> Result<()> {
             }
         }
     }
+    log_step("recent_human_activity");
 
     // execute
     let timeout_secs = common.timeout.unwrap_or(30);
     let outcome = execute(&wez, pane_id, &recorder, &cmd_text, Duration::from_secs(timeout_secs))?;
+    log_step("execute (send+wait_prompt+slice)");
 
     // 记录 ai 命令
     recorder.append_command(
@@ -297,10 +392,13 @@ fn cmd_run(common: CommonArgs) -> Result<()> {
         &gen_nonce(),
     )?;
 
+    log_step("append_command");
+
     // 标记 last_ai_byte
     if auto_human {
         let _ = recorder.write_last_ai_byte(recorder.cast_size());
     }
+    log_step("write_last_ai_byte");
 
     let resp = json!({
         "exit": outcome.exit,
@@ -330,7 +428,49 @@ fn cast_header_timestamp(cast: &std::path::Path) -> Option<f64> {
 // ============================================================
 // cmd_open
 // ============================================================
-fn cmd_open(common: CommonArgs) -> Result<()> {
+fn cmd_open(common: CommonArgs, no_daemon: bool) -> Result<()> {
+    let home = sshops_home();
+    if !no_daemon {
+        let spec = ipc_client::build_selector_spec(
+            &common.args,
+            common.host.as_deref(),
+            common.user.as_deref(),
+            common.port,
+            common.key.as_deref(),
+            common.prod,
+            common.password.as_deref(),
+            common.ask_password,
+        )?;
+        let req = IpcRequest::Open {
+            ctx: ipc_client::build_ctx(&home),
+            selector: spec,
+        };
+        if let Some(resp) = ipc_client::call_sync(&home, req)? {
+            return match resp {
+                IpcResponse::Open(o) => {
+                    let v = json!({
+                        "selector": o.selector,
+                        "source": o.source,
+                        "pane_id": o.pane_id,
+                        "session_id": o.session_id,
+                        "user": o.user,
+                        "host": o.host,
+                        "port": o.port,
+                        "key": o.key,
+                        "reused": o.reused,
+                    });
+                    println!("{}", serde_json::to_string(&v)?);
+                    Ok(())
+                }
+                IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+                other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+            };
+        }
+    }
+    cmd_open_inproc(common)
+}
+
+fn cmd_open_inproc(common: CommonArgs) -> Result<()> {
     let home = sshops_home();
     let cfg = config::load(&home)?;
     let r = resolve(&common, false, &cfg)?;
@@ -356,7 +496,35 @@ fn cmd_open(common: CommonArgs) -> Result<()> {
 // ============================================================
 // cmd_close
 // ============================================================
-fn cmd_close(common: CommonArgs) -> Result<()> {
+fn cmd_close(common: CommonArgs, no_daemon: bool) -> Result<()> {
+    let home = sshops_home();
+    if !no_daemon {
+        let spec = ipc_client::build_selector_spec(
+            &common.args,
+            common.host.as_deref(),
+            common.user.as_deref(),
+            common.port,
+            common.key.as_deref(),
+            common.prod,
+            common.password.as_deref(),
+            common.ask_password,
+        )?;
+        let req = IpcRequest::Close {
+            ctx: ipc_client::build_ctx(&home),
+            selector: spec,
+        };
+        if let Some(resp) = ipc_client::call_sync(&home, req)? {
+            return match resp {
+                IpcResponse::Closed => Ok(()),
+                IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+                other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+            };
+        }
+    }
+    cmd_close_inproc(common)
+}
+
+fn cmd_close_inproc(common: CommonArgs) -> Result<()> {
     let home = sshops_home();
     let cfg = config::load(&home)?;
     let r = resolve(&common, false, &cfg)?;
@@ -370,7 +538,38 @@ fn cmd_close(common: CommonArgs) -> Result<()> {
 // ============================================================
 // cmd_peek
 // ============================================================
-fn cmd_peek(common: CommonArgs) -> Result<()> {
+fn cmd_peek(common: CommonArgs, no_daemon: bool) -> Result<()> {
+    let home = sshops_home();
+    if !no_daemon {
+        let spec = ipc_client::build_selector_spec(
+            &common.args,
+            common.host.as_deref(),
+            common.user.as_deref(),
+            common.port,
+            common.key.as_deref(),
+            common.prod,
+            common.password.as_deref(),
+            common.ask_password,
+        )?;
+        let req = IpcRequest::Peek {
+            ctx: ipc_client::build_ctx(&home),
+            selector: spec,
+        };
+        if let Some(resp) = ipc_client::call_sync(&home, req)? {
+            return match resp {
+                IpcResponse::Peek(text) => {
+                    print!("{text}");
+                    Ok(())
+                }
+                IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+                other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+            };
+        }
+    }
+    cmd_peek_inproc(common)
+}
+
+fn cmd_peek_inproc(common: CommonArgs) -> Result<()> {
     let home = sshops_home();
     let cfg = config::load(&home)?;
     let r = resolve(&common, false, &cfg)?;
@@ -392,7 +591,46 @@ fn cmd_peek(common: CommonArgs) -> Result<()> {
 // ============================================================
 // cmd_list_panes
 // ============================================================
-fn cmd_list_panes() -> Result<()> {
+fn cmd_list_panes(no_daemon: bool) -> Result<()> {
+    let home = sshops_home();
+    if !no_daemon {
+        let req = IpcRequest::ListPanes {
+            ctx: ipc_client::build_ctx(&home),
+        };
+        if let Some(resp) = ipc_client::call_sync(&home, req)? {
+            return match resp {
+                IpcResponse::Panes(p) => {
+                    let panes_obj: serde_json::Map<String, serde_json::Value> = p
+                        .panes
+                        .into_iter()
+                        .map(|(s, info)| {
+                            (
+                                s,
+                                json!({
+                                    "pane_id": info.pane_id,
+                                    "session_id": info.session_id,
+                                    "started_at": info.started_at,
+                                }),
+                            )
+                        })
+                        .collect();
+                    let v = json!({
+                        "wezterm_window_id": p.wezterm_window_id,
+                        "started_at": p.started_at,
+                        "panes": panes_obj,
+                    });
+                    println!("{}", serde_json::to_string_pretty(&v)?);
+                    Ok(())
+                }
+                IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+                other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+            };
+        }
+    }
+    cmd_list_panes_inproc()
+}
+
+fn cmd_list_panes_inproc() -> Result<()> {
     let home = sshops_home();
     let store = state::StateStore::new(&state_dir(&home))?;
     let pid = state::project_id();
@@ -414,7 +652,39 @@ fn cmd_list_panes() -> Result<()> {
 // ============================================================
 // cmd_recent: 主动查最近 N 秒的 human 活动 (不依赖上次 ai run 边界)
 // ============================================================
-fn cmd_recent(common: CommonArgs, seconds: u64) -> Result<()> {
+fn cmd_recent(common: CommonArgs, seconds: u64, no_daemon: bool) -> Result<()> {
+    let home = sshops_home();
+    if !no_daemon {
+        let spec = ipc_client::build_selector_spec(
+            &common.args,
+            common.host.as_deref(),
+            common.user.as_deref(),
+            common.port,
+            common.key.as_deref(),
+            common.prod,
+            common.password.as_deref(),
+            common.ask_password,
+        )?;
+        let req = IpcRequest::Recent {
+            ctx: ipc_client::build_ctx(&home),
+            selector: spec,
+            seconds,
+        };
+        if let Some(resp) = ipc_client::call_sync(&home, req)? {
+            return match resp {
+                IpcResponse::Recent(list) => {
+                    println!("{}", serde_json::to_string(&list)?);
+                    Ok(())
+                }
+                IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+                other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+            };
+        }
+    }
+    cmd_recent_inproc(common, seconds)
+}
+
+fn cmd_recent_inproc(common: CommonArgs, seconds: u64) -> Result<()> {
     let home = sshops_home();
     let cfg = config::load(&home)?;
     let r = resolve(&common, false, &cfg)?;
@@ -434,4 +704,42 @@ fn cmd_recent(common: CommonArgs, seconds: u64) -> Result<()> {
     let recent: Vec<_> = all.into_iter().filter(|h| h.ts_unix >= cutoff).collect();
     println!("{}", serde_json::to_string(&recent)?);
     Ok(())
+}
+
+// ============================================================
+// daemon 控制
+// ============================================================
+fn cmd_daemon_status() -> Result<()> {
+    let home = sshops_home();
+    let resp = ipc_client::call_sync(&home, IpcRequest::Status)?
+        .ok_or_else(|| anyhow!("daemon 未运行"))?;
+    match resp {
+        IpcResponse::Status(s) => {
+            let v = json!({
+                "uptime_secs": s.uptime_secs,
+                "req_count": s.req_count,
+                "pane_count": s.pane_count,
+                "session_count": s.session_count,
+                "started_at": s.started_at,
+            });
+            println!("{}", serde_json::to_string_pretty(&v)?);
+            Ok(())
+        }
+        IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+        other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+    }
+}
+
+fn cmd_daemon_stop() -> Result<()> {
+    let home = sshops_home();
+    let resp = ipc_client::call_sync(&home, IpcRequest::Shutdown)?
+        .ok_or_else(|| anyhow!("daemon 未运行"))?;
+    match resp {
+        IpcResponse::Bye => {
+            println!("{{\"shutdown\": true}}");
+            Ok(())
+        }
+        IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+        other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+    }
 }

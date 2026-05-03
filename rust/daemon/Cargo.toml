@@ -1,0 +1,20 @@
+[package]
+name = "ssh-ops-daemon"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "sshops-daemon"
+path = "src/main.rs"
+
+[dependencies]
+ssh-ops-core = { path = "../core" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+bincode.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+fs2.workspace = true
+chrono.workspace = true

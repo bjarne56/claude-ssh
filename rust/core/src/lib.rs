@@ -9,6 +9,7 @@ pub mod cast_client;
 pub mod config;
 pub mod error;
 pub mod human_detect;
+pub mod ipc;
 pub mod pane;
 pub mod recorder;
 pub mod safety;
