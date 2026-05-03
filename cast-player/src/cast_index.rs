@@ -342,6 +342,29 @@ pub fn sort_commands(records: &mut [CommandRecord]) {
     });
 }
 
+/// 识别 ssh-ops 在登录后自动注入的初始化命令 (不该归类为 human)
+/// 参考 SKILL.md: 登录后立刻注入 sudo -i + PS1 + clear 一条命令
+pub fn is_sshops_bootstrap_command(cmd: &str) -> bool {
+    let c = cmd.trim();
+    // 单独 sudo -i (含 sudo -i\r 等)
+    if c == "sudo -i" || c.starts_with("sudo -i ") {
+        return true;
+    }
+    // export REAL_USER=... 后接 export PS1=... + clear (ssh-ops marker.sh 注入的标志)
+    if c.starts_with("export REAL_USER=") && c.contains("PS1") {
+        return true;
+    }
+    // 单独 PS1 设置 + clear
+    if c.contains("export PS1=") && c.ends_with("clear") {
+        return true;
+    }
+    // ssh-ops marker 切片相关 (SSHOPS_BEGIN/END)
+    if c.contains("SSHOPS_BEGIN_") || c.contains("SSHOPS_END_") {
+        return true;
+    }
+    false
+}
+
 /// 从 cast 事件流中提取所有"用户输入序列" — 一次输入序列 = 连续的 'i' 事件
 /// 直到遇到回车 \r 或 \n 结束。处理 backspace () 删除前一个字符。
 ///
@@ -446,6 +469,10 @@ pub fn merge_commands_with_inputs(
         }
         // 跳过仅含单字符或纯空白的输入
         if content.trim().len() <= 1 {
+            continue;
+        }
+        // 跳过 ssh-ops 自动注入的初始化命令 (基础设施, 不是真实 human 输入)
+        if is_sshops_bootstrap_command(&content) {
             continue;
         }
         human_commands.push(CommandRecord {

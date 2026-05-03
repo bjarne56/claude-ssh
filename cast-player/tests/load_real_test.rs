@@ -37,6 +37,51 @@ fn test_extract_human_ifconfig_command() {
 }
 
 #[test]
+fn test_filter_sshops_bootstrap_commands() {
+    use cast_player_lib::cast_index::is_sshops_bootstrap_command;
+
+    // 应该被过滤的 (ssh-ops 自动注入)
+    assert!(is_sshops_bootstrap_command("sudo -i"));
+    assert!(is_sshops_bootstrap_command(" sudo -i "));
+    assert!(is_sshops_bootstrap_command(
+        r#"export REAL_USER='claude'; export PS1='[\u(root:$REAL_USER)@\h \W]\$ '; clear"#
+    ));
+    assert!(is_sshops_bootstrap_command("export PS1='xxx'; clear"));
+
+    // 不该被过滤的 (真实命令)
+    assert!(!is_sshops_bootstrap_command("ls -la"));
+    assert!(!is_sshops_bootstrap_command("ifconfig"));
+    assert!(!is_sshops_bootstrap_command("sudo apt update")); // sudo 后面不是 -i
+    assert!(!is_sshops_bootstrap_command("export FOO=bar"));
+}
+
+#[test]
+fn test_real_session_no_bootstrap_in_human_list() {
+    let dir = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260503-065946-f65eae");
+    let cast = dir.join("stream.cast");
+    let cmds_path = dir.join("commands.jsonl");
+    if !cast.exists() {
+        return;
+    }
+    let ai_cmds = load_commands(&cmds_path).unwrap();
+    let events = CastIndex::read_all_events(&cast).unwrap();
+    let merged = merge_commands_with_inputs(ai_cmds, &events);
+
+    // 验证: human 命令列表中不该出现 sudo -i / export PS1 / clear
+    for cmd in &merged {
+        if cmd.actor == "human" {
+            assert!(
+                !cmd.cmd.contains("sudo -i") && !cmd.cmd.contains("export PS1"),
+                "human 命令不该含 ssh-ops 注入: {}", cmd.cmd
+            );
+        }
+    }
+
+    // 但 ifconfig 仍要在
+    assert!(merged.iter().any(|c| c.cmd.contains("ifconfig") && c.actor == "human"));
+}
+
+#[test]
 fn test_extract_input_groups_handles_backspace() {
     // 模拟用户输入 "icp" → 删 → "ip a"
     let events: Vec<(f64, String)> = vec![
