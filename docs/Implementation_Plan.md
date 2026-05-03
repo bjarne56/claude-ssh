@@ -132,7 +132,61 @@ self-test 当前只覆盖第 1-3 行,其余 Phase 1a 完整测试矩阵见 `requ
 
 ---
 
+## Phase B · Rust 重写 (✅ 实施完成)
+
+**目标**:把 bash 实现移植到 Rust,消除 jq/python/awk fork 开销,把命令 round-trip 从 1064ms 降到 300ms 以下。
+
+### Day 1 — 工作区骨架
+- [x] `rust/Cargo.toml` workspace + members [`core`, `bin`]
+- [x] `core` 模块声明 + 公共类型 (ExecuteRequest/Response)
+
+### Day 2-3 — SecureCRT + selector
+- [x] `core/src/securecrt.rs`:CrtParser, .ini 解析 (S:/D:/B: 字段, hex/dec port, Identity 三级回退)
+- [x] `core/src/selector.rs`:resolve_crt (@path 精确 / 模糊匹配), resolve_tmp
+
+### Day 4-5 — pane_open + cmd_run
+- [x] `core/src/pane.rs`:pane_open / pane_close / wait_for_input_complete (登录智能等待)
+- [x] `core/src/recorder.rs`:make_session_id / init / cast_size / extract_output / append_command / finalize / read_last_ai_byte
+- [x] `core/src/state.rs`:StateStore (项目级, fs2 file lock + atomic write, 兼容 bash 版 panes.json schema)
+- [x] `core/src/safety.rs`:regex-based safety_gate
+- [x] `core/src/session.rs`:byte-offset 切片 + cast prompt 检测
+- [x] `core/src/wezterm_mux.rs`:完整 PaneEntry + ensure_running + active_window
+- [x] `core/src/config.rs`:对齐 bash 版 config.json schema
+- [x] `core/src/human_detect.rs`:extract_human_commands
+
+### Day 6-7 — 完整 CLI
+- [x] `bin/src/main.rs`:run / open / close / peek / list-panes / recent 全实现
+- [x] 三入口: SecureCRT @path / 模糊关键词 / --host --user 临时模式
+- [x] 100% 兼容 bash 版 JSON 输出 (含 recent_human_activity)
+- [x] 12 个单测全过
+
+### Day 8 — benchmark
+- [x] release build (LTO + opt-level 3 + strip): `cargo build --release` 通过
+- [x] 实测 echo round-trip: 530ms → 300ms (poll 100ms→50ms)
+- [x] 对比基线: 比 bash 优化版快 3.5x, 比原始 bash 快 5-7x
+
+### Day 9 — bash wrapper 切换
+- [x] `bin/sshops` 检测 `rust/target/release/sshops-rs` 存在则透传 run/open/close/peek/list-panes/recent
+- [x] setup/version/help 仍走 bash
+- [x] `SSHOPS_NO_RUST=1` 强制 fallback
+
+**性能数据**:
+| 版本 | round-trip | 比例 |
+|---|---|---|
+| bash 原始 | 1500-2000ms | 1.0x |
+| bash 优化版 (cast.sock) | 1064ms | 1.5x |
+| Rust v1 (100ms poll) | 530ms | 3.0x |
+| Rust v2 (50ms poll) | **300ms** | **5-7x** |
+
+后续优化方向 (Phase C):
+- inotify/kqueue 替代 polling
+- wezterm cli fork → mux socket 直连
+- daemon 模式 (避免每次 Rust 二进制重启 ~50ms)
+
+---
+
 ## 变更日志
 
 - 2026-05-02 创建,Phase 1a 启动
 - 2026-05-02 Phase 1a 实施完成(commit `9cd0881`,17 文件 / 3054 行);文档完善:README.md 创建、PROJECT_OVERVIEW 关键不变量补全、requirements 第 18/20 节补全
+- 2026-05-03 Phase B Rust 重写完成 (Day 1-9): 9 个 core 模块 + 完整 CLI + bash wrapper 透传; 性能 1064ms → 300ms (3.5x); 12 个单测全过
