@@ -101,7 +101,7 @@ export function Controls({
 
         {/* 倍速切换 */}
         <div className="group">
-          <span style={{ fontSize: 11, color: "var(--text-muted)", marginRight: 4 }}>倍速</span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)", marginRight: 4 }}>{t("controls.speedLabel")}</span>
           {SPEEDS.map((s) => (
             <button
               key={s}
@@ -116,7 +116,7 @@ export function Controls({
 
         <div className="group">
           <button onClick={toggleSkipIdle} title={t("controls.skipIdle")} className={skipIdle ? "primary" : ""}>
-            {skipIdle ? "⚡ 跳过空闲" : "⏳ 完整播放"}
+            {skipIdle ? t("controls.skipIdleOn") : t("controls.skipIdleOff")}
           </button>
         </div>
 
@@ -124,7 +124,7 @@ export function Controls({
         <div className="group">
           <input
             type="text"
-            placeholder="跳转 (s)"
+            placeholder={t("controls.jumpPlaceholder")}
             style={{ width: 72, fontSize: 11, textAlign: "center" }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -140,14 +140,14 @@ export function Controls({
       {/* 进度条 — 在按钮下方 */}
       <div className="progress-wrapper">
         <span className="time">{fmtTime(elapsed)}</span>
-        <div className="progress-bar" onClick={handleProgressClick} title="点击跳转">
+        <div className="progress-bar" onClick={handleProgressClick} title={t("controls.progressClickHint")}>
           {/* 空闲段背景标记 (放底层, 在 filled 之下) */}
           {idleSegments.map((s) => (
             <div
               key={s.key}
               className="idle-segment"
               style={{ left: `${s.left}%`, width: `${s.width}%` }}
-              title="空闲时段 (默认跳过)"
+              title={t("controls.idleSegmentHint")}
             />
           ))}
           <div className="filled" style={{ width: `${progress}%` }} />
@@ -156,7 +156,7 @@ export function Controls({
               key={m.key}
               className={`marker ${m.dangerous ? "cmd-danger" : "cmd"}`}
               style={{ left: `${m.pct}%` }}
-              title={m.dangerous ? "危险命令" : "命令执行点"}
+              title={m.dangerous ? t("controls.markerDanger") : t("controls.markerCmd")}
             />
           ))}
         </div>

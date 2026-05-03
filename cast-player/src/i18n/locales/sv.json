@@ -4,7 +4,8 @@
     "emptyHint": "Välj en session från sidopanelen eller släpp en .cast-fil här",
     "shortcutHint": "Genvägar: Mellanslag spela/pausa, Ctrl+F sök",
     "readyStatus": "Redo — välj en session",
-    "loading": "Laddar..."
+    "loading": "Laddar...",
+    "language": "Språk"
   },
   "sidebar": {
     "title": "Inspelningar",
@@ -15,7 +16,8 @@
     "loadFailed": "Laddning misslyckades:",
     "retry": "Försök igen",
     "allProjects": "Alla projekt",
-    "commandsCount": "kmd"
+    "commandsCount": "kmd",
+    "notConfigured": "Ej konfigurerad"
   },
   "controls": {
     "stepBack30": "30s bakåt",
@@ -29,7 +31,15 @@
     "stepForward10": "10s framåt",
     "stepForward30": "30s framåt",
     "skipIdle": "Hoppa över vilotid",
-    "changeSpeed": "Ändra hastighet"
+    "changeSpeed": "Ändra hastighet",
+    "speedLabel": "Hast.",
+    "skipIdleOn": "⚡ Hoppa vilo",
+    "skipIdleOff": "⏳ Full uppspeln.",
+    "jumpPlaceholder": "Hoppa (s)",
+    "progressClickHint": "Klicka för att hoppa",
+    "idleSegmentHint": "Vilotid (hoppas över som standard)",
+    "markerCmd": "Kommando",
+    "markerDanger": "Farligt kommando"
   },
   "commands": {
     "title": "Kommandon",
@@ -50,7 +60,8 @@
     "placeholder": "Sök i terminalen...",
     "noMatch": "Ingen träff",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Sök (Ctrl+F)"
   },
   "export": {
     "title": "Exportera Session",
@@ -59,9 +70,12 @@
     "csv": "Exportera kommandolista (CSV)",
     "json": "Exportera kommandolista (JSON)",
     "cast": "Kopiera rå inspelning (.cast)",
-    "close": "Stäng"
+    "close": "Stäng",
+    "open": "Exportera"
   },
   "status": {
-    "duration": "Varaktighet"
+    "duration": "Varaktighet",
+    "events": "Händelser",
+    "state": "Status"
   }
 }

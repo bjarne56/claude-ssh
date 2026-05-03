@@ -4,7 +4,8 @@
     "emptyHint": "Valitse istunto sivupalkista tai pudota .cast-tiedosto tähän",
     "shortcutHint": "Pikanäppäimet: Välilyönti toista/tauko, Ctrl+F haku",
     "readyStatus": "Valmis — valitse istunto",
-    "loading": "Ladataan..."
+    "loading": "Ladataan...",
+    "language": "Kieli"
   },
   "sidebar": {
     "title": "Tallenteet",
@@ -15,7 +16,8 @@
     "loadFailed": "Lataus epäonnistui:",
     "retry": "Yritä uudelleen",
     "allProjects": "Kaikki projektit",
-    "commandsCount": "kmd"
+    "commandsCount": "kmd",
+    "notConfigured": "Ei määritetty"
   },
   "controls": {
     "stepBack30": "30s taakse",
@@ -29,7 +31,15 @@
     "stepForward10": "10s eteen",
     "stepForward30": "30s eteen",
     "skipIdle": "Ohita joutoaika",
-    "changeSpeed": "Vaihda nopeutta"
+    "changeSpeed": "Vaihda nopeutta",
+    "speedLabel": "Nopeus",
+    "skipIdleOn": "⚡ Ohita joutoaika",
+    "skipIdleOff": "⏳ Täysi toisto",
+    "jumpPlaceholder": "Hyppää (s)",
+    "progressClickHint": "Klikkaa siirtyäksesi",
+    "idleSegmentHint": "Joutoaika (ohitetaan oletuksena)",
+    "markerCmd": "Komento",
+    "markerDanger": "Vaarallinen komento"
   },
   "commands": {
     "title": "Komennot",
@@ -50,7 +60,8 @@
     "placeholder": "Hae terminaalista...",
     "noMatch": "Ei tuloksia",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Haku (Ctrl+F)"
   },
   "export": {
     "title": "Vie Istunto",
@@ -59,9 +70,12 @@
     "csv": "Vie komentoluettelo (CSV)",
     "json": "Vie komentoluettelo (JSON)",
     "cast": "Kopioi raaka tallenne (.cast)",
-    "close": "Sulje"
+    "close": "Sulje",
+    "open": "Vie"
   },
   "status": {
-    "duration": "Kesto"
+    "duration": "Kesto",
+    "events": "Tapahtumat",
+    "state": "Tila"
   }
 }

@@ -4,7 +4,8 @@
     "emptyHint": "Wählen Sie eine Sitzung aus der Seitenleiste oder ziehen Sie eine .cast-Datei hierher",
     "shortcutHint": "Tastenkürzel: Leertaste Wiedergabe/Pause, Strg+F Suche",
     "readyStatus": "Bereit — Sitzung auswählen",
-    "loading": "Laden..."
+    "loading": "Laden...",
+    "language": "Sprache"
   },
   "sidebar": {
     "title": "Aufzeichnungen",
@@ -15,7 +16,8 @@
     "loadFailed": "Laden fehlgeschlagen:",
     "retry": "Wiederholen",
     "allProjects": "Alle Projekte",
-    "commandsCount": "Befehle"
+    "commandsCount": "Befehle",
+    "notConfigured": "Nicht konfiguriert"
   },
   "controls": {
     "stepBack30": "30s zurück",
@@ -29,7 +31,15 @@
     "stepForward10": "10s vor",
     "stepForward30": "30s vor",
     "skipIdle": "Leerlauf überspringen",
-    "changeSpeed": "Geschwindigkeit ändern"
+    "changeSpeed": "Geschwindigkeit ändern",
+    "speedLabel": "Geschw.",
+    "skipIdleOn": "⚡ Leerlauf überspr.",
+    "skipIdleOff": "⏳ Volle Wiederg.",
+    "jumpPlaceholder": "Springen (s)",
+    "progressClickHint": "Zum Springen klicken",
+    "idleSegmentHint": "Leerlaufzeit (standardmäßig übersprungen)",
+    "markerCmd": "Befehl",
+    "markerDanger": "Gefährlicher Befehl"
   },
   "commands": {
     "title": "Befehlsliste",
@@ -50,7 +60,8 @@
     "placeholder": "Im Terminal suchen...",
     "noMatch": "Kein Treffer",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Suchen (Strg+F)"
   },
   "export": {
     "title": "Sitzung exportieren",
@@ -59,9 +70,12 @@
     "csv": "Befehlsliste exportieren (CSV)",
     "json": "Befehlsliste exportieren (JSON)",
     "cast": "Rohaufzeichnung kopieren (.cast)",
-    "close": "Schließen"
+    "close": "Schließen",
+    "open": "Exportieren"
   },
   "status": {
-    "duration": "Dauer"
+    "duration": "Dauer",
+    "events": "Ereignisse",
+    "state": "Zustand"
   }
 }

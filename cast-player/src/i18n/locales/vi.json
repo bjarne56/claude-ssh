@@ -4,7 +4,8 @@
     "emptyHint": "Chọn phiên từ thanh bên hoặc kéo thả tệp .cast vào đây",
     "shortcutHint": "Phím tắt: Dấu cách phát/tạm dừng, Ctrl+F tìm kiếm",
     "readyStatus": "Sẵn sàng — chọn phiên",
-    "loading": "Đang tải..."
+    "loading": "Đang tải...",
+    "language": "Ngôn ngữ"
   },
   "sidebar": {
     "title": "Bản Ghi",
@@ -15,7 +16,8 @@
     "loadFailed": "Tải thất bại:",
     "retry": "Thử lại",
     "allProjects": "Tất Cả Dự Án",
-    "commandsCount": "lệnh"
+    "commandsCount": "lệnh",
+    "notConfigured": "Chưa cấu hình"
   },
   "controls": {
     "stepBack30": "Lùi 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "Tiến 10s",
     "stepForward30": "Tiến 30s",
     "skipIdle": "Bỏ qua thời gian rảnh",
-    "changeSpeed": "Đổi tốc độ"
+    "changeSpeed": "Đổi tốc độ",
+    "speedLabel": "Tốc độ",
+    "skipIdleOn": "⚡ Bỏ qua rảnh",
+    "skipIdleOff": "⏳ Phát đầy đủ",
+    "jumpPlaceholder": "Nhảy (s)",
+    "progressClickHint": "Nhấp để chuyển",
+    "idleSegmentHint": "Thời gian rảnh (bỏ qua mặc định)",
+    "markerCmd": "Lệnh",
+    "markerDanger": "Lệnh nguy hiểm"
   },
   "commands": {
     "title": "Danh Sách Lệnh",
@@ -50,7 +60,8 @@
     "placeholder": "Tìm trong terminal...",
     "noMatch": "Không khớp",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Tìm (Ctrl+F)"
   },
   "export": {
     "title": "Xuất Phiên",
@@ -59,9 +70,12 @@
     "csv": "Xuất danh sách lệnh (CSV)",
     "json": "Xuất danh sách lệnh (JSON)",
     "cast": "Sao chép bản ghi thô (.cast)",
-    "close": "Đóng"
+    "close": "Đóng",
+    "open": "Xuất"
   },
   "status": {
-    "duration": "Thời lượng"
+    "duration": "Thời lượng",
+    "events": "Sự kiện",
+    "state": "Trạng thái"
   }
 }

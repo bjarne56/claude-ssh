@@ -4,7 +4,8 @@
     "emptyHint": "Válasszon munkamenetet az oldalsávból, vagy húzzon ide egy .cast fájlt",
     "shortcutHint": "Gyorsbillentyűk: Szóköz lejátszás/szünet, Ctrl+F keresés",
     "readyStatus": "Kész — válasszon munkamenetet",
-    "loading": "Betöltés..."
+    "loading": "Betöltés...",
+    "language": "Nyelv"
   },
   "sidebar": {
     "title": "Felvételek",
@@ -15,7 +16,8 @@
     "loadFailed": "Betöltés sikertelen:",
     "retry": "Újra",
     "allProjects": "Minden projekt",
-    "commandsCount": "par"
+    "commandsCount": "par",
+    "notConfigured": "Nincs beállítva"
   },
   "controls": {
     "stepBack30": "30s vissza",
@@ -29,7 +31,15 @@
     "stepForward10": "10s előre",
     "stepForward30": "30s előre",
     "skipIdle": "Üresjárat átugrása",
-    "changeSpeed": "Sebesség váltás"
+    "changeSpeed": "Sebesség váltás",
+    "speedLabel": "Sebes.",
+    "skipIdleOn": "⚡ Üresjárat ki",
+    "skipIdleOff": "⏳ Teljes lej.",
+    "jumpPlaceholder": "Ugrás (mp)",
+    "progressClickHint": "Kattintson az ugráshoz",
+    "idleSegmentHint": "Üresjárati időszak (átugorva)",
+    "markerCmd": "Parancs",
+    "markerDanger": "Veszélyes parancs"
   },
   "commands": {
     "title": "Parancsok",
@@ -50,7 +60,8 @@
     "placeholder": "Keresés a terminálban...",
     "noMatch": "Nincs találat",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Keresés (Ctrl+F)"
   },
   "export": {
     "title": "Munkamenet Exportálása",
@@ -59,9 +70,12 @@
     "csv": "Parancslista exportálása (CSV)",
     "json": "Parancslista exportálása (JSON)",
     "cast": "Nyers felvétel másolása (.cast)",
-    "close": "Bezárás"
+    "close": "Bezárás",
+    "open": "Exportálás"
   },
   "status": {
-    "duration": "Időtartam"
+    "duration": "Időtartam",
+    "events": "Események",
+    "state": "Állapot"
   }
 }

@@ -4,7 +4,8 @@
     "emptyHint": "Vælg en session fra sidepanelet eller slip en .cast-fil her",
     "shortcutHint": "Genveje: Mellemrum afspil/pause, Ctrl+F søg",
     "readyStatus": "Klar — vælg en session",
-    "loading": "Indlæser..."
+    "loading": "Indlæser...",
+    "language": "Sprog"
   },
   "sidebar": {
     "title": "Optagelser",
@@ -15,7 +16,8 @@
     "loadFailed": "Indlæsning fejlede:",
     "retry": "Prøv igen",
     "allProjects": "Alle projekter",
-    "commandsCount": "kmd"
+    "commandsCount": "kmd",
+    "notConfigured": "Ikke konfigureret"
   },
   "controls": {
     "stepBack30": "30s tilbage",
@@ -29,7 +31,15 @@
     "stepForward10": "10s frem",
     "stepForward30": "30s frem",
     "skipIdle": "Spring inaktiv tid over",
-    "changeSpeed": "Skift hastighed"
+    "changeSpeed": "Skift hastighed",
+    "speedLabel": "Hast.",
+    "skipIdleOn": "⚡ Spring over",
+    "skipIdleOff": "⏳ Fuld afspiln.",
+    "jumpPlaceholder": "Hop (s)",
+    "progressClickHint": "Klik for at hoppe",
+    "idleSegmentHint": "Inaktiv periode (springes over)",
+    "markerCmd": "Kommando",
+    "markerDanger": "Farlig kommando"
   },
   "commands": {
     "title": "Kommandoer",
@@ -50,7 +60,8 @@
     "placeholder": "Søg i terminalen...",
     "noMatch": "Ingen match",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Søg (Ctrl+F)"
   },
   "export": {
     "title": "Eksporter Session",
@@ -59,9 +70,12 @@
     "csv": "Eksporter kommandoliste (CSV)",
     "json": "Eksporter kommandoliste (JSON)",
     "cast": "Kopier rå optagelse (.cast)",
-    "close": "Luk"
+    "close": "Luk",
+    "open": "Eksporter"
   },
   "status": {
-    "duration": "Varighed"
+    "duration": "Varighed",
+    "events": "Hændelser",
+    "state": "Status"
   }
 }

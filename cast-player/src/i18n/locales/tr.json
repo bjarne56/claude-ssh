@@ -4,7 +4,8 @@
     "emptyHint": "Kenar çubuğundan bir oturum seçin veya bir .cast dosyasını buraya sürükleyin",
     "shortcutHint": "Kısayollar: Boşluk oynat/duraklat, Ctrl+F ara",
     "readyStatus": "Hazır — bir oturum seçin",
-    "loading": "Yükleniyor..."
+    "loading": "Yükleniyor...",
+    "language": "Dil"
   },
   "sidebar": {
     "title": "Kayıtlar",
@@ -15,7 +16,8 @@
     "loadFailed": "Yükleme başarısız:",
     "retry": "Yeniden dene",
     "allProjects": "Tüm Projeler",
-    "commandsCount": "kmd"
+    "commandsCount": "kmd",
+    "notConfigured": "Yapılandırılmamış"
   },
   "controls": {
     "stepBack30": "30s geri",
@@ -29,7 +31,15 @@
     "stepForward10": "10s ileri",
     "stepForward30": "30s ileri",
     "skipIdle": "Boşta geçen süreyi atla",
-    "changeSpeed": "Hızı değiştir"
+    "changeSpeed": "Hızı değiştir",
+    "speedLabel": "Hız",
+    "skipIdleOn": "⚡ Boşta atla",
+    "skipIdleOff": "⏳ Tam oynatma",
+    "jumpPlaceholder": "Atla (s)",
+    "progressClickHint": "Atlamak için tıklayın",
+    "idleSegmentHint": "Boşta kalma (varsayılan atlanır)",
+    "markerCmd": "Komut",
+    "markerDanger": "Tehlikeli komut"
   },
   "commands": {
     "title": "Komutlar",
@@ -50,7 +60,8 @@
     "placeholder": "Terminalde ara...",
     "noMatch": "Eşleşme yok",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Ara (Ctrl+F)"
   },
   "export": {
     "title": "Oturumu Dışa Aktar",
@@ -59,9 +70,12 @@
     "csv": "Komut listesini dışa aktar (CSV)",
     "json": "Komut listesini dışa aktar (JSON)",
     "cast": "Ham kaydı kopyala (.cast)",
-    "close": "Kapat"
+    "close": "Kapat",
+    "open": "Dışa aktar"
   },
   "status": {
-    "duration": "Süre"
+    "duration": "Süre",
+    "events": "Olaylar",
+    "state": "Durum"
   }
 }

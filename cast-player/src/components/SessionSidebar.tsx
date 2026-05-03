@@ -5,6 +5,43 @@ import {
   scanSessions,
   searchSessions,
 } from "../tauri-api";
+import { useTranslation, getLocale, setLocale } from "../i18n";
+
+// 支持的语言列表 (locale code → 显示名)
+const LOCALES: { code: string; name: string }[] = [
+  { code: "en", name: "English" },
+  { code: "zh-CN", name: "简体中文" },
+  { code: "zh-TW", name: "繁體中文" },
+  { code: "ja", name: "日本語" },
+  { code: "ko", name: "한국어" },
+  { code: "fr", name: "Français" },
+  { code: "de", name: "Deutsch" },
+  { code: "es", name: "Español" },
+  { code: "it", name: "Italiano" },
+  { code: "pt-BR", name: "Português (BR)" },
+  { code: "pt", name: "Português" },
+  { code: "ru", name: "Русский" },
+  { code: "uk", name: "Українська" },
+  { code: "pl", name: "Polski" },
+  { code: "cs", name: "Čeština" },
+  { code: "hu", name: "Magyar" },
+  { code: "ro", name: "Română" },
+  { code: "nl", name: "Nederlands" },
+  { code: "sv", name: "Svenska" },
+  { code: "nb", name: "Norsk Bokmål" },
+  { code: "da", name: "Dansk" },
+  { code: "fi", name: "Suomi" },
+  { code: "el", name: "Ελληνικά" },
+  { code: "ar", name: "العربية" },
+  { code: "he", name: "עברית" },
+  { code: "tr", name: "Türkçe" },
+  { code: "hi", name: "हिन्दी" },
+  { code: "id", name: "Indonesia" },
+  { code: "ms", name: "Melayu" },
+  { code: "fil", name: "Filipino" },
+  { code: "vi", name: "Tiếng Việt" },
+  { code: "th", name: "ไทย" },
+];
 
 interface SessionSidebarProps {
   onSelect: (session: SessionSummary) => void;
@@ -15,12 +52,22 @@ export function SessionSidebar({
   onSelect,
   activeSessionId,
 }: SessionSidebarProps) {
+  const { t } = useTranslation();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [videoDir, setVideoDir] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
+  const [currentLocale, setCurrentLocale] = useState(getLocale());
+
+  const handleLocaleChange = (newLocale: string) => {
+    setLocale(newLocale);
+    localStorage.setItem("cast-player-locale", newLocale);
+    setCurrentLocale(newLocale);
+    // 强制整个应用重渲染
+    window.dispatchEvent(new Event("locale-changed"));
+  };
 
   const loadSessions = useCallback(async () => {
     try {
@@ -65,10 +112,24 @@ export function SessionSidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h2>录像库</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <h2>{t("sidebar.title")}</h2>
+          <select
+            value={currentLocale}
+            onChange={(e) => handleLocaleChange(e.target.value)}
+            title={t("app.language")}
+            style={{ fontSize: 11, maxWidth: 140 }}
+          >
+            {LOCALES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <input
           type="text"
-          placeholder="搜索主机/用户/项目..."
+          placeholder={t("sidebar.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
         />
@@ -77,7 +138,7 @@ export function SessionSidebar({
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
           >
-            <option value="">全部项目</option>
+            <option value="">{t("sidebar.allProjects")}</option>
             {projects.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -86,7 +147,7 @@ export function SessionSidebar({
           </select>
         )}
         <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-          {videoDir ? `📁 ${videoDir}` : "未配置录像目录"}
+          {videoDir ? `📁 ${videoDir}` : t("sidebar.noVideoDir")}
         </div>
         <button
           onClick={loadSessions}
@@ -96,26 +157,26 @@ export function SessionSidebar({
             background: "var(--bg-surface)",
           }}
         >
-          刷新
+          {t("sidebar.refresh")}
         </button>
       </div>
       <div className="sidebar-list">
         {loading && (
           <div className="empty-state">
-            <p>加载中...</p>
+            <p>{t("app.loading")}</p>
           </div>
         )}
         {error && (
           <div className="empty-state">
-            <p style={{ color: "var(--danger)" }}>加载失败: {error}</p>
+            <p style={{ color: "var(--danger)" }}>{t("sidebar.loadFailed")} {error}</p>
             <button onClick={loadSessions} className="primary">
-              重试
+              {t("sidebar.retry")}
             </button>
           </div>
         )}
         {!loading && !error && filtered.length === 0 && (
           <div className="empty-state">
-            <p>暂无录像。录像目录: {videoDir || "未配置"}</p>
+            <p>{t("sidebar.noSessions")} {videoDir || t("sidebar.notConfigured")}</p>
           </div>
         )}
         {filtered.map((s) => (
@@ -127,7 +188,7 @@ export function SessionSidebar({
             <div className="host">{s.host}</div>
             <div className="meta">
               <span>{s.user}</span>
-              <span>{s.command_count} 命令</span>
+              <span>{s.command_count} {t("sidebar.commandsCount")}</span>
               <span>
                 {s.started_at.slice(0, 16).replace("T", " ")}
               </span>

@@ -4,7 +4,8 @@
     "emptyHint": "Vyberte relaci z postranního panelu nebo sem přetáhněte soubor .cast",
     "shortcutHint": "Zkratky: Mezerník přehrát/pozastavit, Ctrl+F hledat",
     "readyStatus": "Připraveno — vyberte relaci",
-    "loading": "Načítání..."
+    "loading": "Načítání...",
+    "language": "Jazyk"
   },
   "sidebar": {
     "title": "Záznamy",
@@ -15,7 +16,8 @@
     "loadFailed": "Načítání selhalo:",
     "retry": "Zkusit znovu",
     "allProjects": "Všechny projekty",
-    "commandsCount": "přík"
+    "commandsCount": "přík",
+    "notConfigured": "Nenakonfigurováno"
   },
   "controls": {
     "stepBack30": "30s zpět",
@@ -29,7 +31,15 @@
     "stepForward10": "10s vpřed",
     "stepForward30": "30s vpřed",
     "skipIdle": "Přeskočit nečinnost",
-    "changeSpeed": "Změnit rychlost"
+    "changeSpeed": "Změnit rychlost",
+    "speedLabel": "Rychl.",
+    "skipIdleOn": "⚡ Přesk. nečinnost",
+    "skipIdleOff": "⏳ Úplné přehr.",
+    "jumpPlaceholder": "Skok (s)",
+    "progressClickHint": "Klikněte pro přesun",
+    "idleSegmentHint": "Nečinné období (přeskočeno)",
+    "markerCmd": "Příkaz",
+    "markerDanger": "Nebezpečný příkaz"
   },
   "commands": {
     "title": "Příkazy",
@@ -50,7 +60,8 @@
     "placeholder": "Hledat v terminálu...",
     "noMatch": "Žádná shoda",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Hledat (Ctrl+F)"
   },
   "export": {
     "title": "Exportovat Relaci",
@@ -59,9 +70,12 @@
     "csv": "Exportovat seznam příkazů (CSV)",
     "json": "Exportovat seznam příkazů (JSON)",
     "cast": "Kopírovat surový záznam (.cast)",
-    "close": "Zavřít"
+    "close": "Zavřít",
+    "open": "Export"
   },
   "status": {
-    "duration": "Trvání"
+    "duration": "Trvání",
+    "events": "Události",
+    "state": "Stav"
   }
 }

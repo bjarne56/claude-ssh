@@ -4,7 +4,8 @@
     "emptyHint": "Pilih sesi dari bilah sisi atau seret file .cast ke sini",
     "shortcutHint": "Pintasan: Spasi putar/jeda, Ctrl+F cari",
     "readyStatus": "Siap — pilih sesi",
-    "loading": "Memuat..."
+    "loading": "Memuat...",
+    "language": "Bahasa"
   },
   "sidebar": {
     "title": "Rekaman",
@@ -15,7 +16,8 @@
     "loadFailed": "Gagal memuat:",
     "retry": "Coba lagi",
     "allProjects": "Semua Proyek",
-    "commandsCount": "prh"
+    "commandsCount": "prh",
+    "notConfigured": "Belum dikonfigurasi"
   },
   "controls": {
     "stepBack30": "Mundur 30dtk",
@@ -29,7 +31,15 @@
     "stepForward10": "Maju 10dtk",
     "stepForward30": "Maju 30dtk",
     "skipIdle": "Lewati waktu diam",
-    "changeSpeed": "Ubah kecepatan"
+    "changeSpeed": "Ubah kecepatan",
+    "speedLabel": "Kecepatan",
+    "skipIdleOn": "⚡ Lewati diam",
+    "skipIdleOff": "⏳ Putar penuh",
+    "jumpPlaceholder": "Lompat (d)",
+    "progressClickHint": "Klik untuk mencari",
+    "idleSegmentHint": "Periode diam (dilewati default)",
+    "markerCmd": "Perintah",
+    "markerDanger": "Perintah berbahaya"
   },
   "commands": {
     "title": "Perintah",
@@ -50,7 +60,8 @@
     "placeholder": "Cari di terminal...",
     "noMatch": "Tidak cocok",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Cari (Ctrl+F)"
   },
   "export": {
     "title": "Ekspor Sesi",
@@ -59,9 +70,12 @@
     "csv": "Ekspor daftar perintah (CSV)",
     "json": "Ekspor daftar perintah (JSON)",
     "cast": "Salin rekaman mentah (.cast)",
-    "close": "Tutup"
+    "close": "Tutup",
+    "open": "Ekspor"
   },
   "status": {
-    "duration": "Durasi"
+    "duration": "Durasi",
+    "events": "Peristiwa",
+    "state": "Status"
   }
 }

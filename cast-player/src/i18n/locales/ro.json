@@ -4,7 +4,8 @@
     "emptyHint": "Selectați o sesiune din bara laterală sau trageți un fișier .cast aici",
     "shortcutHint": "Scurtături: Spațiu redare/pauză, Ctrl+F căutare",
     "readyStatus": "Gata — selectați o sesiune",
-    "loading": "Încărcare..."
+    "loading": "Încărcare...",
+    "language": "Limbă"
   },
   "sidebar": {
     "title": "Înregistrări",
@@ -15,7 +16,8 @@
     "loadFailed": "Încărcare eșuată:",
     "retry": "Reîncercați",
     "allProjects": "Toate proiectele",
-    "commandsCount": "cmd"
+    "commandsCount": "cmd",
+    "notConfigured": "Neconfigurat"
   },
   "controls": {
     "stepBack30": "30s înapoi",
@@ -29,7 +31,15 @@
     "stepForward10": "10s înainte",
     "stepForward30": "30s înainte",
     "skipIdle": "Sari peste inactivitate",
-    "changeSpeed": "Schimbă viteza"
+    "changeSpeed": "Schimbă viteza",
+    "speedLabel": "Vit.",
+    "skipIdleOn": "⚡ Sari inactiv",
+    "skipIdleOff": "⏳ Redare completă",
+    "jumpPlaceholder": "Sari la (s)",
+    "progressClickHint": "Faceți clic pentru a căuta",
+    "idleSegmentHint": "Perioadă inactivă (omisă implicit)",
+    "markerCmd": "Comandă",
+    "markerDanger": "Comandă periculoasă"
   },
   "commands": {
     "title": "Comenzi",
@@ -50,7 +60,8 @@
     "placeholder": "Căutați în terminal...",
     "noMatch": "Nicio potrivire",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Caută (Ctrl+F)"
   },
   "export": {
     "title": "Exportă Sesiune",
@@ -59,9 +70,12 @@
     "csv": "Exportă lista de comenzi (CSV)",
     "json": "Exportă lista de comenzi (JSON)",
     "cast": "Copiază înregistrarea brută (.cast)",
-    "close": "Închide"
+    "close": "Închide",
+    "open": "Exportă"
   },
   "status": {
-    "duration": "Durată"
+    "duration": "Durată",
+    "events": "Evenimente",
+    "state": "Stare"
   }
 }

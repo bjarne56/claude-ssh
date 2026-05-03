@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { Terminal } from "@xterm/xterm";
+import { useTranslation } from "../i18n";
 
 interface SearchOverlayProps {
   termRef: React.MutableRefObject<Terminal | null>;
@@ -8,6 +9,7 @@ interface SearchOverlayProps {
 }
 
 export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [regex, setRegex] = useState(false);
@@ -122,7 +124,7 @@ export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps)
       <div className="search-row">
         <input
           type="text"
-          placeholder="在终端中搜索..."
+          placeholder={t("search.placeholder")}
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           autoFocus
@@ -137,7 +139,7 @@ export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps)
       </div>
       <div className="search-row">
         <span className="search-count">
-          {count > 0 ? `${current + 1}/${count}` : "无匹配"}
+          {count > 0 ? `${current + 1}/${count}` : t("search.noMatch")}
         </span>
         <div className="search-options">
           <label>

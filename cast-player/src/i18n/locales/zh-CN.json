@@ -4,7 +4,8 @@
     "emptyHint": "从左侧选择一个会话开始回放，或拖放 .cast 文件到此窗口",
     "shortcutHint": "快捷键: Space 播放/暂停, Ctrl+F 搜索",
     "readyStatus": "准备就绪 — 选择一个会话",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "language": "语言"
   },
   "sidebar": {
     "title": "录像库",
@@ -15,7 +16,8 @@
     "loadFailed": "加载失败:",
     "retry": "重试",
     "allProjects": "全部项目",
-    "commandsCount": "命令"
+    "commandsCount": "命令",
+    "notConfigured": "未配置"
   },
   "controls": {
     "stepBack30": "快退 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "快进 10s",
     "stepForward30": "快进 30s",
     "skipIdle": "自动跳过空闲时间",
-    "changeSpeed": "切换倍速"
+    "changeSpeed": "切换倍速",
+    "speedLabel": "倍速",
+    "skipIdleOn": "⚡ 跳过空闲",
+    "skipIdleOff": "⏳ 完整播放",
+    "jumpPlaceholder": "跳转 (s)",
+    "progressClickHint": "点击跳转",
+    "idleSegmentHint": "空闲时段 (默认跳过)",
+    "markerCmd": "命令执行点",
+    "markerDanger": "危险命令"
   },
   "commands": {
     "title": "命令列表",
@@ -50,7 +60,8 @@
     "placeholder": "在终端中搜索...",
     "noMatch": "无匹配",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "搜索 (Ctrl+F)"
   },
   "export": {
     "title": "导出会话",
@@ -59,9 +70,12 @@
     "csv": "导出命令清单 (CSV)",
     "json": "导出命令清单 (JSON)",
     "cast": "复制原始录像文件 (.cast)",
-    "close": "关闭"
+    "close": "关闭",
+    "open": "导出"
   },
   "status": {
-    "duration": "时长"
+    "duration": "时长",
+    "events": "事件",
+    "state": "状态"
   }
 }

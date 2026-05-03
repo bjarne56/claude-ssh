@@ -4,7 +4,8 @@
     "emptyHint": "Choisissez une session dans la barre latérale ou déposez un fichier .cast ici",
     "shortcutHint": "Raccourcis: Espace lecture/pause, Ctrl+F recherche",
     "readyStatus": "Prêt — sélectionnez une session",
-    "loading": "Chargement..."
+    "loading": "Chargement...",
+    "language": "Langue"
   },
   "sidebar": {
     "title": "Enregistrements",
@@ -15,7 +16,8 @@
     "loadFailed": "Échec du chargement:",
     "retry": "Réessayer",
     "allProjects": "Tous les projets",
-    "commandsCount": "cmdes"
+    "commandsCount": "cmdes",
+    "notConfigured": "Non configuré"
   },
   "controls": {
     "stepBack30": "Reculer 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "Avancer 10s",
     "stepForward30": "Avancer 30s",
     "skipIdle": "Sauter les temps morts",
-    "changeSpeed": "Changer la vitesse"
+    "changeSpeed": "Changer la vitesse",
+    "speedLabel": "Vitesse",
+    "skipIdleOn": "⚡ Sauter inactif",
+    "skipIdleOff": "⏳ Lecture complète",
+    "jumpPlaceholder": "Aller à (s)",
+    "progressClickHint": "Cliquer pour aller à",
+    "idleSegmentHint": "Période inactive (sautée par défaut)",
+    "markerCmd": "Commande",
+    "markerDanger": "Commande dangereuse"
   },
   "commands": {
     "title": "Commandes",
@@ -50,7 +60,8 @@
     "placeholder": "Rechercher dans le terminal...",
     "noMatch": "Aucun résultat",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Rechercher (Ctrl+F)"
   },
   "export": {
     "title": "Exporter la session",
@@ -59,9 +70,12 @@
     "csv": "Exporter la liste des commandes (CSV)",
     "json": "Exporter la liste des commandes (JSON)",
     "cast": "Copier l'enregistrement brut (.cast)",
-    "close": "Fermer"
+    "close": "Fermer",
+    "open": "Exporter"
   },
   "status": {
-    "duration": "Durée"
+    "duration": "Durée",
+    "events": "Événements",
+    "state": "État"
   }
 }

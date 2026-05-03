@@ -4,7 +4,8 @@
     "emptyHint": "Виберіть сеанс на бічній панелі або перетягніть файл .cast сюди",
     "shortcutHint": "Гарячі клавіші: Пробіл відтв./пауза, Ctrl+F пошук",
     "readyStatus": "Готово — виберіть сеанс",
-    "loading": "Завантаження..."
+    "loading": "Завантаження...",
+    "language": "Мова"
   },
   "sidebar": {
     "title": "Записи",
@@ -15,7 +16,8 @@
     "loadFailed": "Помилка завантаження:",
     "retry": "Повторити",
     "allProjects": "Усі проєкти",
-    "commandsCount": "кмд"
+    "commandsCount": "кмд",
+    "notConfigured": "Не налаштовано"
   },
   "controls": {
     "stepBack30": "Назад 30с",
@@ -29,7 +31,15 @@
     "stepForward10": "Вперед 10с",
     "stepForward30": "Вперед 30с",
     "skipIdle": "Пропуск бездіяльності",
-    "changeSpeed": "Змінити швидкість"
+    "changeSpeed": "Змінити швидкість",
+    "speedLabel": "Швидкість",
+    "skipIdleOn": "⚡ Пропуск",
+    "skipIdleOff": "⏳ Повне відтв.",
+    "jumpPlaceholder": "Перейти (с)",
+    "progressClickHint": "Натисніть для переходу",
+    "idleSegmentHint": "Період бездіяльності (пропускається)",
+    "markerCmd": "Команда",
+    "markerDanger": "Небезпечна команда"
   },
   "commands": {
     "title": "Команди",
@@ -50,7 +60,8 @@
     "placeholder": "Пошук у терміналі...",
     "noMatch": "Немає збігів",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Пошук (Ctrl+F)"
   },
   "export": {
     "title": "Експорт Сеансу",
@@ -59,9 +70,12 @@
     "csv": "Експорт списку команд (CSV)",
     "json": "Експорт списку команд (JSON)",
     "cast": "Копіювати сирий запис (.cast)",
-    "close": "Закрити"
+    "close": "Закрити",
+    "open": "Експорт"
   },
   "status": {
-    "duration": "Тривалість"
+    "duration": "Тривалість",
+    "events": "Події",
+    "state": "Стан"
   }
 }

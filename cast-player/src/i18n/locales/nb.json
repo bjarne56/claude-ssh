@@ -4,7 +4,8 @@
     "emptyHint": "Velg en økt fra sidepanelet eller dra en .cast-fil hit",
     "shortcutHint": "Hurtigtaster: Mellomrom spill/pause, Ctrl+F søk",
     "readyStatus": "Klar — velg en økt",
-    "loading": "Laster..."
+    "loading": "Laster...",
+    "language": "Språk"
   },
   "sidebar": {
     "title": "Opptak",
@@ -15,7 +16,8 @@
     "loadFailed": "Innlasting mislyktes:",
     "retry": "Prøv igjen",
     "allProjects": "Alle prosjekter",
-    "commandsCount": "kmd"
+    "commandsCount": "kmd",
+    "notConfigured": "Ikke konfigurert"
   },
   "controls": {
     "stepBack30": "30s tilbake",
@@ -29,7 +31,15 @@
     "stepForward10": "10s frem",
     "stepForward30": "30s frem",
     "skipIdle": "Hopp over ventetid",
-    "changeSpeed": "Endre hastighet"
+    "changeSpeed": "Endre hastighet",
+    "speedLabel": "Hast.",
+    "skipIdleOn": "⚡ Hopp over",
+    "skipIdleOff": "⏳ Full avspilling",
+    "jumpPlaceholder": "Hopp (s)",
+    "progressClickHint": "Klikk for å hoppe",
+    "idleSegmentHint": "Inaktiv periode (hoppes over)",
+    "markerCmd": "Kommando",
+    "markerDanger": "Farlig kommando"
   },
   "commands": {
     "title": "Kommandoer",
@@ -50,7 +60,8 @@
     "placeholder": "Søk i terminalen...",
     "noMatch": "Ingen treff",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Søk (Ctrl+F)"
   },
   "export": {
     "title": "Eksporter Økt",
@@ -59,9 +70,12 @@
     "csv": "Eksporter kommandoliste (CSV)",
     "json": "Eksporter kommandoliste (JSON)",
     "cast": "Kopier rått opptak (.cast)",
-    "close": "Lukk"
+    "close": "Lukk",
+    "open": "Eksporter"
   },
   "status": {
-    "duration": "Varighet"
+    "duration": "Varighet",
+    "events": "Hendelser",
+    "state": "Status"
   }
 }

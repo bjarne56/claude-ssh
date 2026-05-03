@@ -4,7 +4,8 @@
     "emptyHint": "Выберите сеанс на боковой панели или перетащите файл .cast сюда",
     "shortcutHint": "Горячие клавиши: Пробел воспр./пауза, Ctrl+F поиск",
     "readyStatus": "Готово — выберите сеанс",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "language": "Язык"
   },
   "sidebar": {
     "title": "Записи",
@@ -15,7 +16,8 @@
     "loadFailed": "Ошибка загрузки:",
     "retry": "Повторить",
     "allProjects": "Все проекты",
-    "commandsCount": "кмд"
+    "commandsCount": "кмд",
+    "notConfigured": "Не настроено"
   },
   "controls": {
     "stepBack30": "Назад 30с",
@@ -29,7 +31,15 @@
     "stepForward10": "Вперёд 10с",
     "stepForward30": "Вперёд 30с",
     "skipIdle": "Пропуск бездействия",
-    "changeSpeed": "Скорость"
+    "changeSpeed": "Скорость",
+    "speedLabel": "Скорость",
+    "skipIdleOn": "⚡ Пропуск",
+    "skipIdleOff": "⏳ Полное воспр.",
+    "jumpPlaceholder": "Перейти (с)",
+    "progressClickHint": "Нажмите для перехода",
+    "idleSegmentHint": "Период бездействия (пропускается)",
+    "markerCmd": "Команда",
+    "markerDanger": "Опасная команда"
   },
   "commands": {
     "title": "Команды",
@@ -50,7 +60,8 @@
     "placeholder": "Поиск в терминале...",
     "noMatch": "Нет совпадений",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Поиск (Ctrl+F)"
   },
   "export": {
     "title": "Экспорт Сеанса",
@@ -59,9 +70,12 @@
     "csv": "Экспорт списка команд (CSV)",
     "json": "Экспорт списка команд (JSON)",
     "cast": "Копировать сырую запись (.cast)",
-    "close": "Закрыть"
+    "close": "Закрыть",
+    "open": "Экспорт"
   },
   "status": {
-    "duration": "Длительность"
+    "duration": "Длительность",
+    "events": "События",
+    "state": "Состояние"
   }
 }

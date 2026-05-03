@@ -4,7 +4,8 @@
     "emptyHint": "Pumili ng session mula sa sidebar o i-drag ang .cast file dito",
     "shortcutHint": "Shortcut: Space play/pause, Ctrl+F hanapin",
     "readyStatus": "Handa — pumili ng session",
-    "loading": "Naglo-load..."
+    "loading": "Naglo-load...",
+    "language": "Wika"
   },
   "sidebar": {
     "title": "Mga Recording",
@@ -15,7 +16,8 @@
     "loadFailed": "Nabigo ang pag-load:",
     "retry": "Subukan muli",
     "allProjects": "Lahat ng Proyekto",
-    "commandsCount": "cmd"
+    "commandsCount": "cmd",
+    "notConfigured": "Hindi naka-configure"
   },
   "controls": {
     "stepBack30": "Bumalik 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "Abante 10s",
     "stepForward30": "Abante 30s",
     "skipIdle": "Laktawan ang idle",
-    "changeSpeed": "Baguhin ang bilis"
+    "changeSpeed": "Baguhin ang bilis",
+    "speedLabel": "Bilis",
+    "skipIdleOn": "⚡ Laktawan idle",
+    "skipIdleOff": "⏳ Buong playback",
+    "jumpPlaceholder": "Tumalon (s)",
+    "progressClickHint": "I-click upang lumipat",
+    "idleSegmentHint": "Idle period (default skipped)",
+    "markerCmd": "Utos",
+    "markerDanger": "Mapanganib na utos"
   },
   "commands": {
     "title": "Mga Utos",
@@ -50,7 +60,8 @@
     "placeholder": "Maghanap sa terminal...",
     "noMatch": "Walang tugma",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Hanapin (Ctrl+F)"
   },
   "export": {
     "title": "I-export ang Session",
@@ -59,9 +70,12 @@
     "csv": "I-export ang listahan ng utos (CSV)",
     "json": "I-export ang listahan ng utos (JSON)",
     "cast": "Kopyahin ang raw recording (.cast)",
-    "close": "Isara"
+    "close": "Isara",
+    "open": "I-export"
   },
   "status": {
-    "duration": "Tagal"
+    "duration": "Tagal",
+    "events": "Mga Event",
+    "state": "Status"
   }
 }

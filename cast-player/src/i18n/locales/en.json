@@ -4,18 +4,20 @@
     "emptyHint": "Choose a session from the sidebar, or drag & drop a .cast file here",
     "shortcutHint": "Shortcuts: Space play/pause, Ctrl+F search",
     "readyStatus": "Ready — select a session",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "language": "Language"
   },
   "sidebar": {
     "title": "Recordings",
     "searchPlaceholder": "Search host/user/project...",
     "refresh": "Refresh",
-    "noVideoDir": "No recording directory configured",
+    "noVideoDir": "No recording directory",
     "noSessions": "No recordings. Directory:",
     "loadFailed": "Load failed:",
     "retry": "Retry",
     "allProjects": "All Projects",
-    "commandsCount": "cmds"
+    "commandsCount": "cmds",
+    "notConfigured": "Not configured"
   },
   "controls": {
     "stepBack30": "Rewind 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "Forward 10s",
     "stepForward30": "Forward 30s",
     "skipIdle": "Skip idle time",
-    "changeSpeed": "Change playback speed"
+    "changeSpeed": "Change playback speed",
+    "speedLabel": "Speed",
+    "skipIdleOn": "⚡ Skip idle",
+    "skipIdleOff": "⏳ Full playback",
+    "jumpPlaceholder": "Jump (s)",
+    "progressClickHint": "Click to seek",
+    "idleSegmentHint": "Idle period (skipped by default)",
+    "markerCmd": "Command",
+    "markerDanger": "Dangerous command"
   },
   "commands": {
     "title": "Commands",
@@ -50,7 +60,8 @@
     "placeholder": "Search in terminal...",
     "noMatch": "No match",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Search (Ctrl+F)"
   },
   "export": {
     "title": "Export Session",
@@ -59,9 +70,12 @@
     "csv": "Export command list (CSV)",
     "json": "Export command list (JSON)",
     "cast": "Copy raw recording (.cast)",
-    "close": "Close"
+    "close": "Close",
+    "open": "Export"
   },
   "status": {
-    "duration": "Duration"
+    "duration": "Duration",
+    "events": "Events",
+    "state": "State"
   }
 }

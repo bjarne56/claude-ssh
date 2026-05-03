@@ -4,7 +4,8 @@
     "emptyHint": "בחר הפעלה מהסרגל הצידי או גרור קובץ cast. לכאן",
     "shortcutHint": "קיצורי דרך: רווח הפעלה/השהיה, Ctrl+F חיפוש",
     "readyStatus": "מוכן — בחר הפעלה",
-    "loading": "טוען..."
+    "loading": "טוען...",
+    "language": "שפה"
   },
   "sidebar": {
     "title": "הקלטות",
@@ -15,7 +16,8 @@
     "loadFailed": "הטעינה נכשלה:",
     "retry": "נסה שוב",
     "allProjects": "כל הפרויקטים",
-    "commandsCount": "פק"
+    "commandsCount": "פק",
+    "notConfigured": "לא מוגדר"
   },
   "controls": {
     "stepBack30": "30ש' אחורה",
@@ -29,7 +31,15 @@
     "stepForward10": "10ש' קדימה",
     "stepForward30": "30ש' קדימה",
     "skipIdle": "דלג על זמן לא פעיל",
-    "changeSpeed": "שנה מהירות"
+    "changeSpeed": "שנה מהירות",
+    "speedLabel": "מהירות",
+    "skipIdleOn": "⚡ דלג על מנוחה",
+    "skipIdleOff": "⏳ הפעלה מלאה",
+    "jumpPlaceholder": "קפוץ (ש)",
+    "progressClickHint": "לחץ כדי לעבור",
+    "idleSegmentHint": "תקופת מנוחה (מדולג כברירת מחדל)",
+    "markerCmd": "פקודה",
+    "markerDanger": "פקודה מסוכנת"
   },
   "commands": {
     "title": "פקודות",
@@ -50,7 +60,8 @@
     "placeholder": "חפש במסוף...",
     "noMatch": "אין תוצאות",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "חיפוש (Ctrl+F)"
   },
   "export": {
     "title": "ייצא הפעלה",
@@ -59,9 +70,12 @@
     "csv": "ייצא רשימת פקודות (CSV)",
     "json": "ייצא רשימת פקודות (JSON)",
     "cast": "העתק הקלטה גולמית (cast.)",
-    "close": "סגור"
+    "close": "סגור",
+    "open": "ייצוא"
   },
   "status": {
-    "duration": "משך"
+    "duration": "משך",
+    "events": "אירועים",
+    "state": "מצב"
   }
 }

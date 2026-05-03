@@ -4,7 +4,8 @@
     "emptyHint": "Επιλέξτε μια συνεδρία από την πλαϊνή μπάρα ή σύρετε ένα αρχείο .cast εδώ",
     "shortcutHint": "Συντομεύσεις: Space αναπαραγωγή/παύση, Ctrl+F αναζήτηση",
     "readyStatus": "Έτοιμο — επιλέξτε συνεδρία",
-    "loading": "Φόρτωση..."
+    "loading": "Φόρτωση...",
+    "language": "Γλώσσα"
   },
   "sidebar": {
     "title": "Εγγραφές",
@@ -15,7 +16,8 @@
     "loadFailed": "Αποτυχία φόρτωσης:",
     "retry": "Επανάληψη",
     "allProjects": "Όλα τα έργα",
-    "commandsCount": "εντ"
+    "commandsCount": "εντ",
+    "notConfigured": "Δεν έχει ρυθμιστεί"
   },
   "controls": {
     "stepBack30": "Πίσω 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "Μπροστά 10s",
     "stepForward30": "Μπροστά 30s",
     "skipIdle": "Παράλειψη αδράνειας",
-    "changeSpeed": "Αλλαγή ταχύτητας"
+    "changeSpeed": "Αλλαγή ταχύτητας",
+    "speedLabel": "Ταχύτητα",
+    "skipIdleOn": "⚡ Παράλειψη",
+    "skipIdleOff": "⏳ Πλήρης αναπ.",
+    "jumpPlaceholder": "Μετάβαση (s)",
+    "progressClickHint": "Κλικ για μετάβαση",
+    "idleSegmentHint": "Αδρανής περίοδος (παράλειψη)",
+    "markerCmd": "Εντολή",
+    "markerDanger": "Επικίνδυνη εντολή"
   },
   "commands": {
     "title": "Εντολές",
@@ -50,7 +60,8 @@
     "placeholder": "Αναζήτηση στο τερματικό...",
     "noMatch": "Καμία αντιστοιχία",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Αναζήτηση (Ctrl+F)"
   },
   "export": {
     "title": "Εξαγωγή Συνεδρίας",
@@ -59,9 +70,12 @@
     "csv": "Εξαγωγή λίστας εντολών (CSV)",
     "json": "Εξαγωγή λίστας εντολών (JSON)",
     "cast": "Αντιγραφή ακατέργαστης εγγραφής (.cast)",
-    "close": "Κλείσιμο"
+    "close": "Κλείσιμο",
+    "open": "Εξαγωγή"
   },
   "status": {
-    "duration": "Διάρκεια"
+    "duration": "Διάρκεια",
+    "events": "Συμβάντα",
+    "state": "Κατάσταση"
   }
 }

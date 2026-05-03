@@ -8,19 +8,32 @@ import { SessionSidebar } from "./components/SessionSidebar";
 import { CommandPanel } from "./components/CommandPanel";
 import { SearchOverlay } from "./components/SearchOverlay";
 import { ExportDialog } from "./components/ExportDialog";
-import { detectLocale, setLocale, getLocale } from "./i18n";
+import { detectLocale, setLocale, getLocale, useTranslation } from "./i18n";
 import "./index.css";
 
-setLocale(detectLocale());
+// 启动时优先用户保存的偏好, 否则自动检测
+const savedLocale = typeof localStorage !== "undefined"
+  ? localStorage.getItem("cast-player-locale")
+  : null;
+setLocale(savedLocale || detectLocale());
 console.log(`Cast Player locale: ${getLocale()}`);
 
 function App() {
+  const { t } = useTranslation();
   const player = usePlayer();
   const [activeSession, setActiveSession] = useState<SessionSummary | null>(null);
   const [loadData, setLoadData] = useState<LoadResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [, setLangTick] = useState(0);
+
+  // 监听全局语言变化事件, 强制整个 App 重渲染
+  useEffect(() => {
+    const handler = () => setLangTick((n) => n + 1);
+    window.addEventListener("locale-changed", handler);
+    return () => window.removeEventListener("locale-changed", handler);
+  }, []);
 
   const handleSelectSession = useCallback(
     async (session: SessionSummary) => {
@@ -91,17 +104,17 @@ function App() {
       <div className="main-column">
         {!hasSession && !loading && (
           <div className="empty-state">
-            <h3>Cast Player</h3>
-            <p>从左侧选择一个会话开始回放</p>
+            <h3>{t("app.title")}</h3>
+            <p>{t("app.emptyHint")}</p>
             <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
-              快捷键: Space 播放/暂停, Ctrl+F 搜索
+              {t("app.shortcutHint")}
             </p>
           </div>
         )}
 
         {loading && (
           <div className="empty-state">
-            <p>加载中...</p>
+            <p>{t("app.loading")}</p>
           </div>
         )}
 
@@ -137,15 +150,15 @@ function App() {
               <span>
                 {activeSession.host} ({activeSession.user})
               </span>
-              <span>时长: {loadData.index.total_duration.toFixed(0)}s</span>
-              <span>事件: {loadData.events.length}</span>
-              <span>状态: {player.playState}</span>
+              <span>{t("status.duration")}: {loadData.index.total_duration.toFixed(0)}s</span>
+              <span>{t("status.events")}: {loadData.events.length}</span>
+              <span>{t("status.state")}: {player.playState}</span>
               <span style={{ flex: 1 }} />
-              <button onClick={() => setShowSearch(true)} title="搜索 (Ctrl+F)">
-                🔍 搜索
+              <button onClick={() => setShowSearch(true)} title={t("search.open")}>
+                🔍 {t("search.open").replace(/\s*\(.*\)/, "")}
               </button>
-              <button onClick={() => setShowExport(true)} title="导出">
-                📤 导出
+              <button onClick={() => setShowExport(true)} title={t("export.open")}>
+                📤 {t("export.open")}
               </button>
             </div>
           </>

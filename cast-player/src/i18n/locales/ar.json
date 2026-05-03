@@ -4,7 +4,8 @@
     "emptyHint": "اختر جلسة من الشريط الجانبي أو اسحب ملف .cast هنا",
     "shortcutHint": "الاختصارات: مسافة تشغيل/إيقاف, Ctrl+F بحث",
     "readyStatus": "جاهز — اختر جلسة",
-    "loading": "..."
+    "loading": "...",
+    "language": "اللغة"
   },
   "sidebar": {
     "title": "التسجيلات",
@@ -15,7 +16,8 @@
     "loadFailed": "فشل التحميل:",
     "retry": "إعادة المحاولة",
     "allProjects": "كل المشاريع",
-    "commandsCount": "أمر"
+    "commandsCount": "أمر",
+    "notConfigured": "غير مكوّن"
   },
   "controls": {
     "stepBack30": "للخلف 30ث",
@@ -29,7 +31,15 @@
     "stepForward10": "للأمام 10ث",
     "stepForward30": "للأمام 30ث",
     "skipIdle": "تخطي وقت الخمول",
-    "changeSpeed": "تغيير السرعة"
+    "changeSpeed": "تغيير السرعة",
+    "speedLabel": "السرعة",
+    "skipIdleOn": "⚡ تخطي الخمول",
+    "skipIdleOff": "⏳ تشغيل كامل",
+    "jumpPlaceholder": "اقفز (ث)",
+    "progressClickHint": "انقر للانتقال",
+    "idleSegmentHint": "فترة خمول (تتخطى افتراضياً)",
+    "markerCmd": "أمر",
+    "markerDanger": "أمر خطير"
   },
   "commands": {
     "title": "الأوامر",
@@ -50,7 +60,8 @@
     "placeholder": "بحث في الطرفية...",
     "noMatch": "لا توجد نتائج",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "بحث (Ctrl+F)"
   },
   "export": {
     "title": "تصدير الجلسة",
@@ -59,9 +70,12 @@
     "csv": "تصدير قائمة الأوامر (CSV)",
     "json": "تصدير قائمة الأوامر (JSON)",
     "cast": "نسخ التسجيل الخام (.cast)",
-    "close": "إغلاق"
+    "close": "إغلاق",
+    "open": "تصدير"
   },
   "status": {
-    "duration": "المدة"
+    "duration": "المدة",
+    "events": "الأحداث",
+    "state": "الحالة"
   }
 }

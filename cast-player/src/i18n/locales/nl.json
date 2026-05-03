@@ -4,7 +4,8 @@
     "emptyHint": "Kies een sessie uit de zijbalk of sleep een .cast-bestand hiernaartoe",
     "shortcutHint": "Sneltoetsen: Spatie afspelen/pauzeren, Ctrl+F zoeken",
     "readyStatus": "Gereed — selecteer een sessie",
-    "loading": "Laden..."
+    "loading": "Laden...",
+    "language": "Taal"
   },
   "sidebar": {
     "title": "Opnamen",
@@ -15,7 +16,8 @@
     "loadFailed": "Laden mislukt:",
     "retry": "Opnieuw",
     "allProjects": "Alle projecten",
-    "commandsCount": "cmd"
+    "commandsCount": "cmd",
+    "notConfigured": "Niet geconfigureerd"
   },
   "controls": {
     "stepBack30": "30s terug",
@@ -29,7 +31,15 @@
     "stepForward10": "10s vooruit",
     "stepForward30": "30s vooruit",
     "skipIdle": "Inactieve tijd overslaan",
-    "changeSpeed": "Snelheid wijzigen"
+    "changeSpeed": "Snelheid wijzigen",
+    "speedLabel": "Snelh.",
+    "skipIdleOn": "⚡ Inactief over",
+    "skipIdleOff": "⏳ Volledige weerg.",
+    "jumpPlaceholder": "Spring (s)",
+    "progressClickHint": "Klik om te zoeken",
+    "idleSegmentHint": "Inactieve periode (overgeslagen)",
+    "markerCmd": "Opdracht",
+    "markerDanger": "Gevaarlijke opdracht"
   },
   "commands": {
     "title": "Opdrachten",
@@ -50,7 +60,8 @@
     "placeholder": "Zoeken in terminal...",
     "noMatch": "Geen resultaat",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Zoeken (Ctrl+F)"
   },
   "export": {
     "title": "Sessie Exporteren",
@@ -59,9 +70,12 @@
     "csv": "Opdrachtenlijst exporteren (CSV)",
     "json": "Opdrachtenlijst exporteren (JSON)",
     "cast": "Ruwe opname kopiëren (.cast)",
-    "close": "Sluiten"
+    "close": "Sluiten",
+    "open": "Exporteren"
   },
   "status": {
-    "duration": "Duur"
+    "duration": "Duur",
+    "events": "Gebeurt.",
+    "state": "Status"
   }
 }

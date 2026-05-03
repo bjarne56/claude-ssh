@@ -4,7 +4,8 @@
     "emptyHint": "從左側選擇一個工作階段開始回放，或拖放 .cast 檔案到此視窗",
     "shortcutHint": "快速鍵: Space 播放/暫停, Ctrl+F 搜尋",
     "readyStatus": "準備就緒 — 選擇一個工作階段",
-    "loading": "載入中..."
+    "loading": "載入中...",
+    "language": "語言"
   },
   "sidebar": {
     "title": "錄像庫",
@@ -15,7 +16,8 @@
     "loadFailed": "載入失敗:",
     "retry": "重試",
     "allProjects": "全部專案",
-    "commandsCount": "指令"
+    "commandsCount": "指令",
+    "notConfigured": "未設定"
   },
   "controls": {
     "stepBack30": "快退 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "快進 10s",
     "stepForward30": "快進 30s",
     "skipIdle": "自動跳過閒置時間",
-    "changeSpeed": "切換播放速度"
+    "changeSpeed": "切換播放速度",
+    "speedLabel": "倍速",
+    "skipIdleOn": "⚡ 跳過閒置",
+    "skipIdleOff": "⏳ 完整播放",
+    "jumpPlaceholder": "跳轉 (s)",
+    "progressClickHint": "點擊跳轉",
+    "idleSegmentHint": "閒置時段 (預設跳過)",
+    "markerCmd": "指令執行點",
+    "markerDanger": "危險指令"
   },
   "commands": {
     "title": "指令列表",
@@ -50,7 +60,8 @@
     "placeholder": "在終端機中搜尋...",
     "noMatch": "無匹配",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "搜尋 (Ctrl+F)"
   },
   "export": {
     "title": "匯出工作階段",
@@ -59,9 +70,12 @@
     "csv": "匯出指令清單 (CSV)",
     "json": "匯出指令清單 (JSON)",
     "cast": "複製原始錄像檔案 (.cast)",
-    "close": "關閉"
+    "close": "關閉",
+    "open": "匯出"
   },
   "status": {
-    "duration": "時長"
+    "duration": "時長",
+    "events": "事件",
+    "state": "狀態"
   }
 }

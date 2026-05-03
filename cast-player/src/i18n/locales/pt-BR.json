@@ -4,7 +4,8 @@
     "emptyHint": "Selecione uma sessão na barra lateral ou arraste um arquivo .cast aqui",
     "shortcutHint": "Atalhos: Espaço reproduzir/pausar, Ctrl+F buscar",
     "readyStatus": "Pronto — selecione uma sessão",
-    "loading": "Carregando..."
+    "loading": "Carregando...",
+    "language": "Idioma"
   },
   "sidebar": {
     "title": "Gravações",
@@ -15,7 +16,8 @@
     "loadFailed": "Falha ao carregar:",
     "retry": "Tentar novamente",
     "allProjects": "Todos os Projetos",
-    "commandsCount": "cmds"
+    "commandsCount": "cmds",
+    "notConfigured": "Não configurado"
   },
   "controls": {
     "stepBack30": "Voltar 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "Avançar 10s",
     "stepForward30": "Avançar 30s",
     "skipIdle": "Pular tempo ocioso",
-    "changeSpeed": "Mudar velocidade"
+    "changeSpeed": "Mudar velocidade",
+    "speedLabel": "Vel.",
+    "skipIdleOn": "⚡ Pular inativo",
+    "skipIdleOff": "⏳ Reprod. completa",
+    "jumpPlaceholder": "Ir para (s)",
+    "progressClickHint": "Clique para buscar",
+    "idleSegmentHint": "Período ocioso (pulado por padrão)",
+    "markerCmd": "Comando",
+    "markerDanger": "Comando perigoso"
   },
   "commands": {
     "title": "Comandos",
@@ -50,7 +60,8 @@
     "placeholder": "Buscar no terminal...",
     "noMatch": "Sem correspondência",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Buscar (Ctrl+F)"
   },
   "export": {
     "title": "Exportar Sessão",
@@ -59,9 +70,12 @@
     "csv": "Exportar lista de comandos (CSV)",
     "json": "Exportar lista de comandos (JSON)",
     "cast": "Copiar gravação bruta (.cast)",
-    "close": "Fechar"
+    "close": "Fechar",
+    "open": "Exportar"
   },
   "status": {
-    "duration": "Duração"
+    "duration": "Duração",
+    "events": "Eventos",
+    "state": "Estado"
   }
 }

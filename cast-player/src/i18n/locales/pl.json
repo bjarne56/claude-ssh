@@ -4,7 +4,8 @@
     "emptyHint": "Wybierz sesję z panelu bocznego lub przeciągnij plik .cast tutaj",
     "shortcutHint": "Skróty: Spacja odtwarzanie/pauza, Ctrl+F szukaj",
     "readyStatus": "Gotowy — wybierz sesję",
-    "loading": "Ładowanie..."
+    "loading": "Ładowanie...",
+    "language": "Język"
   },
   "sidebar": {
     "title": "Nagrania",
@@ -15,7 +16,8 @@
     "loadFailed": "Błąd ładowania:",
     "retry": "Ponów",
     "allProjects": "Wszystkie projekty",
-    "commandsCount": "pol"
+    "commandsCount": "pol",
+    "notConfigured": "Nie skonfigurowane"
   },
   "controls": {
     "stepBack30": "30s wstecz",
@@ -29,7 +31,15 @@
     "stepForward10": "10s do przodu",
     "stepForward30": "30s do przodu",
     "skipIdle": "Pomiń czas bezczynności",
-    "changeSpeed": "Zmień prędkość"
+    "changeSpeed": "Zmień prędkość",
+    "speedLabel": "Prędk.",
+    "skipIdleOn": "⚡ Pomiń bezczyn.",
+    "skipIdleOff": "⏳ Pełne odtwarz.",
+    "jumpPlaceholder": "Skok (s)",
+    "progressClickHint": "Kliknij, aby przejść",
+    "idleSegmentHint": "Okres bezczynności (pomijany)",
+    "markerCmd": "Polecenie",
+    "markerDanger": "Niebezpieczne polecenie"
   },
   "commands": {
     "title": "Polecenia",
@@ -50,7 +60,8 @@
     "placeholder": "Szukaj w terminalu...",
     "noMatch": "Brak wyników",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Szukaj (Ctrl+F)"
   },
   "export": {
     "title": "Eksportuj Sesję",
@@ -59,9 +70,12 @@
     "csv": "Eksportuj listę poleceń (CSV)",
     "json": "Eksportuj listę poleceń (JSON)",
     "cast": "Kopiuj surowe nagranie (.cast)",
-    "close": "Zamknij"
+    "close": "Zamknij",
+    "open": "Eksport"
   },
   "status": {
-    "duration": "Czas trwania"
+    "duration": "Czas trwania",
+    "events": "Zdarzenia",
+    "state": "Stan"
   }
 }

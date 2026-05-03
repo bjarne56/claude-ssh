@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { exportCommandsCsv, exportCommandsJson, copyCastFile } from "../tauri-api";
+import { useTranslation } from "../i18n";
 
 interface ExportDialogProps {
   sessionDir: string;
@@ -8,12 +9,13 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ sessionDir, sessionId, onClose }: ExportDialogProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState("");
   const [exporting, setExporting] = useState(false);
 
   const handleExport = async (type: "csv" | "json" | "cast") => {
     setExporting(true);
-    setStatus("导出中...");
+    setStatus(t("export.exporting"));
     try {
       const ext = type === "cast" ? "cast" : type;
       const outputPath = `${sessionDir}/${sessionId}.${ext}`;
@@ -32,7 +34,7 @@ export function ExportDialog({ sessionDir, sessionId, onClose }: ExportDialogPro
       }
       setStatus(msg);
     } catch (err) {
-      setStatus(`导出失败: ${err}`);
+      setStatus(`${t("export.failed")} ${err}`);
     } finally {
       setExporting(false);
     }
@@ -41,28 +43,28 @@ export function ExportDialog({ sessionDir, sessionId, onClose }: ExportDialogPro
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <h3>导出会话: {sessionId}</h3>
+        <h3>{t("export.title")}: {sessionId}</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button
             onClick={() => handleExport("csv")}
             disabled={exporting}
             className="primary"
           >
-            导出命令清单 (CSV)
+            {t("export.csv")}
           </button>
           <button
             onClick={() => handleExport("json")}
             disabled={exporting}
             className="primary"
           >
-            导出命令清单 (JSON)
+            {t("export.json")}
           </button>
           <button
             onClick={() => handleExport("cast")}
             disabled={exporting}
             className="primary"
           >
-            复制原始录像文件 (.cast)
+            {t("export.cast")}
           </button>
         </div>
         {status && (
@@ -71,7 +73,7 @@ export function ExportDialog({ sessionDir, sessionId, onClose }: ExportDialogPro
           </div>
         )}
         <div className="actions">
-          <button onClick={onClose}>关闭</button>
+          <button onClick={onClose}>{t("export.close")}</button>
         </div>
       </div>
     </div>

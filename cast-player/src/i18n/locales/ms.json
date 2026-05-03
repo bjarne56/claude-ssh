@@ -4,7 +4,8 @@
     "emptyHint": "Pilih sesi dari bar sisi atau seret fail .cast ke sini",
     "shortcutHint": "Pintasan: Space main/jeda, Ctrl+F cari",
     "readyStatus": "Sedia — pilih sesi",
-    "loading": "Memuatkan..."
+    "loading": "Memuatkan...",
+    "language": "Bahasa"
   },
   "sidebar": {
     "title": "Rakaman",
@@ -15,7 +16,8 @@
     "loadFailed": "Gagal memuat:",
     "retry": "Cuba lagi",
     "allProjects": "Semua Projek",
-    "commandsCount": "arih"
+    "commandsCount": "arih",
+    "notConfigured": "Belum dikonfigurasi"
   },
   "controls": {
     "stepBack30": "Undur 30s",
@@ -29,7 +31,15 @@
     "stepForward10": "Maju 10s",
     "stepForward30": "Maju 30s",
     "skipIdle": "Langkau masa melahu",
-    "changeSpeed": "Tukar kelajuan"
+    "changeSpeed": "Tukar kelajuan",
+    "speedLabel": "Kelajuan",
+    "skipIdleOn": "⚡ Langkau melahu",
+    "skipIdleOff": "⏳ Main penuh",
+    "jumpPlaceholder": "Lompat (s)",
+    "progressClickHint": "Klik untuk pergi",
+    "idleSegmentHint": "Tempoh melahu (dilangkau)",
+    "markerCmd": "Arahan",
+    "markerDanger": "Arahan berbahaya"
   },
   "commands": {
     "title": "Arahan",
@@ -50,7 +60,8 @@
     "placeholder": "Cari dalam terminal...",
     "noMatch": "Tiada padanan",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "Cari (Ctrl+F)"
   },
   "export": {
     "title": "Eksport Sesi",
@@ -59,9 +70,12 @@
     "csv": "Eksport senarai arahan (CSV)",
     "json": "Eksport senarai arahan (JSON)",
     "cast": "Salin rakaman mentah (.cast)",
-    "close": "Tutup"
+    "close": "Tutup",
+    "open": "Eksport"
   },
   "status": {
-    "duration": "Tempoh"
+    "duration": "Tempoh",
+    "events": "Acara",
+    "state": "Status"
   }
 }

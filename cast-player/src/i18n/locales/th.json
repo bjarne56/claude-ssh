@@ -4,7 +4,8 @@
     "emptyHint": "เลือกเซสชันจากแถบด้านข้างหรือลากไฟล์ .cast มาที่นี่",
     "shortcutHint": "ทางลัด: สเปซบาร์ เล่น/หยุด, Ctrl+F ค้นหา",
     "readyStatus": "พร้อม — เลือกเซสชัน",
-    "loading": "กำลังโหลด..."
+    "loading": "กำลังโหลด...",
+    "language": "ภาษา"
   },
   "sidebar": {
     "title": "บันทึก",
@@ -15,7 +16,8 @@
     "loadFailed": "โหลดล้มเหลว:",
     "retry": "ลองอีกครั้ง",
     "allProjects": "โปรเจกต์ทั้งหมด",
-    "commandsCount": "คำสั่ง"
+    "commandsCount": "คำสั่ง",
+    "notConfigured": "ไม่ได้ตั้งค่า"
   },
   "controls": {
     "stepBack30": "ถอยหลัง 30วิ",
@@ -29,7 +31,15 @@
     "stepForward10": "เดินหน้า 10วิ",
     "stepForward30": "เดินหน้า 30วิ",
     "skipIdle": "ข้ามเวลาว่าง",
-    "changeSpeed": "เปลี่ยนความเร็ว"
+    "changeSpeed": "เปลี่ยนความเร็ว",
+    "speedLabel": "ความเร็ว",
+    "skipIdleOn": "⚡ ข้ามว่าง",
+    "skipIdleOff": "⏳ เล่นเต็ม",
+    "jumpPlaceholder": "ข้าม (วิ)",
+    "progressClickHint": "คลิกเพื่อข้าม",
+    "idleSegmentHint": "ช่วงว่าง (ข้ามค่าเริ่มต้น)",
+    "markerCmd": "คำสั่ง",
+    "markerDanger": "คำสั่งอันตราย"
   },
   "commands": {
     "title": "คำสั่ง",
@@ -50,7 +60,8 @@
     "placeholder": "ค้นหาในเทอร์มินัล...",
     "noMatch": "ไม่พบ",
     "caseSensitive": "Aa",
-    "regex": ".*"
+    "regex": ".*",
+    "open": "ค้นหา (Ctrl+F)"
   },
   "export": {
     "title": "ส่งออกเซสชัน",
@@ -59,9 +70,12 @@
     "csv": "ส่งออกรายการคำสั่ง (CSV)",
     "json": "ส่งออกรายการคำสั่ง (JSON)",
     "cast": "คัดลอกบันทึกดิบ (.cast)",
-    "close": "ปิด"
+    "close": "ปิด",
+    "open": "ส่งออก"
   },
   "status": {
-    "duration": "ระยะเวลา"
+    "duration": "ระยะเวลา",
+    "events": "เหตุการณ์",
+    "state": "สถานะ"
   }
 }
