@@ -1,6 +1,8 @@
 import type { CommandRecord, CastEventMeta } from "../types";
 import type { usePlayer } from "../usePlayer";
+import { computeIdleSegments } from "../usePlayer";
 import { useTranslation } from "../i18n";
+import { useMemo } from "react";
 
 type PlayerHook = ReturnType<typeof usePlayer>;
 
@@ -20,6 +22,7 @@ interface ControlsProps {
 export function Controls({
   player,
   commands,
+  events,
   totalDuration,
 }: ControlsProps) {
   const { t } = useTranslation();
@@ -54,6 +57,16 @@ export function Controls({
       dangerous: c.dangerous,
       key: c.nonce || c.ts + c.cmd,
     }));
+
+  const idleSegments = useMemo(() => {
+    if (totalDuration <= 0) return [];
+    const segs = computeIdleSegments(events);
+    return segs.map((s, i) => ({
+      key: `idle-${i}`,
+      left: (s.start / totalDuration) * 100,
+      width: ((s.end - s.start) / totalDuration) * 100,
+    }));
+  }, [events, totalDuration]);
 
   const idle = playState === "idle";
 
@@ -103,7 +116,7 @@ export function Controls({
 
         <div className="group">
           <button onClick={toggleSkipIdle} title={t("controls.skipIdle")} className={skipIdle ? "primary" : ""}>
-            {skipIdle ? "⚡ 跳过空闲" : "⏳"}
+            {skipIdle ? "⚡ 跳过空闲" : "⏳ 完整播放"}
           </button>
         </div>
 
@@ -127,13 +140,23 @@ export function Controls({
       {/* 进度条 — 在按钮下方 */}
       <div className="progress-wrapper">
         <span className="time">{fmtTime(elapsed)}</span>
-        <div className="progress-bar" onClick={handleProgressClick}>
+        <div className="progress-bar" onClick={handleProgressClick} title="点击跳转">
+          {/* 空闲段背景标记 (放底层, 在 filled 之下) */}
+          {idleSegments.map((s) => (
+            <div
+              key={s.key}
+              className="idle-segment"
+              style={{ left: `${s.left}%`, width: `${s.width}%` }}
+              title="空闲时段 (默认跳过)"
+            />
+          ))}
           <div className="filled" style={{ width: `${progress}%` }} />
           {markers.map((m) => (
             <div
               key={m.key}
               className={`marker ${m.dangerous ? "cmd-danger" : "cmd"}`}
               style={{ left: `${m.pct}%` }}
+              title={m.dangerous ? "危险命令" : "命令执行点"}
             />
           ))}
         </div>

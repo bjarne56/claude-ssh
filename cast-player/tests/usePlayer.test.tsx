@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePlayer } from '../src/usePlayer';
+import { usePlayer, computeIdleSegments, IDLE_THRESHOLD } from '../src/usePlayer';
 import type { LoadResult } from '../src/types';
 
 // 用 mock terminal 替代真实 xterm.js (jsdom 不支持 WebGL/canvas)
@@ -71,7 +71,8 @@ describe('usePlayer hook', () => {
     expect(result.current.elapsed).toBe(0);
     expect(result.current.totalDuration).toBe(0);
     expect(result.current.speed).toBe(1);
-    expect(result.current.skipIdle).toBe(false);
+    // 默认开启跳过空闲
+    expect(result.current.skipIdle).toBe(true);
   });
 
   test('initTerminal 成功', () => {
@@ -204,14 +205,14 @@ describe('usePlayer hook', () => {
     expect(result.current.speed).toBe(2);
   });
 
-  test('toggleSkipIdle', () => {
+  test('toggleSkipIdle (默认 true, 切到 false 再切回)', () => {
     const { result } = renderHook(() => usePlayer());
 
-    expect(result.current.skipIdle).toBe(false);
-    act(() => result.current.toggleSkipIdle());
     expect(result.current.skipIdle).toBe(true);
     act(() => result.current.toggleSkipIdle());
     expect(result.current.skipIdle).toBe(false);
+    act(() => result.current.toggleSkipIdle());
+    expect(result.current.skipIdle).toBe(true);
   });
 
   test('stop 重置到 0 并 stopped', () => {
@@ -274,14 +275,19 @@ describe('usePlayer hook', () => {
     act(() => result.current.initTerminal(div));
     act(() => result.current.loadSession(makeFixture()));
 
+    // 关掉 skipIdle 让 1s 间隔生效 (>2s 才视为 idle, 1s 不会被跳过)
     act(() => result.current.play());
     expect(result.current.playState).toBe('playing');
 
-    // 推进 setTimeout(0) 触发第一次 tick → 写 events[0], setElapsed(1)
+    // 推进 setTimeout(0) 触发第一次 tick → 写 events[0], setElapsed(0)
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.elapsed).toBe(0.0);
+
+    // 再推 1 秒 (events[1].delay=1.0) → tick 写 events[1], setElapsed(1)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(result.current.elapsed).toBe(1.0);
 
-    // 再推 1 秒 → 第二次 tick → setElapsed(2)
+    // 再 1s → events[2], elapsed=2
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(result.current.elapsed).toBe(2.0);
   });
@@ -294,6 +300,8 @@ describe('usePlayer hook', () => {
 
     act(() => result.current.play());
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current.elapsed).toBe(0.0);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     expect(result.current.elapsed).toBe(1.0);
 
     act(() => result.current.pause());
@@ -302,7 +310,6 @@ describe('usePlayer hook', () => {
 
     act(() => result.current.play());
     expect(result.current.playState).toBe('playing');
-    // 暂停后不重置, elapsed 仍是 1.0
     expect(result.current.elapsed).toBe(1.0);
   });
 
@@ -314,14 +321,15 @@ describe('usePlayer hook', () => {
 
     act(() => result.current.changeSpeed(2));
     act(() => result.current.play());
+    // 第一次 tick (异步 setTimeout 0): 写 events[0], elapsed=0
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    expect(result.current.elapsed).toBe(1.0);
+    expect(result.current.elapsed).toBe(0.0);
 
-    // 2x 速度: 原本 1s 间隔, 现在 500ms
+    // 2x: 原本 1s, 现在 500ms 触发 events[1]
+    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+    expect(result.current.elapsed).toBe(1.0);
     await act(async () => { await vi.advanceTimersByTimeAsync(500); });
     expect(result.current.elapsed).toBe(2.0);
-    await act(async () => { await vi.advanceTimersByTimeAsync(500); });
-    expect(result.current.elapsed).toBe(3.0);
   });
 
   test('seekTo 在播放中保持播放状态', async () => {
@@ -337,5 +345,59 @@ describe('usePlayer hook', () => {
     // seekTo 不改 playState, 仍 playing
     expect(result.current.playState).toBe('playing');
     expect(result.current.elapsed).toBe(2.0);
+  });
+});
+
+describe('computeIdleSegments', () => {
+  test('空数组', () => {
+    expect(computeIdleSegments([])).toEqual([]);
+  });
+
+  test('全部 < IDLE_THRESHOLD', () => {
+    const events = [
+      { elapsed: 0.0 },
+      { elapsed: 0.5 },
+      { elapsed: 1.0 },
+      { elapsed: 1.8 },
+    ];
+    expect(computeIdleSegments(events)).toEqual([]);
+  });
+
+  test('单个 idle 段', () => {
+    const events = [
+      { elapsed: 0.0 },
+      { elapsed: 1.0 },
+      { elapsed: 10.0 }, // 9s 间隔 > 2s 阈值
+      { elapsed: 11.0 },
+    ];
+    expect(computeIdleSegments(events)).toEqual([
+      { start: 1.0, end: 10.0 },
+    ]);
+  });
+
+  test('多个 idle 段', () => {
+    const events = [
+      { elapsed: 0.0 },
+      { elapsed: 5.0 }, // gap 5s
+      { elapsed: 6.0 }, // gap 1s 不算
+      { elapsed: 100.0 }, // gap 94s
+      { elapsed: 101.0 },
+    ];
+    expect(computeIdleSegments(events)).toEqual([
+      { start: 0.0, end: 5.0 },
+      { start: 6.0, end: 100.0 },
+    ]);
+  });
+
+  test('阈值边界', () => {
+    expect(IDLE_THRESHOLD).toBe(2.0);
+    const events = [
+      { elapsed: 0.0 },
+      { elapsed: 2.0 }, // 刚好 = 2.0 不算
+      { elapsed: 4.01 }, // > 2.0 算
+    ];
+    expect(computeIdleSegments(events)).toEqual([
+      { start: 2.0, end: 4.01 },
+    ]);
   });
 });

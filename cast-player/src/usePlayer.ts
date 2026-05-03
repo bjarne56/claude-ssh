@@ -6,7 +6,21 @@ import "@xterm/xterm/css/xterm.css";
 import type { LoadResult, CastEventMeta, PlayState } from "./types";
 
 export const SPEEDS = [0.5, 1, 1.5, 2, 4, 8];
-const IDLE_THRESHOLD = 2.0;
+export const IDLE_THRESHOLD = 2.0;
+
+/** 计算空闲段: 相邻事件间 delay > IDLE_THRESHOLD 的时间区间 */
+export function computeIdleSegments(
+  events: { elapsed: number }[]
+): { start: number; end: number }[] {
+  const segs: { start: number; end: number }[] = [];
+  for (let i = 1; i < events.length; i++) {
+    const delay = events[i].elapsed - events[i - 1].elapsed;
+    if (delay > IDLE_THRESHOLD) {
+      segs.push({ start: events[i - 1].elapsed, end: events[i].elapsed });
+    }
+  }
+  return segs;
+}
 
 export function usePlayer() {
   // ---- refs (不触发重渲染) ----
@@ -18,7 +32,7 @@ export function usePlayer() {
   const indexRef = useRef<CastEventMeta[]>([]);
   const totalRef = useRef(0);
   const speedRef = useRef(1);
-  const skipIdleRef = useRef(false);
+  const skipIdleRef = useRef(true);
   const playStateRef = useRef<PlayState>("idle");
 
   // ---- state (触发 UI 更新) ----
@@ -26,7 +40,7 @@ export function usePlayer() {
   const [elapsed, setElapsed] = useState(0);
   const [totalDuration, setTotalDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
-  const [skipIdle, setSkipIdle] = useState(false);
+  const [skipIdle, setSkipIdle] = useState(true);
 
   const setPlayState2 = useCallback((s: PlayState) => {
     playStateRef.current = s;
@@ -82,21 +96,33 @@ export function usePlayer() {
       return;
     }
 
-    const [rawDelay, line] = events[idx];
-    let delay = rawDelay;
-    if (skipIdleRef.current && delay > IDLE_THRESHOLD) {
-      delay = 0.1;
-    }
-    const realDelay = (delay * 1000) / speedRef.current;
-
+    // 写当前事件
+    const [, line] = events[idx];
     const parts = JSON.parse(line) as [number, string, string];
     if (parts.length >= 3) {
       termRef.current?.write(parts[2].replace(/\0/g, ""));
     }
 
-    eventIdxRef.current = idx + 1;
+    // elapsed = 当前事件的累计时间
     const meta = indexRef.current;
-    setElapsed(idx + 1 < meta.length ? meta[idx + 1].elapsed : totalRef.current);
+    setElapsed(meta[idx]?.elapsed ?? totalRef.current);
+
+    // 推进
+    eventIdxRef.current = idx + 1;
+
+    // 用 *下一帧* 的 delay 作为等待时间 (cast v3 语义)
+    if (idx + 1 >= events.length) {
+      // 已是最后一帧
+      timerRef.current = null;
+      setPlayState2("stopped");
+      return;
+    }
+    const [nextDelay] = events[idx + 1];
+    let delay = nextDelay;
+    if (skipIdleRef.current && delay > IDLE_THRESHOLD) {
+      delay = 0.1;
+    }
+    const realDelay = (delay * 1000) / speedRef.current;
 
     timerRef.current = window.setTimeout(() => tickRef.current(), Math.max(realDelay, 1));
   };
