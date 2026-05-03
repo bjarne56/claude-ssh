@@ -1,0 +1,18 @@
+[package]
+name = "ssh-ops"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "sshops-rs"
+path = "src/main.rs"
+
+[dependencies]
+ssh-ops-core = { path = "../core" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
