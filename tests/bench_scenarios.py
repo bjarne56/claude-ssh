@@ -66,6 +66,10 @@ case("dmesg (真实日志)", "dmesg | head -200")
 case("find /etc -type f (~1MB)", "find /etc -type f 2>/dev/null", timeout=60)
 case("base64 of 100KB random", "head -c 100000 /dev/urandom | base64")
 case("ls -lR /usr/include  (~MB)", "ls -lR /usr/include 2>/dev/null | head -5000", timeout=60)
+# 极端: 单行超大 (无 \n, PTY 一次 read 能凑多大?)
+case("printf 1MB (单行 1M, no \\n)", "printf 'x%.0s' {1..1000000} | head -c 1048576; echo")
+# 模拟编译: 大量 ANSI + 长行 + 进度条
+case("yes + head 50KB ANSI", "yes $'\\033[31mLINE\\033[0m' | head -3000")
 
 # ============================================================
 # 2. 慢命令(回调/分批输出)
