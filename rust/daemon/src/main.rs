@@ -122,15 +122,36 @@ async fn main() -> Result<()> {
 
     let state = Arc::new(Mutex::new(DaemonState::new(home, cfg)));
 
-    // ctrl-c 优雅退出
-    let state_for_signal = state.clone();
+    // ctrl-c / SIGTERM 优雅退出
     let sock_for_signal = sock_path.clone();
     tokio::spawn(async move {
         let _ = tokio::signal::ctrl_c().await;
         tracing::info!("收到 SIGINT, 优雅退出...");
         let _ = std::fs::remove_file(&sock_for_signal);
-        let _state = state_for_signal.lock().await;
         std::process::exit(0);
+    });
+
+    // idle 自动退出: 默认 30 分钟无请求, 用 SSHOPS_DAEMON_IDLE_SECS 覆盖
+    let idle_secs: u64 = std::env::var("SSHOPS_DAEMON_IDLE_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(30 * 60);
+    let idle_state = state.clone();
+    let idle_sock = sock_path.clone();
+    tokio::spawn(async move {
+        let check_interval = Duration::from_secs(60);
+        loop {
+            tokio::time::sleep(check_interval).await;
+            let elapsed = {
+                let s = idle_state.lock().await;
+                s.last_req_at.elapsed().as_secs()
+            };
+            if elapsed >= idle_secs {
+                tracing::info!("idle {elapsed}s ≥ {idle_secs}s, 自动退出");
+                let _ = std::fs::remove_file(&idle_sock);
+                std::process::exit(0);
+            }
+        }
     });
 
     loop {
