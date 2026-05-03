@@ -169,7 +169,7 @@ function App() {
                 totalDuration={loadData.index.total_duration}
                 commandCount={loadData.commands.length}
                 dangerousCount={loadData.commands.filter((c) => c.dangerous).length}
-                sessionStartedAt={loadData.meta.started_at}
+                castTimestamp={loadData.index.header.timestamp}
               />
             </div>
             <div className="status-bar">

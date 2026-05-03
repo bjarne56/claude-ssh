@@ -48,6 +48,8 @@ export interface CastHeader {
   version: number;
   width: number | null;
   height: number | null;
+  /** Cast 真实开始的 unix 时间戳 (秒). 最准确的时间基准 */
+  timestamp: number | null;
   term: {
     cols: number;
     rows: number;
