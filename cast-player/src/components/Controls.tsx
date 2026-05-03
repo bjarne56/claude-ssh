@@ -62,7 +62,7 @@ export function Controls({
       {/* 播放控制按钮 — 进度条上方 */}
       <div className="controls-bar">
         <div className="group">
-          <button onClick={togglePlay} title={playState === "playing" ? t("controls.pause") : t("controls.play")} disabled={idle}>
+          <button onClick={togglePlay} title={playState === "playing" ? t("controls.pause") : t("controls.play")}>
             {playState === "playing" ? "⏸" : "▶"}
           </button>
           <button onClick={stop} title={t("controls.stop")} disabled={idle}>
