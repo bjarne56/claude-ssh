@@ -273,13 +273,18 @@ pane_open() {
         ssh_argv=( sshpass -p "$SSHOPS_PASSWORD" "${ssh_argv[@]}" )
     fi
 
-    # asciinema rec 包 ssh
-    # asciinema 的 --command 接 shell string,我们把 ssh argv 用 printf %q 转义
+    # cast-recorder (本地 fork 的 asciinema) 包 ssh
+    # --command 接 shell string,我们把 ssh argv 用 printf %q 转义
     local ssh_cmd
     printf -v ssh_cmd '%q ' "${ssh_argv[@]}"
     ssh_cmd="${ssh_cmd% }"
 
-    local rec_argv=( asciinema rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )
+    local recorder="${SSHOPS_HOME:-$(dirname "$(dirname "${BASH_SOURCE[0]}")")}/bin/cast-recorder"
+    if [[ ! -x "$recorder" ]]; then
+        log_error "找不到 cast-recorder 二进制: $recorder"
+        return 1
+    fi
+    local rec_argv=( "$recorder" rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )
 
     # 策略:所有主机都用 tab(独占整屏),不做 split 网格
     #   pane_ensure_window 只保证 WezTerm 运行 + 有窗口
