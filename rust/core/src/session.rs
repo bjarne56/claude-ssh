@@ -95,27 +95,29 @@ pub fn wait_prompt_and_stable(recorder: &Recorder, start_byte: u64, timeout: Dur
     while Instant::now() < deadline {
         let cur = recorder.cast_size();
         if cur > start_byte {
-            // 取最近 300 字节看 prompt
-            let read_from = cur.saturating_sub(300).max(start_byte);
-            if let Ok(buf) = recorder.read_cast_range(read_from, cur) {
+            // 取末尾 ~8KB; 单条 'o' JSON 可达数 KB (大数据 / 含 ANSI 时)
+            let read_from = cur.saturating_sub(8192).max(start_byte);
+            if let Ok(mut buf) = recorder.read_cast_range(read_from, cur) {
+                // 跳过被切半截的首行 — 必须从某 '\n' 之后开始 parse
+                if read_from > start_byte {
+                    if let Some(nl_pos) = buf.iter().position(|&b| b == b'\n') {
+                        buf = buf.split_off(nl_pos + 1);
+                    } else {
+                        // 整个 8KB 都没 '\n' → 单条 'o' 事件超 8KB, 跳过本轮
+                        std::thread::sleep(poll);
+                        continue;
+                    }
+                }
                 let text = extract_o_concat(&buf);
                 let stripped = strip_ansi(&text);
-                let tail: String = stripped
-                    .chars()
-                    .rev()
-                    .take(300)
-                    .collect::<String>()
-                    .chars()
-                    .rev()
-                    .collect();
-                if has_prompt_at_end(&tail) {
-                    // 见到 prompt: 检查上轮记录的 size 是否一致
+                // 检查 stripped 末尾有无 prompt
+                if has_prompt_at_end(&stripped) {
                     match prompt_seen_at_size {
-                        Some(prev) if prev == cur => return true, // 稳定
+                        Some(prev) if prev == cur => return true,
                         _ => prompt_seen_at_size = Some(cur),
                     }
                 } else {
-                    prompt_seen_at_size = None; // 没看到 prompt, 重置
+                    prompt_seen_at_size = None;
                 }
             }
         }
