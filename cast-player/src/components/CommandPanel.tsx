@@ -163,21 +163,41 @@ export function CommandPanel({
               cmd.cmd.toLowerCase().includes(p)
             );
           const isActive = commands.indexOf(cmd) === activeIdx;
+          const isHuman = cmd.actor === "human";
+          // 优先用 input_start_offset (键入起点); 缺失时 fallback cast_offset
+          const seekTarget = cmd.input_start_offset > 0
+            ? cmd.input_start_offset
+            : Math.max(0, cmd.cast_offset - 3);
           return (
             <div
               key={cmd.nonce || `${cmd.ts}-${i}`}
-              className={`command-item ${isDangerous ? "dangerous" : ""} ${isActive ? "active" : ""}`}
-              onClick={() => onSeek(cmd.cast_offset)}
+              className={`command-item ${isDangerous ? "dangerous" : ""} ${isActive ? "active" : ""} ${isHuman ? "human" : "ai"}`}
+              onClick={() => onSeek(seekTarget)}
               title={`${t("commands.castOffset")}: ${cmd.cast_offset.toFixed(1)}s | ${t("commands.duration")}: ${cmd.duration_ms}ms | ${t("commands.exitCode")}: ${cmd.exit}`}
             >
               <div className="cmd-text">
+                <span style={{
+                  display: "inline-block",
+                  fontSize: 9,
+                  marginRight: 6,
+                  padding: "1px 4px",
+                  borderRadius: 2,
+                  background: isHuman ? "var(--success)" : "var(--accent)",
+                  color: "var(--bg-tertiary)",
+                  fontWeight: 600,
+                  verticalAlign: "middle",
+                }}>
+                  {isHuman ? "👤" : "🤖"}
+                </span>
                 {filter ? highlightText(cmd.cmd, filter) : cmd.cmd}
               </div>
               <div className="cmd-meta">
-                <span>{formatTime(cmd.ts)}</span>
-                <span>{cmd.actor}</span>
+                {cmd.ts && <span>{formatTime(cmd.ts)}</span>}
+                <span style={{ color: isHuman ? "var(--success)" : "var(--accent)" }}>
+                  {isHuman ? "human" : "ai"}
+                </span>
                 <span>{cmd.cast_offset.toFixed(1)}s</span>
-                <span>exit:{cmd.exit}</span>
+                {!isHuman && <span>exit:{cmd.exit}</span>}
               </div>
             </div>
           );

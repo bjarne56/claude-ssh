@@ -306,6 +306,16 @@ input:focus, select:focus { border-color: var(--accent); }
 .command-item.dangerous {
   border-left-color: var(--danger);
 }
+.command-item.human {
+  border-left-color: var(--success);
+}
+.command-item.ai {
+  border-left-color: var(--accent);
+}
+.command-item.human.dangerous,
+.command-item.ai.dangerous {
+  border-left-color: var(--danger);
+}
 .command-item .cmd-text {
   font-family: inherit;
   word-break: break-all;

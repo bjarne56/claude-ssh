@@ -2,6 +2,60 @@ use cast_player_lib::cast_index::*;
 use std::path::Path;
 
 #[test]
+fn test_extract_human_ifconfig_command() {
+    let dir = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260503-065946-f65eae");
+    let cast = dir.join("stream.cast");
+    let cmds_path = dir.join("commands.jsonl");
+    if !cast.exists() {
+        eprintln!("跳过: 文件不存在");
+        return;
+    }
+
+    let ai_cmds = load_commands(&cmds_path).unwrap();
+    let events = CastIndex::read_all_events(&cast).unwrap();
+
+    let merged = merge_commands_with_inputs(ai_cmds.clone(), &events);
+
+    println!("ai 命令数: {}", ai_cmds.len());
+    println!("合并后总数: {}", merged.len());
+    for cmd in &merged {
+        println!("  [{}] @{:.1}s (input@{:.1}s) {}", cmd.actor, cmd.cast_offset, cmd.input_start_offset, cmd.cmd);
+    }
+
+    // 应该比 ai 命令多 (因为加了 human 命令)
+    assert!(merged.len() > ai_cmds.len(), "应该有 human 命令被加入");
+
+    // 应该含 ifconfig
+    let has_ifconfig = merged.iter().any(|c| c.cmd.contains("ifconfig"));
+    assert!(has_ifconfig, "应该提取到 ifconfig 命令");
+
+    // ifconfig 应该是 human, 且 input_start_offset > 0
+    let ifc = merged.iter().find(|c| c.cmd.contains("ifconfig")).unwrap();
+    assert_eq!(ifc.actor, "human");
+    assert!(ifc.input_start_offset > 0.0);
+    assert!(ifc.input_start_offset < ifc.cast_offset);
+}
+
+#[test]
+fn test_extract_input_groups_handles_backspace() {
+    // 模拟用户输入 "icp" → 删 → "ip a"
+    let events: Vec<(f64, String)> = vec![
+        (0.0, r#"[0.0,"i","i"]"#.into()),
+        (0.1, r#"[0.1,"i","c"]"#.into()),
+        (0.1, r#"[0.1,"i","p"]"#.into()),
+        (0.2, r#"[0.2,"i",""]"#.into()),
+        (0.1, r#"[0.1,"i",""]"#.into()),
+        (0.1, r#"[0.1,"i","p"]"#.into()),
+        (0.1, r#"[0.1,"i"," "]"#.into()),
+        (0.1, r#"[0.1,"i","a"]"#.into()),
+        (0.1, r#"[0.1,"i","\r"]"#.into()),
+    ];
+    let groups = extract_input_groups(&events);
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].2, "ip a");
+}
+
+#[test]
 fn test_load_user_real_session() {
     let dir = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260503-074246-f078fe");
     let cast = dir.join("stream.cast");

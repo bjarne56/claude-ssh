@@ -101,11 +101,13 @@ fn load_session(session_dir: String) -> Result<LoadResult, String> {
     let cast_path = dir.join("stream.cast");
 
     let meta = load_meta(&meta_path)?;
-    let mut commands = load_commands(&commands_path)?;
-    sort_commands(&mut commands);
+    let ai_commands = load_commands(&commands_path).unwrap_or_default();
 
     let index = CastIndex::build(&cast_path)?;
     let events = CastIndex::read_all_events(&cast_path)?;
+
+    // 合并: ai 命令 + 从 cast 提取的 human 命令
+    let commands = merge_commands_with_inputs(ai_commands, &events);
 
     Ok(LoadResult {
         meta,

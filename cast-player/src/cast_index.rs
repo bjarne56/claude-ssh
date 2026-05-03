@@ -98,6 +98,10 @@ pub struct CommandRecord {
     pub dangerous: bool,
     pub blocked: bool,
     pub nonce: String,
+    /// 用户开始键入命令第一个字符的 elapsed (用于 seek 起点),
+    /// 默认 = max(0, cast_offset - duration_ms/1000 - 3.0) 估算
+    #[serde(default)]
+    pub input_start_offset: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -321,6 +325,7 @@ pub fn load_commands(commands_path: &Path) -> Result<Vec<CommandRecord>, String>
                 dangerous: false,
                 blocked: false,
                 nonce: String::new(),
+                input_start_offset: 0.0,
             });
         records.push(record);
     }
@@ -335,4 +340,131 @@ pub fn sort_commands(records: &mut [CommandRecord]) {
             .partial_cmp(&b.cast_offset)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+}
+
+/// 从 cast 事件流中提取所有"用户输入序列" — 一次输入序列 = 连续的 'i' 事件
+/// 直到遇到回车 \r 或 \n 结束。处理 backspace () 删除前一个字符。
+///
+/// 返回: Vec<(start_elapsed, end_elapsed, command_string)>
+pub fn extract_input_groups(events: &[(f64, String)]) -> Vec<(f64, f64, String)> {
+    let mut groups: Vec<(f64, f64, String)> = Vec::new();
+    let mut elapsed = 0.0_f64;
+    let mut buf = String::new();
+    let mut buf_start: Option<f64> = None;
+
+    for (delay, line) in events {
+        elapsed += *delay;
+        let parts: Vec<serde_json::Value> = match serde_json::from_str(line.trim()) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if parts.len() < 3 {
+            continue;
+        }
+        let etype = parts[1].as_str().unwrap_or("");
+        if etype != "i" {
+            continue;
+        }
+        let data = parts[2].as_str().unwrap_or("");
+
+        if buf_start.is_none() {
+            buf_start = Some(elapsed);
+        }
+
+        for ch in data.chars() {
+            match ch {
+                '\r' | '\n' => {
+                    let cmd = buf.trim().to_string();
+                    if !cmd.is_empty() {
+                        groups.push((buf_start.unwrap_or(elapsed), elapsed, cmd));
+                    }
+                    buf.clear();
+                    buf_start = None;
+                }
+                '\u{007f}' | '\u{0008}' => {
+                    // backspace
+                    buf.pop();
+                }
+                c if c.is_control() => {
+                    // 其他控制字符忽略 (Ctrl+C 等)
+                }
+                c => buf.push(c),
+            }
+        }
+    }
+
+    groups
+}
+
+/// 合并 ssh-ops commands.jsonl 的 AI 命令 + cast events 提取的所有 input groups,
+/// 去重: 与 AI 命令 cast_offset ± 1.0s 内重复的 input group 跳过。
+/// 给所有命令补上 input_start_offset 字段。
+pub fn merge_commands_with_inputs(
+    mut ai_commands: Vec<CommandRecord>,
+    events: &[(f64, String)],
+) -> Vec<CommandRecord> {
+    let groups = extract_input_groups(events);
+
+    // 第一步: 给 ai 命令找匹配的 input group, 设 input_start_offset
+    for cmd in ai_commands.iter_mut() {
+        cmd.actor = if cmd.actor.is_empty() { "ai".to_string() } else { cmd.actor.clone() };
+        // 找时间最接近 cast_offset 且命令片段匹配的 group
+        let mut best: Option<(f64, f64)> = None; // (input_start, dist)
+        for (start, end, content) in &groups {
+            let dist = (cmd.cast_offset - *end).abs();
+            if dist > 60.0 {
+                continue;
+            }
+            // 命令字符串匹配 (含子串关系都行, ai 命令可能是组合)
+            let matched = cmd.cmd.contains(content)
+                || content.contains(&cmd.cmd)
+                || cmd.cmd.split_whitespace().next() == content.split_whitespace().next();
+            if matched {
+                match best {
+                    Some((_, d)) if dist >= d => {}
+                    _ => best = Some((*start, dist)),
+                }
+            }
+        }
+        if let Some((s, _)) = best {
+            cmd.input_start_offset = s;
+        } else {
+            cmd.input_start_offset = (cmd.cast_offset
+                - (cmd.duration_ms as f64) / 1000.0
+                - 3.0)
+                .max(0.0);
+        }
+    }
+
+    // 第二步: 找未被任何 ai 命令匹配的 input groups, 创建 human 命令
+    let mut human_commands: Vec<CommandRecord> = Vec::new();
+    for (start, end, content) in groups {
+        // 与任意 ai 命令的 input_start_offset 距离 ≤ 1s 视为已匹配
+        let claimed = ai_commands.iter().any(|c| (c.input_start_offset - start).abs() < 1.0);
+        if claimed {
+            continue;
+        }
+        // 跳过仅含单字符或纯空白的输入
+        if content.trim().len() <= 1 {
+            continue;
+        }
+        human_commands.push(CommandRecord {
+            ts: String::new(),
+            actor: "human".to_string(),
+            host: String::new(),
+            cmd: content.clone(),
+            exit: 0,
+            duration_ms: ((end - start) * 1000.0) as u64,
+            cast_offset: end,
+            input_start_offset: start,
+            dangerous: false,
+            blocked: false,
+            nonce: format!("human-{}", (start * 1000.0) as i64),
+        });
+    }
+
+    let mut merged = ai_commands;
+    merged.extend(human_commands);
+    merged.sort_by(|a, b| a.cast_offset.partial_cmp(&b.cast_offset).unwrap_or(std::cmp::Ordering::Equal));
+    merged
 }

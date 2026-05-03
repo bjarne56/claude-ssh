@@ -39,6 +39,7 @@ export interface CommandRecord {
   dangerous: boolean;
   blocked: boolean;
   nonce: string;
+  input_start_offset: number;
 }
 
 export interface CastHeader {

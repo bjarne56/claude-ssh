@@ -84,12 +84,10 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadData]);
 
-  // 点击命令时回退一段, 让用户能看到 prompt 出现 + 用户敲命令的过程,
-  // 而非直接跳到命令已经执行后。
-  const COMMAND_LEAD_IN_SECONDS = 3.0;
+  // 点击命令直接跳到 input_start_offset (Rust 端已算好 = 该命令第一个键入字符的 elapsed)
   const handleSeekToCommand = useCallback(
-    (castOffset: number) => {
-      const target = Math.max(0, castOffset - COMMAND_LEAD_IN_SECONDS);
+    (inputStartOffset: number) => {
+      const target = Math.max(0, inputStartOffset);
       player.seekTo(target);
       if (player.playState !== "playing") player.play();
     },
