@@ -342,38 +342,34 @@ pub fn sort_commands(records: &mut [CommandRecord]) {
     });
 }
 
-/// 识别 ssh-ops 在登录后自动注入的初始化命令 (不该归类为 human)
-/// 参考 SKILL.md: 登录后立刻注入 sudo -i + PS1 + clear 一条命令
-pub fn is_sshops_bootstrap_command(cmd: &str) -> bool {
-    let c = cmd.trim();
-    // 单独 sudo -i (含 sudo -i\r 等)
-    if c == "sudo -i" || c.starts_with("sudo -i ") {
-        return true;
+/// 一次输入序列的元数据
+#[derive(Debug, Clone)]
+pub struct InputGroup {
+    pub start_elapsed: f64,
+    pub end_elapsed: f64,
+    pub content: String,
+    /// 单个 'i' 事件 data 的最大可见字符数。
+    /// 1 = 逐字符敲键盘 (human), > 3 = 整块发送 (paste / 程序注入)
+    pub max_chunk_size: usize,
+    pub chunk_count: usize,
+}
+
+impl InputGroup {
+    /// 是否疑似程序注入 (paste / ssh-ops / AI): 任意单一事件含多个可见字符
+    pub fn is_injected(&self) -> bool {
+        self.max_chunk_size > 3
     }
-    // export REAL_USER=... 后接 export PS1=... + clear (ssh-ops marker.sh 注入的标志)
-    if c.starts_with("export REAL_USER=") && c.contains("PS1") {
-        return true;
-    }
-    // 单独 PS1 设置 + clear
-    if c.contains("export PS1=") && c.ends_with("clear") {
-        return true;
-    }
-    // ssh-ops marker 切片相关 (SSHOPS_BEGIN/END)
-    if c.contains("SSHOPS_BEGIN_") || c.contains("SSHOPS_END_") {
-        return true;
-    }
-    false
 }
 
 /// 从 cast 事件流中提取所有"用户输入序列" — 一次输入序列 = 连续的 'i' 事件
-/// 直到遇到回车 \r 或 \n 结束。处理 backspace () 删除前一个字符。
-///
-/// 返回: Vec<(start_elapsed, end_elapsed, command_string)>
-pub fn extract_input_groups(events: &[(f64, String)]) -> Vec<(f64, f64, String)> {
-    let mut groups: Vec<(f64, f64, String)> = Vec::new();
+/// 直到遇到回车 \r 或 \n 结束。处理 backspace 删除前一个字符。
+pub fn extract_input_groups(events: &[(f64, String)]) -> Vec<InputGroup> {
+    let mut groups: Vec<InputGroup> = Vec::new();
     let mut elapsed = 0.0_f64;
     let mut buf = String::new();
     let mut buf_start: Option<f64> = None;
+    let mut max_chunk: usize = 0;
+    let mut chunk_count: usize = 0;
 
     for (delay, line) in events {
         elapsed += *delay;
@@ -394,23 +390,35 @@ pub fn extract_input_groups(events: &[(f64, String)]) -> Vec<(f64, f64, String)>
             buf_start = Some(elapsed);
         }
 
+        // 该事件的可见字符数 (剔除控制字符 — backspace 等不算 chunk size)
+        let visible_chars = data.chars().filter(|c| !c.is_control()).count();
+        if visible_chars > max_chunk {
+            max_chunk = visible_chars;
+        }
+        chunk_count += 1;
+
         for ch in data.chars() {
             match ch {
                 '\r' | '\n' => {
                     let cmd = buf.trim().to_string();
                     if !cmd.is_empty() {
-                        groups.push((buf_start.unwrap_or(elapsed), elapsed, cmd));
+                        groups.push(InputGroup {
+                            start_elapsed: buf_start.unwrap_or(elapsed),
+                            end_elapsed: elapsed,
+                            content: cmd,
+                            max_chunk_size: max_chunk,
+                            chunk_count,
+                        });
                     }
                     buf.clear();
                     buf_start = None;
+                    max_chunk = 0;
+                    chunk_count = 0;
                 }
                 '\u{007f}' | '\u{0008}' => {
-                    // backspace
                     buf.pop();
                 }
-                c if c.is_control() => {
-                    // 其他控制字符忽略 (Ctrl+C 等)
-                }
+                c if c.is_control() => {}
                 c => buf.push(c),
             }
         }
@@ -428,24 +436,23 @@ pub fn merge_commands_with_inputs(
 ) -> Vec<CommandRecord> {
     let groups = extract_input_groups(events);
 
-    // 第一步: 给 ai 命令找匹配的 input group, 设 input_start_offset
+    // 第一步: 给 ai 命令 (来自 commands.jsonl, ssh-ops 通过 marker 切片记录)
+    // 找匹配的 input group, 设 input_start_offset
     for cmd in ai_commands.iter_mut() {
         cmd.actor = if cmd.actor.is_empty() { "ai".to_string() } else { cmd.actor.clone() };
-        // 找时间最接近 cast_offset 且命令片段匹配的 group
-        let mut best: Option<(f64, f64)> = None; // (input_start, dist)
-        for (start, end, content) in &groups {
-            let dist = (cmd.cast_offset - *end).abs();
+        let mut best: Option<(f64, f64)> = None;
+        for g in &groups {
+            let dist = (cmd.cast_offset - g.end_elapsed).abs();
             if dist > 60.0 {
                 continue;
             }
-            // 命令字符串匹配 (含子串关系都行, ai 命令可能是组合)
-            let matched = cmd.cmd.contains(content)
-                || content.contains(&cmd.cmd)
-                || cmd.cmd.split_whitespace().next() == content.split_whitespace().next();
+            let matched = cmd.cmd.contains(&g.content)
+                || g.content.contains(&cmd.cmd)
+                || cmd.cmd.split_whitespace().next() == g.content.split_whitespace().next();
             if matched {
                 match best {
                     Some((_, d)) if dist >= d => {}
-                    _ => best = Some((*start, dist)),
+                    _ => best = Some((g.start_elapsed, dist)),
                 }
             }
         }
@@ -459,36 +466,38 @@ pub fn merge_commands_with_inputs(
         }
     }
 
-    // 第二步: 找未被任何 ai 命令匹配的 input groups, 创建 human 命令
-    let mut human_commands: Vec<CommandRecord> = Vec::new();
-    for (start, end, content) in groups {
-        // 与任意 ai 命令的 input_start_offset 距离 ≤ 1s 视为已匹配
-        let claimed = ai_commands.iter().any(|c| (c.input_start_offset - start).abs() < 1.0);
+    // 第二步: 找未被任何 ai 命令匹配的 input groups, 根据**事件结构**创建命令:
+    // - 整块发送 (max_chunk_size > 3) → ai (paste/ssh-ops/AI 注入, 但未在 commands.jsonl)
+    // - 逐字符敲键盘 (max_chunk_size ≤ 3) → human
+    let mut extra_commands: Vec<CommandRecord> = Vec::new();
+    for g in groups {
+        let claimed = ai_commands
+            .iter()
+            .any(|c| (c.input_start_offset - g.start_elapsed).abs() < 1.0);
         if claimed {
             continue;
         }
         // 跳过仅含单字符或纯空白的输入
-        if content.trim().len() <= 1 {
+        if g.content.trim().len() <= 1 {
             continue;
         }
-        // 跳过 ssh-ops 自动注入的初始化命令 (基础设施, 不是真实 human 输入)
-        if is_sshops_bootstrap_command(&content) {
-            continue;
-        }
-        human_commands.push(CommandRecord {
+
+        let actor = if g.is_injected() { "ai" } else { "human" };
+        extra_commands.push(CommandRecord {
             ts: String::new(),
-            actor: "human".to_string(),
+            actor: actor.to_string(),
             host: String::new(),
-            cmd: content.clone(),
+            cmd: g.content.clone(),
             exit: 0,
-            duration_ms: ((end - start) * 1000.0) as u64,
-            cast_offset: end,
-            input_start_offset: start,
+            duration_ms: ((g.end_elapsed - g.start_elapsed) * 1000.0) as u64,
+            cast_offset: g.end_elapsed,
+            input_start_offset: g.start_elapsed,
             dangerous: false,
             blocked: false,
-            nonce: format!("human-{}", (start * 1000.0) as i64),
+            nonce: format!("{}-{}", actor, (g.start_elapsed * 1000.0) as i64),
         });
     }
+    let human_commands = extra_commands;
 
     let mut merged = ai_commands;
     merged.extend(human_commands);

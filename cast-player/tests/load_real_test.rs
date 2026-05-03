@@ -36,27 +36,10 @@ fn test_extract_human_ifconfig_command() {
     assert!(ifc.input_start_offset < ifc.cast_offset);
 }
 
-#[test]
-fn test_filter_sshops_bootstrap_commands() {
-    use cast_player_lib::cast_index::is_sshops_bootstrap_command;
-
-    // 应该被过滤的 (ssh-ops 自动注入)
-    assert!(is_sshops_bootstrap_command("sudo -i"));
-    assert!(is_sshops_bootstrap_command(" sudo -i "));
-    assert!(is_sshops_bootstrap_command(
-        r#"export REAL_USER='claude'; export PS1='[\u(root:$REAL_USER)@\h \W]\$ '; clear"#
-    ));
-    assert!(is_sshops_bootstrap_command("export PS1='xxx'; clear"));
-
-    // 不该被过滤的 (真实命令)
-    assert!(!is_sshops_bootstrap_command("ls -la"));
-    assert!(!is_sshops_bootstrap_command("ifconfig"));
-    assert!(!is_sshops_bootstrap_command("sudo apt update")); // sudo 后面不是 -i
-    assert!(!is_sshops_bootstrap_command("export FOO=bar"));
-}
 
 #[test]
-fn test_real_session_no_bootstrap_in_human_list() {
+fn test_real_session_sudo_i_classified_as_ai() {
+    // sudo -i / export PS1 是 ssh-ops 一次发整行 → max_chunk_size > 3 → 应分类为 ai
     let dir = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260503-065946-f65eae");
     let cast = dir.join("stream.cast");
     let cmds_path = dir.join("commands.jsonl");
@@ -67,23 +50,38 @@ fn test_real_session_no_bootstrap_in_human_list() {
     let events = CastIndex::read_all_events(&cast).unwrap();
     let merged = merge_commands_with_inputs(ai_cmds, &events);
 
-    // 验证: human 命令列表中不该出现 sudo -i / export PS1 / clear
-    for cmd in &merged {
-        if cmd.actor == "human" {
-            assert!(
-                !cmd.cmd.contains("sudo -i") && !cmd.cmd.contains("export PS1"),
-                "human 命令不该含 ssh-ops 注入: {}", cmd.cmd
-            );
-        }
-    }
+    let sudo = merged.iter().find(|c| c.cmd == "sudo -i").expect("sudo -i 应在列表");
+    assert_eq!(sudo.actor, "ai", "sudo -i 整块发送应归 ai");
 
-    // 但 ifconfig 仍要在
-    assert!(merged.iter().any(|c| c.cmd.contains("ifconfig") && c.actor == "human"));
+    let pset = merged.iter().find(|c| c.cmd.contains("export PS1=")).expect("PS1 命令应在");
+    assert_eq!(pset.actor, "ai", "export PS1 整块发送应归 ai");
+
+    let ifc = merged.iter().find(|c| c.cmd == "ifconfig").expect("ifconfig 应在");
+    assert_eq!(ifc.actor, "human", "ifconfig 逐字符应归 human");
+}
+
+#[test]
+fn test_input_group_injection_detection() {
+    let events_paste: Vec<(f64, String)> = vec![
+        (1.0, r#"[1.0,"i","ls -la /tmp\r"]"#.into()),
+    ];
+    let groups = extract_input_groups(&events_paste);
+    assert_eq!(groups.len(), 1);
+    assert!(groups[0].is_injected(), "单事件含整命令应判 injected");
+
+    let events_typed: Vec<(f64, String)> = vec![
+        (1.0, r#"[1.0,"i","l"]"#.into()),
+        (0.1, r#"[0.1,"i","s"]"#.into()),
+        (0.1, r#"[0.1,"i","\r"]"#.into()),
+    ];
+    let groups = extract_input_groups(&events_typed);
+    assert_eq!(groups.len(), 1);
+    assert!(!groups[0].is_injected(), "单字符事件应判非 injected");
+    assert_eq!(groups[0].chunk_count, 3);
 }
 
 #[test]
 fn test_extract_input_groups_handles_backspace() {
-    // 模拟用户输入 "icp" → 删 → "ip a"
     let events: Vec<(f64, String)> = vec![
         (0.0, r#"[0.0,"i","i"]"#.into()),
         (0.1, r#"[0.1,"i","c"]"#.into()),
@@ -97,7 +95,8 @@ fn test_extract_input_groups_handles_backspace() {
     ];
     let groups = extract_input_groups(&events);
     assert_eq!(groups.len(), 1);
-    assert_eq!(groups[0].2, "ip a");
+    assert_eq!(groups[0].content, "ip a");
+    assert!(!groups[0].is_injected(), "逐字符 + 退格应是 human");
 }
 
 #[test]
