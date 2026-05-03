@@ -180,16 +180,24 @@ impl CastIndex {
         })
     }
 
-    /// 二分查找: 找到 <= target_elapsed 的最大索引
+    /// 二分查找: 找到 <= target_elapsed 的最大索引, 带 f64 精度容差
     pub fn find_index_at(&self, target_elapsed: f64) -> usize {
-        match self
-            .events
-            .binary_search_by(|e| e.elapsed.partial_cmp(&target_elapsed).unwrap())
-        {
-            Ok(i) => i,
-            Err(0) => 0,
-            Err(i) => i - 1,
+        if self.events.is_empty() {
+            return 0;
         }
+        let mut lo = 0usize;
+        let mut hi = self.events.len() - 1;
+        const EPS: f64 = 1e-9;
+
+        while lo < hi {
+            let mid = (lo + hi + 1) / 2;
+            if self.events[mid].elapsed <= target_elapsed + EPS {
+                lo = mid;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        lo
     }
 
     /// 从已打开的 cast 文件中读取从 start_offset 开始的 raw 事件行,

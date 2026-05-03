@@ -3,6 +3,14 @@ name = "cast-player"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "cast_player_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cast-player"
+path = "src/main.rs"
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
