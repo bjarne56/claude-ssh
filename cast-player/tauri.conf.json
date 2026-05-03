@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicovrc/tauri-v2-schema/refs/heads/main/schema.json",
+  "productName": "Cast Player",
+  "version": "0.1.0",
+  "identifier": "com.ssh-ops.cast-player",
+  "build": {
+    "frontendDist": "dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title": "Cast Player",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 500,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["cast"],
+        "name": "Asciinema Recording",
+        "description": "Asciinema terminal recording file",
+        "role": "Viewer"
+      }
+    ]
+  }
+}
