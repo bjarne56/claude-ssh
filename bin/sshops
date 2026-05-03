@@ -240,6 +240,37 @@ cmd_run() {
     local t_send_start t_send_end t_poll_end t_cast_end
     t_send_start="$(now_ms)"
 
+    # 自动感知: 扫上次 ai run 之后到现在的 cast 区间, 提取用户手敲命令
+    # SSHOPS_NO_AUTO_HUMAN=1 关闭
+    local recent_human="[]"
+    local last_ai_marker_file
+    local sess_dir; sess_dir="$(record_session_dir "$sid")"
+    last_ai_marker_file="$sess_dir/.last_ai_byte"
+    if [[ "${SSHOPS_NO_AUTO_HUMAN:-0}" != "1" ]]; then
+        local last_ai_byte=0
+        [[ -f "$last_ai_marker_file" ]] && last_ai_byte="$(cat "$last_ai_marker_file" 2>/dev/null || echo 0)"
+        local current_byte; current_byte="$(record_cast_size "$sid")"
+        if (( current_byte > last_ai_byte )); then
+            recent_human="$(record_extract_human_commands "$sid" "$last_ai_byte" "$current_byte" 2>/dev/null || echo '[]')"
+            # 把 human 命令写入 commands.jsonl (actor=human)
+            if [[ "$recent_human" != "[]" ]]; then
+                printf '%s' "$recent_human" | jq -c '.[]' 2>/dev/null | while read -r cmd_json; do
+                    local hcmd hoff hts
+                    hcmd="$(printf '%s' "$cmd_json" | jq -r '.cmd')"
+                    hoff="$(printf '%s' "$cmd_json" | jq -r '.cast_offset')"
+                    hts="$(printf '%s' "$cmd_json" | jq -r '.ts_unix')"
+                    local now_iso; now_iso="$(date -u -r "$hts" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u '+%Y-%m-%dT%H:%M:%SZ')"
+                    jq -nc \
+                        --arg ts "$now_iso" --arg cmd "$hcmd" --argjson off "$hoff" \
+                        --arg host "$SEL_DISPLAY" --arg nonce "human-$hoff" \
+                        '{ts:$ts, actor:"human", host:$host, cmd:$cmd, exit:0,
+                          duration_ms:0, cast_offset:$off, dangerous:false,
+                          blocked:false, nonce:$nonce}' >> "$sess_dir/commands.jsonl"
+                done
+            fi
+        fi
+    fi
+
     # 命令发送前的 cast 字节偏移 (作为切片起点 — 不依赖时间, 不会错位)
     local start_byte; start_byte="$(record_cast_size "$sid")"
 
@@ -285,7 +316,12 @@ cmd_run() {
         "$marker_exit" "$duration_ms" \
         "$dgr" 0 "$(gen_nonce)"
 
-    # 输出 JSON
+    # 标记 last_ai_byte: 下次 run 时从这往后扫 human 活动
+    if [[ "${SSHOPS_NO_AUTO_HUMAN:-0}" != "1" ]]; then
+        record_cast_size "$sid" > "$last_ai_marker_file" 2>/dev/null || true
+    fi
+
+    # 输出 JSON (含 recent_human_activity, 让 AI 看到用户在 pane 里做了什么)
     local offset; offset="$(record_cast_offset "$sid")"
     jq -n \
         --argjson exit "$marker_exit" \
@@ -295,9 +331,11 @@ cmd_run() {
         --arg sel "$SEL_DISPLAY" \
         --arg out "$output" \
         --argjson dgr "$dgr" \
+        --argjson human "$recent_human" \
         '{exit: $exit, duration_ms: $dur, cast_offset: $off,
           selector: $sel, session_id: $sid,
-          dangerous: ($dgr == 1), blocked: false, output: $out}'
+          dangerous: ($dgr == 1), blocked: false, output: $out,
+          recent_human_activity: $human}'
 
     exit "$marker_exit"
 }

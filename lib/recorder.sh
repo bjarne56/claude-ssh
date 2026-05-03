@@ -190,6 +190,67 @@ record_wait_prompt_in_cast() {
     return 1
 }
 
+# record_extract_human_commands <session_id> <start_byte> <end_byte>
+# 扫 cast 字节区间提取用户 *手敲* 命令 (逐字符输入 = chunk_size ≤ 3)
+# 整块发送 (chunk_size > 3) = AI/paste/ssh-ops 注入, 跳过
+# 输出: JSON array [{cmd, cast_offset, ts_unix}, ...]
+record_extract_human_commands() {
+    local sid="$1" start_byte="$2" end_byte="${3:-0}"
+    local dir; dir="$(record_session_dir "$sid")"
+    local cast="$dir/stream.cast"
+    [[ -f "$cast" ]] || { echo "[]"; return 0; }
+
+    local cast_ts; cast_ts="$(head -1 "$cast" 2>/dev/null | jq -r '.timestamp // 0')"
+    local size; size="$(wc -c < "$cast" | tr -d ' ')"
+    local actual_end="$end_byte"
+    if (( actual_end == 0 || actual_end > size )); then actual_end=$size; fi
+    if (( start_byte >= actual_end )); then echo "[]"; return 0; fi
+
+    # python (随系统) 做事件聚合, 比复杂 jq 更可靠
+    tail -c "+$((start_byte + 1))" "$cast" 2>/dev/null \
+      | head -c $((actual_end - start_byte)) \
+      | CAST_TS="$cast_ts" python3 -c '
+import sys, json, os
+cast_ts = int(os.environ.get("CAST_TS", "0"))
+elapsed = 0.0
+buf = ""
+buf_start = None
+max_chunk = 0
+groups = []
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    try: e = json.loads(line)
+    except: continue
+    if not isinstance(e, list) or len(e) < 3: continue
+    elapsed += float(e[0])
+    if e[1] != "i": continue
+    data = e[2] or ""
+    visible = sum(1 for c in data if c.isprintable() or c in "\r\n")
+    if visible > max_chunk: max_chunk = visible
+    if buf_start is None: buf_start = elapsed
+    for ch in data:
+        if ch in ("\r", "\n"):
+            cmd = buf.strip()
+            if cmd:
+                groups.append({"cmd": cmd, "cast_offset": round(buf_start, 3),
+                              "ts_unix": cast_ts + int(buf_start), "max_chunk": max_chunk})
+            buf = ""; buf_start = None; max_chunk = 0
+        elif ch in ("\x7f", "\x08"):
+            buf = buf[:-1]
+        elif ord(ch) < 32:
+            pass
+        else:
+            buf += ch
+
+# 只保留 human: 逐字符 (max_chunk ≤ 3) 且长度 > 1
+human = [{"cmd": g["cmd"], "cast_offset": g["cast_offset"], "ts_unix": g["ts_unix"]}
+         for g in groups if g["max_chunk"] <= 3 and len(g["cmd"]) > 1]
+print(json.dumps(human))
+' 2>/dev/null || echo "[]"
+}
+
 # record_cast_size <session_id>: 输出 cast 文件当前字节大小 (用于切片起点)
 record_cast_size() {
     local sid="$1"
