@@ -203,7 +203,7 @@ impl Recorder {
         Ok(buf)
     }
 
-    /// 等 cast 文件大小稳定: 连续 3 次相同 (asciinema flush 完毕), 最多 3s
+    /// 等 cast 文件大小稳定: 连续 3 次相同 (cast-recorder immediate flush 后), 最多 1.5s
     pub fn wait_cast_stable(&self, min_bytes_after: u64) {
         let mut prev: i64 = -1;
         let mut same = 0;
@@ -218,7 +218,7 @@ impl Recorder {
                 same = 0;
             }
             prev = cur;
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(std::time::Duration::from_millis(50));
         }
     }
 

@@ -73,7 +73,7 @@ pub fn execute(
 /// 返回 true=见到 prompt, false=超时
 pub fn wait_prompt_in_cast(recorder: &Recorder, start_byte: u64, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
-    let poll = Duration::from_millis(100);
+    let poll = Duration::from_millis(50);
     let mut prompt_seen = 0;
     while Instant::now() < deadline {
         let cur = recorder.cast_size();
