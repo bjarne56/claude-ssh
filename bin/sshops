@@ -246,24 +246,10 @@ cmd_run() {
     wt_send_text "$pane" "$REM_CMD"
     t_send_end="$(now_ms)"
 
-    # 轮询: 用屏幕快(<5ms) 检测 prompt, 200ms 粒度
-    local cmd_timeout; cmd_timeout="${SSHOPS_TIMEOUT:-${SSHOPS_CMD_TIMEOUT:-30}}"
-    local poll_interval="${SSHOPS_POLL_INTERVAL:-0.2}"
-    local max_polls; max_polls=$(awk -v t="$cmd_timeout" -v i="$poll_interval" 'BEGIN{print int(t/i)}')
-    local poll=0
-    local prompt_seen=0
-    while (( poll < max_polls )); do
-        sleep "$poll_interval"
-        poll=$((poll + 1))
-        local screen; screen="$(wt_get_text_screen "$pane" 2>/dev/null || true)"
-        local last_line; last_line="$(printf '%s' "$screen" | strip_ansi | tail -1)"
-        if printf '%s' "$last_line" | grep -qE '[$#] $'; then
-            prompt_seen=$((prompt_seen + 1))
-            if (( prompt_seen >= 2 )); then break; fi
-        else
-            prompt_seen=0
-        fi
-    done
+    # 检测 prompt: 直接 tail cast 文件 (cast-recorder 立即 flush, 无 wezterm 依赖)
+    local cmd_timeout_ms; cmd_timeout_ms=$(( ${SSHOPS_TIMEOUT:-${SSHOPS_CMD_TIMEOUT:-30}} * 1000 ))
+    record_wait_prompt_in_cast "$sid" "$start_byte" "$cmd_timeout_ms"
+    local prompt_result=$?
     t_poll_end="$(now_ms)"
 
     # 切片: 从 cast 字节偏移开始读到末尾 (等 flush 稳定), 拼接所有 'o' 事件
@@ -286,7 +272,7 @@ cmd_run() {
         local t_send=$((t_send_end - t_send_start))
         local t_poll=$((t_poll_end - t_send_end))
         local t_cast=$((t_cast_end - t_poll_end))
-        log_info "TIMING: send=${t_send}ms poll=${t_poll}ms cast_extract=${t_cast}ms total=${duration_ms}ms (poll_count=${poll})" >&2
+        log_info "TIMING: send=${t_send}ms poll=${t_poll}ms cast_extract=${t_cast}ms total=${duration_ms}ms prompt_result=${prompt_result}" >&2
     fi
     # 退出码无法从屏幕文本准确还原,默认 0
     local marker_exit=0

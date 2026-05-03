@@ -161,6 +161,35 @@ record_cast_offset() {
     awk -v a="$now" -v b="$base" 'BEGIN { printf "%.3f", a - b }'
 }
 
+# record_wait_prompt_in_cast <session_id> <start_byte> <timeout_ms>
+# 从 cast 字节偏移开始监听, 直到看到 shell prompt (# 或 $ 末尾) 或超时
+# 不依赖 wezterm get-text — cast-recorder 的 immediate flush 让 cast 实时可读
+# 返回: 0=见到 prompt, 1=超时
+record_wait_prompt_in_cast() {
+    local sid="$1" start_byte="$2" timeout_ms="${3:-30000}"
+    local dir; dir="$(record_session_dir "$sid")"
+    local cast="$dir/stream.cast"
+    [[ -f "$cast" ]] || return 1
+
+    local poll_ms=100
+    local max_iters=$((timeout_ms / poll_ms))
+    local i prompt_seen=0
+    for ((i=0; i<max_iters; i++)); do
+        local tail_text
+        tail_text="$(tail -c "+$((start_byte + 1))" "$cast" 2>/dev/null | jq -rs '
+            reduce .[] as $e (""; if ($e[1] == "o") then . + ($e[2] // "") else . end)
+        ' 2>/dev/null | tail -c 300)"
+        if printf '%s' "$tail_text" | strip_ansi | grep -qE '[#$] $'; then
+            prompt_seen=$((prompt_seen + 1))
+            if (( prompt_seen >= 2 )); then return 0; fi
+        else
+            prompt_seen=0
+        fi
+        sleep 0.1
+    done
+    return 1
+}
+
 # record_cast_size <session_id>: 输出 cast 文件当前字节大小 (用于切片起点)
 record_cast_size() {
     local sid="$1"
@@ -260,15 +289,19 @@ record_finalize() {
 record_build_spawn_argv() {
     local cast_path="$1"; shift
     # 参数为 ssh_argv...
-    # 输出格式:asciinema rec --quiet --stdin --command "<ssh ...>" "$cast_path"
-    # 但 --command 接 shell string,我们需要 quote ssh argv
+    # 用 cast-recorder (本地 fork 的 asciinema, 加了 immediate flush)
+    # 解决 asciinema 默认 buffered IO 导致 cast 文件滞后 1-3s 的问题
+    local recorder; recorder="$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")/../bin/cast-recorder"
+    if [[ ! -x "$recorder" ]]; then
+        # fallback: 系统 asciinema (兼容未编译 cast-recorder 的环境)
+        recorder="asciinema"
+    fi
+
     local ssh_cmd
     printf -v ssh_cmd '%q ' "$@"
-    # 去掉末尾空格
     ssh_cmd="${ssh_cmd% }"
-    # 输出:逐项一行,调用方 readarray
     cat <<EOF
-asciinema
+${recorder}
 rec
 --quiet
 --stdin

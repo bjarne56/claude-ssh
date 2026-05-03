@@ -33,3 +33,5 @@ colorizer/
 oh-my-zsh-src/
 test2/
 wezterm-src.zip
+# asciinema 源码 (本地编译 cast-recorder, 不入库; 先留着方便迭代)
+asciinema-src/
