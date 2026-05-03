@@ -5,21 +5,13 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import type { LoadResult, CastEventMeta, PlayState } from "./types";
 
-const SPEEDS = [0.5, 1, 1.5, 2, 4, 8];
-const IDLE_THRESHOLD = 2.0; // 超过 2 秒无事件视为空闲
+export const SPEEDS = [0.5, 1, 1.5, 2, 4, 8];
+const IDLE_THRESHOLD = 2.0;
 
 export function usePlayer() {
+  // ---- refs (不触发重渲染) ----
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  const [playState, setPlayState] = useState<PlayState>("idle");
-  const [elapsed, setElapsed] = useState(0);
-  const [totalDuration, setTotalDuration] = useState(0);
-  const [speed, setSpeed] = useState(1);
-  const [skipIdle, setSkipIdle] = useState(false);
-
-  // 回放控制 refs(避免重渲染)
   const timerRef = useRef<number | null>(null);
   const eventIdxRef = useRef(0);
   const eventsRef = useRef<[number, string][]>([]);
@@ -27,11 +19,23 @@ export function usePlayer() {
   const totalRef = useRef(0);
   const speedRef = useRef(1);
   const skipIdleRef = useRef(false);
+  const playStateRef = useRef<PlayState>("idle");
 
+  // ---- state (触发 UI 更新) ----
+  const [playState, setPlayState] = useState<PlayState>("idle");
+  const [elapsed, setElapsed] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
+  const [speed, setSpeed] = useState(1);
+  const [skipIdle, setSkipIdle] = useState(false);
+
+  const setPlayState2 = useCallback((s: PlayState) => {
+    playStateRef.current = s;
+    setPlayState(s);
+  }, []);
+
+  // ---- 终端初始化 ----
   const initTerminal = useCallback((container: HTMLDivElement) => {
-    if (termRef.current) {
-      termRef.current.dispose();
-    }
+    if (termRef.current) termRef.current.dispose();
 
     const term = new Terminal({
       fontFamily: "'SF Mono', 'JetBrains Mono', 'Fira Code', monospace",
@@ -45,104 +49,62 @@ export function usePlayer() {
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
-
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose();
-      });
-      term.loadAddon(webglAddon);
-    } catch {
-      // WebGL 不可用时回退到 Canvas 渲染
-    }
+    try { term.loadAddon(new WebglAddon()); } catch {}
 
     term.open(container);
     fitAddon.fit();
 
     termRef.current = term;
     fitAddonRef.current = fitAddon;
-    containerRef.current = container;
 
-    const onResize = () => {
-      try {
-        fitAddon.fit();
-      } catch {}
-    };
-    const observer = new ResizeObserver(onResize);
+    const observer = new ResizeObserver(() => { try { fitAddon.fit(); } catch {} });
     observer.observe(container);
 
     return () => {
       observer.disconnect();
       term.dispose();
       termRef.current = null;
-      fitAddonRef.current = null;
     };
   }, []);
 
-  const loadSession = useCallback(
-    (data: LoadResult) => {
-      const term = termRef.current;
-      if (!term) return;
+  // ---- 核心: tick (只依赖 ref,零重渲染) ----
+  const tickRef = useRef<() => void>(() => {});
 
-      // 清屏
-      term.reset();
-      eventsRef.current = data.events;
-      indexRef.current = data.index.events;
-      totalRef.current = data.index.total_duration;
-      eventIdxRef.current = 0;
-
-      setElapsed(0);
-      setTotalDuration(data.index.total_duration);
-      setPlayState("idle");
-    },
-    []
-  );
-
-  const tick = useCallback(() => {
+  tickRef.current = () => {
     const events = eventsRef.current;
     const idx = eventIdxRef.current;
     if (idx >= events.length) {
-      stopTimer();
-      setPlayState("stopped");
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setPlayState2("stopped");
       return;
     }
 
     const [rawDelay, line] = events[idx];
     let delay = rawDelay;
-    const spd = speedRef.current;
-
-    // 空闲跳过逻辑
     if (skipIdleRef.current && delay > IDLE_THRESHOLD) {
-      delay = Math.min(delay, 0.1); // 跳过 > 2 秒的空闲,压缩到 0.1s
+      delay = 0.1;
     }
+    const realDelay = (delay * 1000) / speedRef.current;
 
-    const realDelay = (delay * 1000) / spd;
-
-    // 写入终端
     const parts = JSON.parse(line) as [number, string, string];
     if (parts.length >= 3) {
-      const data = parts[2];
-      // 简单 ANSI 清理(保留终端的 ANSI 处理,只去掉 null)
-      const clean = data.replace(/\0/g, "");
-      termRef.current?.write(clean);
+      termRef.current?.write(parts[2].replace(/\0/g, ""));
     }
 
     eventIdxRef.current = idx + 1;
-    const idxMeta = indexRef.current;
-    const newElapsed =
-      idx + 1 < idxMeta.length
-        ? idxMeta[idx + 1].elapsed
-        : totalRef.current;
+    const meta = indexRef.current;
+    setElapsed(idx + 1 < meta.length ? meta[idx + 1].elapsed : totalRef.current);
 
-    setElapsed(newElapsed);
-
-    timerRef.current = window.setTimeout(tick, Math.max(realDelay, 1));
-  }, []);
+    timerRef.current = window.setTimeout(() => tickRef.current(), Math.max(realDelay, 1));
+  };
 
   const startTimer = useCallback(() => {
     if (timerRef.current !== null) return;
-    tick();
-  }, [tick]);
+    tickRef.current();
+  }, []);
 
   const stopTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -151,179 +113,140 @@ export function usePlayer() {
     }
   }, []);
 
+  // ---- seekTo (不依赖 playState state, 用 ref) ----
+  const seekTo = useCallback((targetElapsed: number) => {
+    const wasPlaying = timerRef.current !== null;
+    stopTimer();
+
+    const term = termRef.current;
+    if (!term) return;
+
+    const meta = indexRef.current;
+    if (meta.length === 0) return;
+
+    // 二分查找
+    let lo = 0, hi = meta.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (meta[mid].elapsed < targetElapsed) lo = mid + 1;
+      else hi = mid;
+    }
+
+    eventIdxRef.current = lo;
+    setElapsed(targetElapsed);
+
+    // 重建终端
+    term.reset();
+    for (let i = 0; i < lo; i++) {
+      const [, line] = eventsRef.current[i];
+      try {
+        const parts = JSON.parse(line) as [number, string, string];
+        if (parts.length >= 3 && parts[1] === "o") {
+          term.write(parts[2].replace(/\0/g, ""));
+        }
+      } catch {}
+    }
+
+    if (wasPlaying) startTimer();
+  }, [stopTimer, startTimer]);
+
+  // ---- 控制函数 ----
   const play = useCallback(() => {
-    if (playState === "playing") return;
+    if (playStateRef.current === "playing") return;
     if (eventIdxRef.current >= eventsRef.current.length) {
-      // 已播完,从头开始
       seekTo(0);
     }
-    setPlayState("playing");
+    setPlayState2("playing");
     startTimer();
-  }, [playState, startTimer]);
+  }, [seekTo, startTimer, setPlayState2]);
 
   const pause = useCallback(() => {
     stopTimer();
-    setPlayState("paused");
-  }, [stopTimer]);
+    setPlayState2("paused");
+  }, [stopTimer, setPlayState2]);
 
   const stop = useCallback(() => {
     stopTimer();
     seekTo(0);
-    setPlayState("stopped");
-  }, [stopTimer]);
+    setPlayState2("stopped");
+  }, [stopTimer, seekTo, setPlayState2]);
 
   const togglePlay = useCallback(() => {
-    if (playState === "playing") pause();
+    if (playStateRef.current === "playing") pause();
     else play();
-  }, [playState, play, pause]);
+  }, [play, pause]);
 
-  const seekTo = useCallback(
-    (targetElapsed: number) => {
+  const stepForward = useCallback((seconds: number) => {
+    seekTo(Math.min(elapsed + seconds, totalRef.current));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed, seekTo]);
+
+  const stepBackward = useCallback((seconds: number) => {
+    seekTo(Math.max(elapsed - seconds, 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed, seekTo]);
+
+  const changeSpeed = useCallback((newSpeed: number) => {
+    setSpeed(newSpeed);
+    speedRef.current = newSpeed;
+    if (timerRef.current !== null) {
       stopTimer();
-
-      const term = termRef.current;
-      if (!term) return;
-
-      const meta = indexRef.current;
-      if (meta.length === 0) return;
-
-      // 二分查找
-      let lo = 0;
-      let hi = meta.length - 1;
-      while (lo < hi) {
-        const mid = (lo + hi) >> 1;
-        if (meta[mid].elapsed < targetElapsed) {
-          lo = mid + 1;
-        } else {
-          hi = mid;
-        }
-      }
-
-      eventIdxRef.current = lo;
-      setElapsed(targetElapsed);
-
-      // 重建终端状态: 从 0 到 target 的所有输出事件
-      term.reset();
-      for (let i = 0; i < lo; i++) {
-        const [, line] = eventsRef.current[i];
-        try {
-          const parts = JSON.parse(line) as [number, string, string];
-          if (parts.length >= 3 && parts[1] === "o") {
-            term.write(parts[2].replace(/\0/g, ""));
-          }
-        } catch {}
-      }
-
-      if (playState === "playing") {
-        startTimer();
-      }
-    },
-    [playState, stopTimer, startTimer]
-  );
-
-  const stepForward = useCallback(
-    (seconds: number) => {
-      const target = Math.min(elapsed + seconds, totalRef.current);
-      if (playState === "playing") {
-        stopTimer();
-        seekTo(target);
-        startTimer();
-      } else {
-        seekTo(target);
-      }
-    },
-    [elapsed, playState, stopTimer, seekTo, startTimer]
-  );
-
-  const stepBackward = useCallback(
-    (seconds: number) => {
-      const target = Math.max(elapsed - seconds, 0);
-      if (playState === "playing") {
-        stopTimer();
-        seekTo(target);
-        startTimer();
-      } else {
-        seekTo(target);
-      }
-    },
-    [elapsed, playState, stopTimer, seekTo, startTimer]
-  );
-
-  const changeSpeed = useCallback(
-    (newSpeed: number) => {
-      setSpeed(newSpeed);
-      speedRef.current = newSpeed;
-
-      // 如果正在播放,重新调度
-      if (playState === "playing") {
-        stopTimer();
-        startTimer();
-      }
-    },
-    [playState, stopTimer, startTimer]
-  );
-
-  const cycleSpeed = useCallback(() => {
-    const idx = SPEEDS.indexOf(speed);
-    const nextIdx = (idx + 1) % SPEEDS.length;
-    changeSpeed(SPEEDS[nextIdx]);
-  }, [speed, changeSpeed]);
+      startTimer();
+    }
+  }, [stopTimer, startTimer]);
 
   const toggleSkipIdle = useCallback(() => {
     setSkipIdle((prev) => {
-      const next = !prev;
-      skipIdleRef.current = next;
-      return next;
+      skipIdleRef.current = !prev;
+      return !prev;
     });
   }, []);
 
   const restart = useCallback(() => {
     seekTo(0);
-    if (playState !== "playing") {
-      setPlayState("playing");
-      startTimer();
-    } else {
-      startTimer();
-    }
-  }, [playState, seekTo, startTimer]);
+    setPlayState2("playing");
+    startTimer();
+  }, [seekTo, startTimer, setPlayState2]);
 
-  const jumpToExact = useCallback(
-    (seconds: number) => {
-      const target = Math.max(0, Math.min(seconds, totalRef.current));
-      if (playState === "playing") {
-        stopTimer();
-        seekTo(target);
-        startTimer();
-      } else {
-        seekTo(target);
-      }
-    },
-    [playState, stopTimer, seekTo, startTimer]
-  );
+  const jumpToExact = useCallback((seconds: number) => {
+    seekTo(Math.max(0, Math.min(seconds, totalRef.current)));
+  }, [seekTo]);
+
+  // ---- session 加载 ----
+  const loadSession = useCallback((data: LoadResult) => {
+    const term = termRef.current;
+    if (!term) return;
+
+    stopTimer();
+    term.reset();
+    eventsRef.current = data.events;
+    indexRef.current = data.index.events;
+    totalRef.current = data.index.total_duration;
+    eventIdxRef.current = 0;
+
+    setElapsed(0);
+    setTotalDuration(data.index.total_duration);
+    setPlayState2("idle");
+  }, [stopTimer, setPlayState2]);
 
   // 清理
-  useEffect(() => {
-    return () => stopTimer();
-  }, [stopTimer]);
+  useEffect(() => () => stopTimer(), [stopTimer]);
 
   return {
     initTerminal,
-    containerRef,
     loadSession,
     playState,
     elapsed,
     totalDuration,
     speed,
     skipIdle,
-    play,
-    pause,
-    stop,
-    togglePlay,
-    seekTo,
-    stepForward,
-    stepBackward,
-    changeSpeed,
-    cycleSpeed,
+    play, pause, stop,
+    togglePlay, seekTo,
+    stepForward, stepBackward,
+    changeSpeed, cycleSpeed: () => {
+      const idx = SPEEDS.indexOf(speedRef.current);
+      changeSpeed(SPEEDS[(idx + 1) % SPEEDS.length]);
+    },
     toggleSkipIdle,
     restart,
     jumpToExact,
