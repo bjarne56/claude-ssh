@@ -185,8 +185,61 @@ self-test 当前只覆盖第 1-3 行,其余 Phase 1a 完整测试矩阵见 `requ
 
 ---
 
+## Phase C · daemon 模式 + 性能终态 (✅ 实施完成)
+
+**目标**: 引入持久 daemon, 消除每次 binary 启动开销, 加速 polling, 把 round-trip 从 300ms 压到 < 200ms.
+
+### C1 — IPC 协议 + daemon 骨架
+- [x] `core/src/ipc.rs`: IpcRequest/Response 枚举, length-prefix bincode codec, proto v1
+- [x] `daemon/` crate: tokio multi-thread, accept → handler 路由 → spawn_blocking
+- [x] `daemon/src/handler.rs`: 6 个子命令路由 + DaemonState
+- [x] `bin/main.rs --no-daemon` flag, 默认 IPC 优先 + fallback in-process
+- [x] 新子命令: daemon-status / daemon-stop
+
+### C2 — Auto-spawn + 单实例锁
+- [x] `daemon` flock state/daemon.pid (Box::leak 保活), 已存在直接退
+- [x] `--detach`: stderr → state/daemon.log
+- [x] cli auto-spawn: socket 不存在/connect 失败 → 清 stale socket → spawn → 等 1s
+- [x] SSHOPS_NO_AUTOSPAWN=1 关闭
+
+### C3 — wait_prompt+stable 算法优化 (实际收益最大)
+- [x] `session.rs`: 拆掉 wait_cast_stable, 合并到 wait_prompt_and_stable
+- [x] 算法: 见 prompt 后等 1 个无变化窗口 (而非 50ms × 3)
+- [x] poll: 50ms → 10ms
+
+### C4 — idle 自动 shutdown
+- [x] 默认 30min 无请求自动退 (SSHOPS_DAEMON_IDLE_SECS 覆盖)
+- [x] 60s 心跳检查
+- [x] 退出清理 socket
+
+**最终性能数据**:
+
+| 版本 | server_dur | wall | vs 基线 |
+|---|---|---|---|
+| bash 原始 | - | 1500-2000ms | 1.0x |
+| bash 优化版 (cast.sock) | - | 1064ms | 1.5x |
+| Rust Phase B (in-proc, 100ms poll) | - | 530ms | 3.0x |
+| Rust Phase B (in-proc, 50ms poll) | - | 300ms | 5-7x |
+| **Rust Phase C (daemon + 10ms poll)** | **81-144ms** | **113-178ms** | **10-18x** |
+
+**剩余不可消除的开销**:
+- pane_open (reused) ~22ms = 一次 wezterm cli list fork
+- send_text ~14ms = 一次 wezterm cli send-text fork
+- wait_prompt+stable ~70ms = 等 ssh round-trip + 1 个稳定窗口
+- IPC + binary 启动 ~30ms
+
+**未来优化方向 (Phase D)**:
+- WezTerm mux socket 直连 → 砍 ~36ms (pane_open + send_text)
+- inotify/kqueue cast 文件事件 → 砍 ~50ms (wait_prompt 部分)
+- OSC 133 marker 协议 → 砍 ~50ms + 修真实 exit code
+
+理论极限: < 30ms (跟 ssh 原生 round-trip 同量级).
+
+---
+
 ## 变更日志
 
 - 2026-05-02 创建,Phase 1a 启动
 - 2026-05-02 Phase 1a 实施完成(commit `9cd0881`,17 文件 / 3054 行);文档完善:README.md 创建、PROJECT_OVERVIEW 关键不变量补全、requirements 第 18/20 节补全
 - 2026-05-03 Phase B Rust 重写完成 (Day 1-9): 9 个 core 模块 + 完整 CLI + bash wrapper 透传; 性能 1064ms → 300ms (3.5x); 12 个单测全过
+- 2026-05-03 Phase C daemon 模式完成 (C1-C4): IPC + auto-spawn + wait 算法优化 + idle shutdown; 性能 300ms → 113-178ms (2-3x); 对原始 bash 10-18x 提速
