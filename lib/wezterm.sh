@@ -84,9 +84,17 @@ wt_send_raw() {
     "$(_wt_cli)" cli send-text --pane-id "$pane" --no-paste -- "$*"
 }
 
-# wt_get_text <pane_id>
-# 输出 pane 当前可见文本到 stdout
+# wt_get_text <pane_id> [scrollback_lines]
+# 输出 pane 内容(默认含 50000 行 scrollback, 不只是当前屏幕)
+# wezterm cli get-text --start-line 负数读 scrollback (0=当前屏幕第一行)
 wt_get_text() {
+    local pane="$1"
+    local scrollback="${2:-${SSHOPS_SCROLLBACK_LINES:-50000}}"
+    "$(_wt_cli)" cli get-text --pane-id "$pane" --start-line "-${scrollback}"
+}
+
+# wt_get_text_screen <pane_id>: 仅当前屏幕(用于 prompt 检测等场景, 速度快)
+wt_get_text_screen() {
     local pane="$1"
     "$(_wt_cli)" cli get-text --pane-id "$pane"
 }

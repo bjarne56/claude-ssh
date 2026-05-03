@@ -146,7 +146,8 @@ _wait_for_pane_input_complete() {
     local notified=0
     while (( elapsed < timeout )); do
         local raw stripped tail_text
-        raw="$(wt_get_text "$pane" 2>/dev/null || true)"
+        # 登录阶段只看屏幕(prompt/password 在屏幕底部), 速度快
+        raw="$(wt_get_text_screen "$pane" 2>/dev/null || true)"
         stripped="$(printf '%s' "$raw" | strip_ansi)"
         tail_text="$(printf '%s' "$stripped" | tail -5)"
         if printf '%s' "$tail_text" | grep -qiE \

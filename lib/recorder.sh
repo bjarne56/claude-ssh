@@ -151,6 +151,60 @@ record_cast_offset() {
     awk -v a="$now" -v b="$start" 'BEGIN { printf "%.3f", a - b }'
 }
 
+# record_extract_output <session_id> <start_offset> <end_offset>
+# 从 stream.cast 提取 [start_offset, end_offset] 时间范围内所有 "o" 输出
+# 拼接为完整文本输出到 stdout。
+# 不依赖 wezterm scrollback, 命令多大输出都不丢。
+# 等待 cast 文件 fsync (asciinema 异步 flush, 可能需要等几百 ms)
+record_extract_output() {
+    local sid="$1" start="$2" end="$3"
+    local dir; dir="$(record_session_dir "$sid")"
+    local cast="$dir/stream.cast"
+    [[ -f "$cast" ]] || return 1
+
+    # 等 cast 文件 fsync 完整 (asciinema 异步写, 给 200ms 缓冲)
+    sleep 0.2
+
+    awk -v START="$start" -v END="$end" '
+    BEGIN { elapsed=0 }
+    NR==1 { next }   # 跳过 header 行
+    {
+        # 解析 [delay, "type", "data"] — 用简单的 JSON-array 切分
+        # delay
+        match($0, /^\[[ \t]*([0-9.]+)[ \t]*,/, m1)
+        if (!m1[1]) next
+        delay = m1[1] + 0
+        elapsed += delay
+        if (elapsed < START) next
+        if (elapsed > END) exit
+
+        # type
+        match($0, /,[ \t]*"([oixs])"[ \t]*,/, m2)
+        if (m2[1] != "o") next
+
+        # data: 从第二个逗号到最后一个 "] 之间
+        # 找到 "data" 的起始 " 和结尾 "
+        idx_open = index($0, "\",\"") + 3   # 第一个 ","" 之后
+        if (idx_open <= 3) next
+        # 倒数第一个 "]
+        line = $0
+        idx_close = match(line, /"[ \t]*\]/)
+        if (idx_close == 0) next
+        data = substr(line, idx_open, idx_close - idx_open)
+
+        # 反转义 JSON: \\ \" \n \r \t \uXXXX
+        gsub(/\\\\/, "\x01", data)
+        gsub(/\\"/, "\"", data)
+        gsub(/\\n/, "\n", data)
+        gsub(/\\r/, "\r", data)
+        gsub(/\\t/, "\t", data)
+        gsub(/\x01/, "\\", data)
+
+        printf "%s", data
+    }
+    ' "$cast"
+}
+
 # record_append_command <session_id> <actor> <host> <cmd> <exit> <duration_ms> <dangerous> <blocked> <nonce>
 record_append_command() {
     local sid="$1" actor="$2" host="$3" cmd="$4" exit_code="$5"
