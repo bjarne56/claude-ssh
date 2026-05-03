@@ -179,6 +179,29 @@ skill 内置危险命令模式拦截(`rm -rf /`、`reboot`、`mkfs`、`dd of=/de
 - 进程 exit:`5`=拦截,`4`=注入超时,`3`=主机不可达 / shell 不支持,`2`=选择器解析失败,`64`=参数错
 - JSON `exit`:`-1` 仅用于 `blocked:true`,其他时候是远端命令真实 exit code
 
+### 7.1 `recent_human_activity` — AI 副驾驶感知
+
+每次 `sshops run` 返回 JSON 都含 `recent_human_activity` 字段:
+
+```json
+{
+  "output": "...",
+  "recent_human_activity": [
+    {"cmd": "ifconfig", "cast_offset": 120.5, "ts_unix": 1777800000}
+  ]
+}
+```
+
+含义: **用户在 wezterm pane 里手敲了这些命令** (上次 ai run 之后到本次之前的间隔)。
+判别依据: cast 中 'i' 事件 chunk_size ≤ 3 (逐字符敲键盘) → human; chunk_size > 3 (整块发送) → ai/paste。
+
+**Claude 必须**:
+1. **看到 `recent_human_activity` 非空** → 在回答开头主动提及, 例:
+   "我注意到你刚跑了 `ifconfig`, 让我先看下结果再继续..."
+2. **必要时调 `sshops peek` 抓 pane 当前画面** 看用户手敲命令的输出
+3. **不要无视** — 用户手敲意味着他在调查或诊断, 你的回答应该跟上他的思路
+4. 关闭: `SSHOPS_NO_AUTO_HUMAN=1 sshops run ...`
+
 ## 8 命令决策树
 
 | 任务 | 命令 |
