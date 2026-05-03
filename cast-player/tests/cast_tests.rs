@@ -1,24 +1,20 @@
 use cast_player_lib::cast_index::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-/// 用真实录像文件测试 cast 索引构建
+/// 测试可选 cast 文件路径: 通过 TEST_CAST_FILE 环境变量传入
+/// 不传则跳过 — 不在代码里硬编码任何用户路径
+fn test_cast_path() -> Option<PathBuf> {
+    std::env::var("TEST_CAST_FILE").ok().map(PathBuf::from).filter(|p| p.exists())
+}
+
+/// 用环境变量传入的真实录像文件测试 cast 索引构建
 #[test]
 fn test_build_index_from_real_cast() {
-    // 找一个存在的录像目录
-    let candidates = vec![
-        "/Users/bjarne/Code/ssh-op/vedio/wezterm-src_/10.32.49.7-20260502-145319-8c99a1/stream.cast",
-        "/Users/bjarne/Code/ssh-op/vedio/ssh-ops_/10.32.49.7-20260502-101035-41e5e9/stream.cast",
-    ];
-
-    let mut cast_path = None;
-    for c in &candidates {
-        if Path::new(c).exists() {
-            cast_path = Some(Path::new(c));
-            break;
-        }
-    }
-
-    let cast_path = cast_path.expect("没有找到真实的 cast 文件,跳过分发");
+    let cast_path = match test_cast_path() {
+        Some(p) => p,
+        None => { eprintln!("跳过: 未设 TEST_CAST_FILE 环境变量"); return; }
+    };
+    let cast_path = cast_path.as_path();
 
     let index = CastIndex::build(cast_path).expect("构建索引失败");
 
@@ -66,47 +62,39 @@ fn test_build_index_from_real_cast() {
 /// 测试 cast 文件流式分块读取
 #[test]
 fn test_read_chunk() {
-    let cast_path = Path::new("/Users/bjarne/Code/ssh-op/vedio/wezterm-src_/10.32.49.7-20260502-145319-8c99a1/stream.cast");
-    if !cast_path.exists() {
-        eprintln!("文件不存在,跳过分发");
-        return;
-    }
-
+    let Some(cast_path) = test_cast_path() else { return; };
+    let cast_path = cast_path.as_path();
     let index = CastIndex::build(cast_path).unwrap();
     let start_offset = index.events[0].byte_offset;
     let chunk = CastIndex::read_chunk(cast_path, start_offset, None).unwrap();
 
     assert!(!chunk.lines.is_empty(), "chunk 不应为空");
-    // 验证第一行是合法 JSON 数组
     let first = &chunk.lines[0];
     let parsed: Vec<serde_json::Value> = serde_json::from_str(first.trim()).unwrap_or_default();
     assert!(parsed.len() >= 2, "每行至少 2 个元素 [delay, type]");
     assert!(parsed[0].is_number(), "第一个元素应为数字(delay)");
 }
 
-/// 测试 meta.json 加载
 #[test]
 fn test_load_meta() {
-    let meta_path = Path::new("/Users/bjarne/Code/ssh-op/vedio/wezterm-src_/10.32.49.7-20260502-145319-8c99a1/meta.json");
-    if !meta_path.exists() {
-        eprintln!("文件不存在,跳过分发");
-        return;
-    }
+    let Some(cast_path) = test_cast_path() else { return; };
+    let meta_path = cast_path.parent().unwrap().join("meta.json");
+    if !meta_path.exists() { return; }
 
-    let meta = load_meta(meta_path).unwrap();
+    let meta = load_meta(&meta_path).unwrap();
     assert!(!meta.session_id.is_empty(), "session_id 不能为空");
     assert!(!meta.host_resolved.is_empty(), "host_resolved 不能为空");
     assert!(!meta.started_at.is_empty(), "started_at 不能为空");
 }
 
-/// 测试 commands.jsonl 加载
 #[test]
 fn test_load_commands() {
-    let cmds_path = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260502-113405-c143b6/commands.jsonl");
+    let Some(cast_path) = test_cast_path() else { return; };
+    let cmds_path = cast_path.parent().unwrap().join("commands.jsonl");
     if !cmds_path.exists() {
-        eprintln!("文件不存在,跳过分发");
         return;
     }
+    let cmds_path = cmds_path.as_path();
 
     let mut commands = load_commands(cmds_path).unwrap();
     sort_commands(&mut commands);
@@ -178,11 +166,8 @@ fn test_build_tiny_cast() {
 /// verify real cast has balanced input/output events
 #[test]
 fn test_event_types() {
-    let cast_path = Path::new("/Users/bjarne/Code/ssh-op/vedio/wezterm-src_/10.32.49.7-20260502-145319-8c99a1/stream.cast");
-    if !cast_path.exists() {
-        eprintln!("文件不存在,跳过分发");
-        return;
-    }
+    let Some(cast_path) = test_cast_path() else { return; };
+    let cast_path = cast_path.as_path();
 
     let index = CastIndex::build(cast_path).unwrap();
 

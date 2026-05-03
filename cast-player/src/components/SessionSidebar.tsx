@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import type { SessionSummary } from "../types";
 import {
-  getDefaultVideoDir,
   scanSessions,
   searchSessions,
   deleteSession,
+  getVideoDir,
+  setVideoDir as saveVideoDir,
 } from "../tauri-api";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useTranslation } from "../i18n";
 
 interface SessionSidebarProps {
@@ -46,8 +48,13 @@ export function SessionSidebar({
     try {
       setLoading(true);
       setError(null);
-      const dir = await getDefaultVideoDir();
+      const dir = await getVideoDir();
       setVideoDir(dir);
+      if (!dir) {
+        // 未配置, 显示首屏让用户选目录
+        setSessions([]);
+        return;
+      }
       const all = await scanSessions(dir);
       setSessions(all);
     } catch (err) {
@@ -60,6 +67,22 @@ export function SessionSidebar({
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  const handleChangeDir = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "选择录像目录",
+        defaultPath: videoDir || undefined,
+      });
+      if (!selected || typeof selected !== "string") return;
+      await saveVideoDir(selected);
+      await loadSessions();
+    } catch (err) {
+      alert(`设置失败: ${err}`);
+    }
+  };
 
   const handleSearch = useCallback(
     async (q: string) => {
@@ -105,19 +128,42 @@ export function SessionSidebar({
             ))}
           </select>
         )}
-        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-          {videoDir ? `📁 ${videoDir}` : t("sidebar.noVideoDir")}
-        </div>
-        <button
-          onClick={loadSessions}
+        <div
           style={{
             fontSize: 11,
-            padding: "2px 6px",
-            background: "var(--bg-surface)",
+            color: "var(--text-muted)",
+            wordBreak: "break-all",
+            cursor: "pointer",
           }}
+          onClick={handleChangeDir}
+          title="点击切换录像目录"
         >
-          {t("sidebar.refresh")}
-        </button>
+          {videoDir ? `📁 ${videoDir}` : `📁 ${t("sidebar.noVideoDir")}`}
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            onClick={loadSessions}
+            style={{
+              flex: 1,
+              fontSize: 11,
+              padding: "2px 6px",
+              background: "var(--bg-surface)",
+            }}
+          >
+            {t("sidebar.refresh")}
+          </button>
+          <button
+            onClick={handleChangeDir}
+            style={{
+              fontSize: 11,
+              padding: "2px 6px",
+              background: "var(--bg-surface)",
+            }}
+            title="选择录像目录"
+          >
+            📂
+          </button>
+        </div>
       </div>
       <div className="sidebar-list">
         {loading && (
@@ -133,9 +179,17 @@ export function SessionSidebar({
             </button>
           </div>
         )}
-        {!loading && !error && filtered.length === 0 && (
+        {!loading && !error && filtered.length === 0 && !videoDir && (
           <div className="empty-state">
-            <p>{t("sidebar.noSessions")} {videoDir || t("sidebar.notConfigured")}</p>
+            <p>{t("sidebar.noVideoDir")}</p>
+            <button onClick={handleChangeDir} className="primary">
+              📂 选择录像目录
+            </button>
+          </div>
+        )}
+        {!loading && !error && filtered.length === 0 && videoDir && (
+          <div className="empty-state">
+            <p>{t("sidebar.noSessions")} {videoDir}</p>
           </div>
         )}
         {filtered.map((s) => (

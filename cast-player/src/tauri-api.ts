@@ -62,3 +62,18 @@ export async function setAppLocale(locale: string): Promise<void> {
 export async function deleteSession(sessionDir: string): Promise<string> {
   return invoke("delete_session", { sessionDir });
 }
+
+/// 验证用户提供的录像目录是否合法
+export async function validateVideoDir(path: string): Promise<string> {
+  return invoke("validate_video_dir", { path });
+}
+
+/// 获取已配置的录像目录 (空字符串表示未配置)
+export async function getVideoDir(): Promise<string> {
+  return invoke("get_video_dir");
+}
+
+/// 设置录像目录 (持久化到 ~/Library/Application Support/.../config.json)
+export async function setVideoDir(path: string): Promise<string> {
+  return invoke("set_video_dir", { path });
+}

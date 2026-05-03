@@ -1,13 +1,22 @@
 use cast_player_lib::cast_index::*;
-use std::path::Path;
+use std::path::PathBuf;
+
+/// 含 ifconfig 手动命令的 session 路径, 通过 TEST_SESSION_IFCONFIG 环境变量传入
+fn ifconfig_session() -> Option<PathBuf> {
+    std::env::var("TEST_SESSION_IFCONFIG").ok().map(PathBuf::from).filter(|p| p.exists())
+}
+
+/// 任意 session 目录, 通过 TEST_SESSION_DIR 环境变量传入
+fn any_session() -> Option<PathBuf> {
+    std::env::var("TEST_SESSION_DIR").ok().map(PathBuf::from).filter(|p| p.exists())
+}
 
 #[test]
 fn test_extract_human_ifconfig_command() {
-    let dir = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260503-065946-f65eae");
+    let Some(dir) = ifconfig_session() else { return; };
     let cast = dir.join("stream.cast");
     let cmds_path = dir.join("commands.jsonl");
     if !cast.exists() {
-        eprintln!("跳过: 文件不存在");
         return;
     }
 
@@ -39,8 +48,7 @@ fn test_extract_human_ifconfig_command() {
 
 #[test]
 fn test_real_session_sudo_i_classified_as_ai() {
-    // sudo -i / export PS1 是 ssh-ops 一次发整行 → max_chunk_size > 3 → 应分类为 ai
-    let dir = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260503-065946-f65eae");
+    let Some(dir) = ifconfig_session() else { return; };
     let cast = dir.join("stream.cast");
     let cmds_path = dir.join("commands.jsonl");
     if !cast.exists() {
@@ -101,7 +109,7 @@ fn test_extract_input_groups_handles_backspace() {
 
 #[test]
 fn test_load_user_real_session() {
-    let dir = Path::new("/Users/bjarne/Code/ssh-op/vedio/test2_/10.32.49.7-20260503-074246-f078fe");
+    let Some(dir) = any_session() else { return; };
     let cast = dir.join("stream.cast");
     let meta_path = dir.join("meta.json");
     let cmds_path = dir.join("commands.jsonl");
@@ -116,7 +124,7 @@ fn test_load_user_real_session() {
     println!("session_id: {}", meta.session_id);
     println!("host: {}", meta.host_resolved);
     println!("command_count: {}", meta.command_count);
-    assert_eq!(meta.command_count, 9, "应该有 9 条命令");
+    assert!(meta.command_count > 0, "应该至少有 1 条命令");
 
     // 2. 加载命令
     let mut cmds = load_commands(&cmds_path).expect("加载命令失败");

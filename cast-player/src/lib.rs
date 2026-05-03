@@ -244,19 +244,91 @@ fn delete_session(session_dir: String) -> Result<String, String> {
     Ok(format!("已删除 {}", session_dir))
 }
 
+/// 配置文件路径: ~/Library/Application Support/com.ssh-ops.cast-player/config.json
+fn config_file_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|p| p.join("config.json"))
+        .map_err(|e| format!("获取配置目录失败: {e}"))
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
+pub struct AppConfig {
+    pub video_dir: Option<String>,
+}
+
+fn load_config(app: &AppHandle) -> AppConfig {
+    let path = match config_file_path(app) {
+        Ok(p) => p,
+        Err(_) => return AppConfig::default(),
+    };
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_config(app: &AppHandle, cfg: &AppConfig) -> Result<(), String> {
+    let path = config_file_path(app)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("创建配置目录失败: {e}"))?;
+    }
+    let json = serde_json::to_string_pretty(cfg).map_err(|e| format!("序列化失败: {e}"))?;
+    std::fs::write(&path, json).map_err(|e| format!("写入配置失败: {e}"))?;
+    Ok(())
+}
+
+/// 返回当前配置的录像目录, 没有配置则返回空字符串(前端弹首屏配置)
 #[tauri::command]
-fn get_default_video_dir() -> Result<String, String> {
-    // 优先用环境变量,其次默认路径
+fn get_video_dir(app: AppHandle) -> String {
+    // 优先环境变量 (开发/CI 用)
     if let Ok(d) = std::env::var("SSHOPS_VIDEO_DIR") {
-        return Ok(d);
+        if PathBuf::from(&d).exists() {
+            return d;
+        }
     }
-    let home = std::env::var("HOME").unwrap_or_default();
-    let default = format!("{home}/Code/ssh-op/vedio");
-    if PathBuf::from(&default).exists() {
-        Ok(default)
+    let cfg = load_config(&app);
+    cfg.video_dir.unwrap_or_default()
+}
+
+/// 设置录像目录到配置文件
+#[tauri::command]
+fn set_video_dir(app: AppHandle, path: String) -> Result<String, String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("目录不存在: {path}"));
+    }
+    if !p.is_dir() {
+        return Err(format!("不是目录: {path}"));
+    }
+    let mut cfg = load_config(&app);
+    cfg.video_dir = Some(path.clone());
+    save_config(&app, &cfg)?;
+    Ok(path)
+}
+
+/// 兼容老前端: 等同 get_video_dir 但路径为空时返回 Err
+#[tauri::command]
+fn get_default_video_dir(app: AppHandle) -> Result<String, String> {
+    let dir = get_video_dir(app);
+    if dir.is_empty() {
+        Err("未配置录像目录, 请在 UI 设置".to_string())
     } else {
-        Err("未设置录像目录。请设置 SSHOPS_VIDEO_DIR 环境变量或确保 ~/Code/ssh-op/vedio 存在。".to_string())
+        Ok(dir)
     }
+}
+
+/// 验证用户提供的目录是否存在
+#[tauri::command]
+fn validate_video_dir(path: String) -> Result<String, String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("目录不存在: {path}"));
+    }
+    if !p.is_dir() {
+        return Err(format!("不是目录: {path}"));
+    }
+    Ok(path)
 }
 
 /// 前端切换语言时调用, 重建系统菜单
@@ -357,6 +429,7 @@ fn build_localized_menu(app: &AppHandle, locale: &str) -> tauri::Result<tauri::m
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // 启动时按系统 locale 建初始菜单
             let initial_locale = CURRENT_LOCALE.lock().unwrap().clone();
@@ -393,6 +466,9 @@ pub fn run() {
             copy_cast_file,
             delete_session,
             get_default_video_dir,
+            get_video_dir,
+            set_video_dir,
+            validate_video_dir,
             set_app_locale,
             get_app_locale,
         ])
