@@ -103,7 +103,8 @@ export function usePlayer() {
 
   const startTimer = useCallback(() => {
     if (timerRef.current !== null) return;
-    tickRef.current();
+    // 异步调度第一次 tick, 让调用者的 React state 先生效再播放
+    timerRef.current = window.setTimeout(() => tickRef.current(), 0);
   }, []);
 
   const stopTimer = useCallback(() => {

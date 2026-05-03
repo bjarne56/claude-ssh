@@ -11,15 +11,12 @@ import { ExportDialog } from "./components/ExportDialog";
 import { detectLocale, setLocale, getLocale } from "./i18n";
 import "./index.css";
 
-// 启动时自动检测系统 locale
 setLocale(detectLocale());
 console.log(`Cast Player locale: ${getLocale()}`);
 
 function App() {
   const player = usePlayer();
-  const [activeSession, setActiveSession] = useState<SessionSummary | null>(
-    null
-  );
+  const [activeSession, setActiveSession] = useState<SessionSummary | null>(null);
   const [loadData, setLoadData] = useState<LoadResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -34,6 +31,9 @@ function App() {
         setLoadData(data);
         setActiveSession(session);
         player.loadSession(data);
+        console.log(
+          `Loaded session: ${data.events.length} events, ${data.index.total_duration.toFixed(1)}s, ${data.commands.length} cmds`
+        );
       } catch (err) {
         console.error("加载 session 失败:", err);
       } finally {
@@ -46,16 +46,14 @@ function App() {
   const handleSeekToCommand = useCallback(
     (castOffset: number) => {
       player.seekTo(castOffset);
-      if (player.playState !== "playing") {
-        player.play();
-      }
+      if (player.playState !== "playing") player.play();
     },
     [player]
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === " " && e.target === document.body) {
+      if (e.key === " " && (e.target as HTMLElement).tagName !== "INPUT") {
         e.preventDefault();
         player.togglePlay();
       }
@@ -73,21 +71,17 @@ function App() {
     : "";
 
   return (
-    <div
-      className={`app-layout ${!hasSession ? "no-sidebar" : ""}`}
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
-    >
+    <div className="app-root" onKeyDown={handleKeyDown} tabIndex={-1}>
       <SessionSidebar
         onSelect={handleSelectSession}
         activeSessionId={activeSession?.session_id ?? null}
       />
 
-      <div className={`main-area ${hasSession ? "split" : ""}`}>
-        {!hasSession && (
+      <div className="main-column">
+        {!hasSession && !loading && (
           <div className="empty-state">
             <h3>Cast Player</h3>
-            <p>从左侧选择一个会话开始回放,或拖放 .cast 文件到此窗口</p>
+            <p>从左侧选择一个会话开始回放</p>
             <p style={{ fontSize: 11, color: "var(--text-muted)" }}>
               快捷键: Space 播放/暂停, Ctrl+F 搜索
             </p>
@@ -102,41 +96,39 @@ function App() {
 
         {hasSession && (
           <>
-            <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden", position: "relative" }}>
-              <Player player={player} />
-              <Controls
-                player={player}
+            <div className="player-and-cmds">
+              <div className="player-column">
+                <Player player={player} />
+                <Controls
+                  player={player}
+                  commands={loadData.commands}
+                  events={loadData.index.events}
+                  totalDuration={loadData.index.total_duration}
+                />
+                <SearchOverlay
+                  termRef={
+                    player as unknown as React.MutableRefObject<import("@xterm/xterm").Terminal | null>
+                  }
+                  visible={showSearch}
+                  onClose={() => setShowSearch(false)}
+                />
+              </div>
+              <CommandPanel
                 commands={loadData.commands}
-                events={loadData.index.events}
+                elapsed={player.elapsed}
+                onSeek={handleSeekToCommand}
                 totalDuration={loadData.index.total_duration}
-              />
-              <SearchOverlay
-                termRef={
-                  player as unknown as React.MutableRefObject<import("@xterm/xterm").Terminal | null>
-                }
-                visible={showSearch}
-                onClose={() => setShowSearch(false)}
+                commandCount={loadData.meta.command_count}
+                dangerousCount={loadData.meta.dangerous_count}
               />
             </div>
-            <CommandPanel
-              commands={loadData.commands}
-              elapsed={player.elapsed}
-              onSeek={handleSeekToCommand}
-              totalDuration={loadData.index.total_duration}
-              commandCount={loadData.meta.command_count}
-              dangerousCount={loadData.meta.dangerous_count}
-            />
-          </>
-        )}
-
-        {/* 状态栏 */}
-        <div className="status-bar" style={{ position: "absolute", bottom: 0, left: 280, right: 0 }}>
-          {hasSession && (
-            <>
+            <div className="status-bar">
               <span>
                 {activeSession.host} ({activeSession.user})
               </span>
               <span>时长: {loadData.index.total_duration.toFixed(0)}s</span>
+              <span>事件: {loadData.events.length}</span>
+              <span>状态: {player.playState}</span>
               <span style={{ flex: 1 }} />
               <button onClick={() => setShowSearch(true)} title="搜索 (Ctrl+F)">
                 🔍 搜索
@@ -144,12 +136,9 @@ function App() {
               <button onClick={() => setShowExport(true)} title="导出">
                 📤 导出
               </button>
-            </>
-          )}
-          {!hasSession && (
-            <span style={{ flex: 1, textAlign: "center" }}>准备就绪 — 选择一个会话</span>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {showExport && sessionDir && (

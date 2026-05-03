@@ -73,14 +73,34 @@ input, select {
 }
 input:focus, select:focus { border-color: var(--accent); }
 
-.app-layout {
+.app-root {
   display: grid;
   grid-template-columns: 280px 1fr;
-  grid-template-rows: 1fr;
   height: 100%;
+  outline: none;
 }
-.app-layout.no-sidebar {
-  grid-template-columns: 1fr;
+.main-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.player-and-cmds {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  min-height: 0;
+  overflow: hidden;
+}
+.player-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--xterm-bg);
 }
 
 /* ---- Sidebar ---- */
@@ -130,18 +150,7 @@ input:focus, select:focus { border-color: var(--accent); }
   gap: 8px;
 }
 
-/* ---- Main ---- */
-.main-area {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-.main-area.split {
-  display: grid;
-  grid-template-columns: 1fr 260px;
-  grid-template-rows: 1fr;
-}
-
+/* ---- Player ---- */
 .player-container {
   flex: 1;
   min-height: 0;
@@ -194,11 +203,20 @@ input:focus, select:focus { border-color: var(--accent); }
 
 /* ---- Progress bar ---- */
 .progress-wrapper {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 12px;
+  padding: 6px 12px 8px;
   background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+.progress-wrapper .time {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 52px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .progress-bar {
   flex: 1;
@@ -304,8 +322,9 @@ input:focus, select:focus { border-color: var(--accent); }
 .empty-state h3 { font-size: 16px; color: var(--text-secondary); }
 .empty-state p { font-size: 12px; max-width: 400px; line-height: 1.6; }
 
-/* ---- Status Bar ---- */
+/* ---- Status Bar (固定在底部, 流式布局, 不再用 absolute) ---- */
 .status-bar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -314,6 +333,7 @@ input:focus, select:focus { border-color: var(--accent); }
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--text-muted);
+  height: 28px;
 }
 
 /* ---- Search ---- */
