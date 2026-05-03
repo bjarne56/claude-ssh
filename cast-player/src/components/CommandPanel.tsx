@@ -176,28 +176,33 @@ export function CommandPanel({
               title={`${t("commands.castOffset")}: ${cmd.cast_offset.toFixed(1)}s | ${t("commands.duration")}: ${cmd.duration_ms}ms | ${t("commands.exitCode")}: ${cmd.exit}`}
             >
               <div className="cmd-text">
-                <span style={{
-                  display: "inline-block",
-                  fontSize: 9,
-                  marginRight: 6,
-                  padding: "1px 4px",
-                  borderRadius: 2,
-                  background: isHuman ? "var(--success)" : "var(--accent)",
-                  color: "var(--bg-tertiary)",
-                  fontWeight: 600,
-                  verticalAlign: "middle",
-                }}>
-                  {isHuman ? "👤" : "🤖"}
-                </span>
+                {isHuman ? (
+                  <svg
+                    className="actor-icon"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    style={{ color: "var(--success)" }}
+                    aria-label="human"
+                  >
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                  </svg>
+                ) : (
+                  <svg
+                    className="actor-icon"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    style={{ color: "var(--accent)" }}
+                    aria-label="ai"
+                  >
+                    <path d="M12 2a2 2 0 0 1 2 2v1h4a2 2 0 0 1 2 2v3h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1V7a2 2 0 0 1 2-2h4V4a2 2 0 0 1 2-2zm-3 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM9 16h6v1H9z" />
+                  </svg>
+                )}
                 {filter ? highlightText(cmd.cmd, filter) : cmd.cmd}
               </div>
               <div className="cmd-meta">
                 {cmd.ts && <span>{formatTime(cmd.ts)}</span>}
-                <span style={{ color: isHuman ? "var(--success)" : "var(--accent)" }}>
-                  {isHuman ? "human" : "ai"}
-                </span>
                 <span>{cmd.cast_offset.toFixed(1)}s</span>
-                {!isHuman && <span>exit:{cmd.exit}</span>}
+                {!isHuman && cmd.exit !== 0 && <span>exit:{cmd.exit}</span>}
               </div>
             </div>
           );

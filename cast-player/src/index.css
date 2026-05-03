@@ -331,6 +331,14 @@ input:focus, select:focus { border-color: var(--accent); }
 .command-item .cmd-text.highlight {
   background: rgba(249, 226, 175, 0.3);
 }
+.actor-icon {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  vertical-align: -2px;
+  margin-right: 5px;
+  flex-shrink: 0;
+}
 
 /* ---- Empty States ---- */
 .empty-state {
