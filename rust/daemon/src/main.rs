@@ -30,6 +30,9 @@ pub struct DaemonState {
     pub crt_parser: Option<CrtParser>,
     pub home: std::path::PathBuf,
     pub last_req_at: Instant,
+    /// per-pane async 锁: key = "{project_id}|{selector}"
+    /// 同 pane 的 run/open/close/peek/recent 串行化, 不同 pane 完全并行
+    pub pane_locks: std::collections::HashMap<String, std::sync::Arc<tokio::sync::Mutex<()>>>,
 }
 
 impl DaemonState {
@@ -43,8 +46,26 @@ impl DaemonState {
             crt_parser,
             home,
             last_req_at: Instant::now(),
+            pane_locks: std::collections::HashMap::new(),
         }
     }
+}
+
+/// 获取 per-pane 锁 (新建或复用), 同 key 的请求都拿同一个 Mutex
+pub async fn get_pane_lock(
+    state: &std::sync::Arc<Mutex<DaemonState>>,
+    key: &str,
+) -> std::sync::Arc<tokio::sync::Mutex<()>> {
+    let mut s = state.lock().await;
+    s.pane_locks
+        .entry(key.to_string())
+        .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
+        .clone()
+}
+
+/// 构造 pane lock key
+pub fn pane_lock_key(project_id: &str, selector: &str) -> String {
+    format!("{project_id}|{selector}")
 }
 
 fn parse_args() -> bool {

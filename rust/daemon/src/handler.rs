@@ -3,7 +3,7 @@
 //! 现阶段直接调 core::pane / session (同步执行, 一次一个请求 await).
 //! 真正的并发由 tokio runtime 多 worker 线程提供 — 不同请求独立处理.
 
-use crate::DaemonState;
+use crate::{get_pane_lock, pane_lock_key, DaemonState};
 use ssh_ops_core::{
     config::expand_path,
     human_detect, ipc::{
@@ -171,6 +171,11 @@ async fn handle_run(
         }));
     }
 
+    // 抢 per-pane 锁: 同 pane 的 run 串行化, 不同 pane 并行
+    let lock_key = pane_lock_key(&ctx.project_id, &sel.display);
+    let pane_lock = get_pane_lock(&state, &lock_key).await;
+    let _pane_guard = pane_lock.lock().await;
+
     // 重活在 blocking 池里跑 (内部都是同步 IO + thread::sleep)
     let sel_clone = sel.clone();
     let target = build_target(&sel, &auth_type, password);
@@ -269,6 +274,11 @@ async fn handle_open(
     let target = build_target(&sel, &auth_type, password);
     let sel_clone = sel.clone();
     let project_id_str = ctx.project_id.clone();
+
+    let lock_key = pane_lock_key(&ctx.project_id, &sel.display);
+    let pane_lock = get_pane_lock(&state, &lock_key).await;
+    let _pane_guard = pane_lock.lock().await;
+
     let resp = tokio::task::spawn_blocking(move || -> anyhow::Result<OpenResp> {
         std::env::set_var("SSHOPS_PROJECT", &project_id_str);
         let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
@@ -314,6 +324,11 @@ async fn handle_close(
     };
     let project_id_str = ctx.project_id.clone();
     let sel_display = sel.display.clone();
+
+    let lock_key = pane_lock_key(&ctx.project_id, &sel_display);
+    let pane_lock = get_pane_lock(&state, &lock_key).await;
+    let _pane_guard = pane_lock.lock().await;
+
     tokio::task::spawn_blocking(move || -> anyhow::Result<()> {
         std::env::set_var("SSHOPS_PROJECT", &project_id_str);
         let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
@@ -342,6 +357,12 @@ async fn handle_peek(
     };
     let project_id_str = ctx.project_id.clone();
     let sel_display = sel.display.clone();
+
+    // peek 加锁: 等同 pane 的 run/open/close 完成, 避免读到执行中状态
+    let lock_key = pane_lock_key(&ctx.project_id, &sel_display);
+    let pane_lock = get_pane_lock(&state, &lock_key).await;
+    let _pane_guard = pane_lock.lock().await;
+
     let text = tokio::task::spawn_blocking(move || -> anyhow::Result<String> {
         std::env::set_var("SSHOPS_PROJECT", &project_id_str);
         let store = StateStore::new(&state_dir(&home))?;
@@ -418,6 +439,12 @@ async fn handle_recent(
     };
     let project_id_str = ctx.project_id.clone();
     let sel_display = sel.display.clone();
+
+    // recent 加锁: 等同 pane 的 run 完成, 避免读到一半 cast
+    let lock_key = pane_lock_key(&ctx.project_id, &sel_display);
+    let pane_lock = get_pane_lock(&state, &lock_key).await;
+    let _pane_guard = pane_lock.lock().await;
+
     let recent = tokio::task::spawn_blocking(move || -> anyhow::Result<Vec<human_detect::HumanCmd>> {
         std::env::set_var("SSHOPS_PROJECT", &project_id_str);
         let store = StateStore::new(&state_dir(&home))?;
