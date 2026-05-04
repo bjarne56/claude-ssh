@@ -355,7 +355,7 @@ pub fn build_recorder_argv(
     cast_path: &Path,
     ssh_argv: &[String],
 ) -> Vec<String> {
-    let recorder = sshops_home.join("bin/cast-recorder");
+    let recorder = sshops_home.join("bin/asciinema");
     let mut ssh_cmd = String::new();
     for (i, a) in ssh_argv.iter().enumerate() {
         if i > 0 {

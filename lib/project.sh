@@ -279,9 +279,9 @@ pane_open() {
     printf -v ssh_cmd '%q ' "${ssh_argv[@]}"
     ssh_cmd="${ssh_cmd% }"
 
-    local recorder="${SSHOPS_HOME:-$(dirname "$(dirname "${BASH_SOURCE[0]}")")}/bin/cast-recorder"
+    local recorder="${SSHOPS_HOME:-$(dirname "$(dirname "${BASH_SOURCE[0]}")")}/bin/asciinema"
     if [[ ! -x "$recorder" ]]; then
-        log_error "找不到 cast-recorder 二进制: $recorder"
+        log_error "找不到 asciinema 二进制: $recorder"
         return 1
     fi
     local rec_argv=( "$recorder" rec --quiet --stdin --command "$ssh_cmd" "$cast_path" )

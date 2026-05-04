@@ -32,10 +32,10 @@ pub fn sshops_home() -> std::path::PathBuf {
     std::env::current_exe()
         .ok()
         .and_then(|p| {
-            // 朝上找 bin/cast-recorder 存在的目录
+            // 朝上找 bin/asciinema 存在的目录
             let mut cur = p.parent()?.to_path_buf();
             for _ in 0..6 {
-                if cur.join("bin/cast-recorder").exists() {
+                if cur.join("bin/asciinema").exists() {
                     return Some(cur);
                 }
                 cur = cur.parent()?.to_path_buf();
