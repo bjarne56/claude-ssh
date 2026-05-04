@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { save } from "@tauri-apps/plugin-dialog";
 import { exportCommandsCsv, exportCommandsJson, copyCastFile } from "../tauri-api";
 import { useTranslation } from "../i18n";
 
@@ -14,13 +15,26 @@ export function ExportDialog({ sessionDir, sessionId, onClose }: ExportDialogPro
   const [exporting, setExporting] = useState(false);
 
   const handleExport = async (type: "csv" | "json" | "cast") => {
+    const ext = type === "cast" ? "cast" : type;
+    // 弹保存对话框, 用户选导出位置
+    const filterName = type === "cast" ? "Asciinema cast" : type.toUpperCase();
+    let outputPath: string | null;
+    try {
+      outputPath = await save({
+        title: "选择导出位置",
+        defaultPath: `${sessionId}.${ext}`,
+        filters: [{ name: filterName, extensions: [ext] }],
+      });
+    } catch (err) {
+      setStatus(`${t("export.failed")} ${err}`);
+      return;
+    }
+    if (!outputPath) return; // 用户取消
+
     setExporting(true);
     setStatus(t("export.exporting"));
     try {
-      const ext = type === "cast" ? "cast" : type;
-      const outputPath = `${sessionDir}/${sessionId}.${ext}`;
       let msg = "";
-
       switch (type) {
         case "csv":
           msg = await exportCommandsCsv(sessionDir, outputPath);
