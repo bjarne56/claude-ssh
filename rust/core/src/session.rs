@@ -116,7 +116,8 @@ pub fn wait_for_marker(
 ) -> Option<()> {
     use crate::incremental_parser::SessionParser;
     let deadline = Instant::now() + timeout;
-    let poll = Duration::from_millis(10);
+    // 5ms poll: 比文件系统 page cache miss 更小, 进一步压响应延迟
+    let poll = Duration::from_millis(5);
     let mut parser = SessionParser::new(start_byte);
     while Instant::now() < deadline {
         let cur = recorder.cast_size();
