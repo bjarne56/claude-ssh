@@ -110,10 +110,11 @@ pub fn pane_open(
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| "/".into());
 
+    // 注意: wezterm window_id=0 是合法 ID, 不能用 0 当无效哨兵 → 只过滤 window_alive
     let existing_window = state
         .session_state(&pid, session_key)?
+        .filter(|s| !s.panes.is_empty())  // 没 pane 的 session = 没 spawn 过, wezterm_window_id 是 0 默认值
         .map(|s| s.wezterm_window_id)
-        .filter(|w| *w > 0)
         .filter(|w| wez.window_alive(*w));
 
     let pane_id = if let Some(win) = existing_window {
