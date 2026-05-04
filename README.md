@@ -1,25 +1,40 @@
 # ssh-ops
 
-Claude Code 通过 WezTerm 进行 SSH 远程运维的 skill。
+Claude Code 通过 **WezTerm-SSH** (WezTerm fork) 进行 SSH 远程运维的 skill。
 
-- **每个 CC 项目** 对应一个 WezTerm 窗口,**每台主机** 对应一个 pane
-- WezTerm pane 持有真 PTY,**字符级实时画面**,用户肉眼盯着看
-- skill 通过 `wezterm cli send-text` 注入命令,通过 marker 切片回抓输出给 Claude
+- **每个 CC 项目** 对应一个 WezTerm-SSH 窗口,**每台主机** 对应一个 pane
+- pane 持有真 PTY,**字符级实时画面**,用户肉眼盯着看
+- skill 通过 `WezTerm-SSH-cli send-text` 注入命令,通过 marker 切片回抓输出给 Claude
 - 全程 **asciinema 录制**(命令级索引另存)
-- 不写 `~/.ssh/config`、不缓存主机信息、所有 UI 在 WezTerm 内
+- 不写 `~/.ssh/config`、不缓存主机信息、所有 UI 在 WezTerm-SSH 内
 
 > 状态:**Phase 1a**(MVP 主链可用,临时参数模式)。Phase 1b 起接入 SecureCRT。完整路线见 [`docs/Implementation_Plan.md`](docs/Implementation_Plan.md)。
+
+> **关于 WezTerm vs WezTerm-SSH**: 本项目 `wezterm-src/` 是 WezTerm 的 fork, 编译并部署后产出三个改名后的二进制和独立 bundle, 跟原版 WezTerm **完全 namespace 隔离** (独立 socket / data / window class / bundle id), 可与官方 WezTerm 共存:
+>
+> | 部分 | WezTerm-SSH (本 fork) | 上游 WezTerm |
+> |---|---|---|
+> | macOS bundle | `~/Applications/WezTerm-SSH.app` | `/Applications/WezTerm.app` |
+> | Bundle id | `com.wezterm-ssh.gui` | `com.github.wez.wezterm` |
+> | GUI binary | `WezTerm-SSH` | `wezterm-gui` |
+> | CLI 子命令 | `WezTerm-SSH-cli` | `wezterm` |
+> | mux server | `WezTerm-SSH-mux` | `wezterm-mux-server` |
+> | runtime dir | `~/.local/share/WezTerm-SSH/` | `~/.local/share/wezterm/` |
+>
+> ssh-ops 业务 CLI (`bin/sshops`) 跟 fork 的 GUI bundle 不冲突 — 前者是 PATH 里的 shell/Rust binary, 后者走 `~/Applications/WezTerm-SSH.app`.
 
 ## 安装
 
 ### 1. 系统依赖
 
 ```bash
-# macOS
-brew install --cask wezterm
+# macOS — 注意 *不要* 装上游 wezterm cask, 本项目用 wezterm-src/ fork
 brew install asciinema jq
 brew install hudochenkov/sshpass/sshpass   # 可选,用 --password 才需要
 brew install pass                          # 可选,密码后端
+
+# Rust 工具链 (本地构建 wezterm-src fork 用)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # 系统设置开启 "远程登录"(用于 self-test 的 ssh localhost)
 # System Settings → General → Sharing → Remote Login
@@ -28,18 +43,42 @@ brew install pass                          # 可选,密码后端
 
 > bash:**3.2 / 4 / 5 全部兼容**。macOS 系统自带 `/bin/bash` 3.2 即可,brew bash 5.x 也跑得通。空数组 + `set -u` 的 corner case 已显式守护。已实测 3.2.57 和 5.3.9。
 
-### 2. 安装 skill
+### 2. 一键安装 (含 wezterm-src fork 构建 + 部署)
 
 ```bash
 cd /Users/<u>/Code/ssh-ops
-bash install.sh        # 自检依赖 + 链接到 ~/.claude/skills/ssh-ops/
-bin/sshops setup       # 交互式向导写 config.json
+bash install.sh
 ```
 
-把 `~/.claude/skills/ssh-ops/bin` 加进 `PATH`(可选):
+`install.sh` 是**幂等**的, 反复跑只会跳过已就位项. 它会:
+
+1. 检查 asciinema/jq/ssh/cargo 等系统依赖
+2. **(macOS)** 跑 `wezterm-src/install-local.sh` 编译 + 部署 WezTerm-SSH bundle:
+   - `cargo build --release` 三个核心 crate (wezterm/wezterm-gui/wezterm-mux-server, ~2 分钟初次编译)
+   - 部署到 `~/Applications/WezTerm-SSH.app/Contents/MacOS/{WezTerm-SSH, WezTerm-SSH-cli, WezTerm-SSH-mux}`
+   - ad-hoc codesign + `lsregister -f` 刷新 LaunchServices
+   - `~/.local/bin/{WezTerm-SSH-cli, WezTerm-SSH-mux}` 部署 wrapper 脚本 (exec 进 .app, macOS 才能正确关联 .app icon)
+3. 链接 skill 到 `~/.claude/skills/ssh-ops/`
+4. 写入 PATH 到 `~/.zshenv` (`~/Code/ssh-ops/bin` + `~/.local/bin` 各自幂等)
+
+完成后:
 
 ```bash
-echo 'export PATH="$HOME/.claude/skills/ssh-ops/bin:$PATH"' >> ~/.zshrc
+source ~/.zshenv          # 让 PATH 立即生效 (新开 shell 也行)
+sshops setup              # 交互式向导写 config.json
+open -a WezTerm-SSH       # 启动 GUI (双击 .app 同效果)
+```
+
+跳过 wezterm 构建 (已部署或非 macOS):
+
+```bash
+bash install.sh --no-build-wezterm
+```
+
+只重链 skill:
+
+```bash
+bash install.sh --link-only
 ```
 
 ### 3. 验证
@@ -125,19 +164,26 @@ JSON 输出:
 ssh-ops/
 ├── SKILL.md               Claude 决策手册
 ├── README.md              本文档
-├── ssh-ops-requirements.md  完整需求规格(source of truth)
 ├── bin/
-│   ├── sshops             CLI 主入口
+│   ├── sshops             业务 CLI 主入口 (bash dispatcher → Rust binary)
 │   └── sshops-setup       初始化向导
-├── lib/
+├── lib/                   Phase 1 bash 实现 (Rust 已替代主路径, 保留 fallback)
 │   ├── common.sh          配置、日志、ssh 选项、ANSI strip、nonce、锁
 │   ├── safety.sh          危险命令模式 + prod 判定
-│   ├── wezterm.sh         wezterm cli 封装
+│   ├── wezterm.sh         WezTerm-SSH-cli 封装 (文件名沿用历史)
 │   ├── marker.sh          注入 + 切片(技术心脏)
 │   ├── project.sh         项目识别 + pane 生命周期
 │   └── recorder.sh        asciinema + commands.jsonl
+├── rust/                  Phase B/C: Rust 重写 + daemon 模式 (主路径)
+│   ├── core/              共享业务逻辑 (config / state / pane / wezterm_mux ...)
+│   ├── bin/               sshops-rs binary (短命 CLI)
+│   └── daemon/            sshops-daemon (持久 IPC)
+├── wezterm-src/           WezTerm fork → WezTerm-SSH (子目录, 独立 git 仓库)
+│   └── install-local.sh   本地构建 + 部署 ~/Applications/WezTerm-SSH.app
+├── cast-player/           Tauri 录像回放 GUI (独立)
+├── recorder/              asciinema fork 备份 (现已切到 brew install asciinema)
 ├── config.example.json    配置模板
-├── install.sh             依赖检测 + symlink
+├── install.sh             依赖检测 + 调用 wezterm-src/install-local.sh + skill symlink
 ├── tests/self-test.sh     localhost echo 冒烟
 └── docs/
     ├── PROJECT_OVERVIEW.md  架构总览
@@ -173,8 +219,8 @@ skill **不需要在目标主机新建账号**,默认方案完全基于已有的
 
 ## 常见问题
 
-**问:Claude 调 sshops 失败,提示 "wezterm cli 不通"。**
-答:WezTerm GUI 是否启动?skill 自带 `open -a WezTerm` 重试 5 秒,失败说明 WezTerm 没装或装坏。
+**问:Claude 调 sshops 失败,提示 "WezTerm-SSH-cli 不通"。**
+答:WezTerm-SSH GUI 是否启动?skill 自带 `open -a WezTerm-SSH` 重试 5 秒,失败说明 fork 未部署 — 跑 `bash wezterm-src/install-local.sh` 重新部署即可 (幂等)。
 
 **问:命令注入超时(`exit 4`)。**
 答:目标命令是 TUI(`vim` `top`)或长任务。Phase 2 用 `sshops bg`,目前先 `sshops close` + 手敲 SecureCRT。

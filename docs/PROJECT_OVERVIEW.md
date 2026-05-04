@@ -4,11 +4,27 @@
 
 ## 1 · 系统定位
 
-为 Claude Code 提供"通过 WezTerm 跑 SSH 远程运维"的 skill:
+为 Claude Code 提供"通过 WezTerm-SSH (WezTerm fork) 跑 SSH 远程运维"的 skill:
 
-- 每个 CC 项目(`$PWD`)对应一个 WezTerm 窗口,每台主机对应一个 pane
-- 命令通过 `wezterm cli send-text` 注入,通过 marker 切片回抓输出
+- 每个 CC 项目(`$PWD`)对应一个 WezTerm-SSH 窗口,每台主机对应一个 pane
+- 命令通过 `WezTerm-SSH-cli send-text` 注入,通过 marker 切片回抓输出
 - 全程 asciinema 录制,命令级索引另存
+
+**fork 命名空间** (源码在 `wezterm-src/`, 部署 + 改名详见 `wezterm-src/install-local.sh`):
+
+| 部分 | WezTerm-SSH (本 fork) | 上游 WezTerm |
+|---|---|---|
+| macOS bundle | `~/Applications/WezTerm-SSH.app` | `/Applications/WezTerm.app` |
+| Bundle id | `com.wezterm-ssh.gui` | `com.github.wez.wezterm` |
+| GUI binary | `WezTerm-SSH` | `wezterm-gui` |
+| CLI 子命令 | `WezTerm-SSH-cli` | `wezterm` |
+| mux server | `WezTerm-SSH-mux` | `wezterm-mux-server` |
+| runtime / data dir | `~/.local/share/WezTerm-SSH/` | `~/.local/share/wezterm/` |
+| window class | `org.wezterm-ssh.gui` | `org.wezfurlong.wezterm` |
+
+**完整 namespace 隔离** — 跟原版 WezTerm 可在同一台机器共存, 不抢 socket/data 路径. Cargo crate 名 (wezterm/wezterm-gui/wezterm-mux-server) 不动, 改名只发生在 cp 阶段.
+
+ssh-ops 业务 CLI (`bin/sshops`) 跟 fork 的 GUI bundle 不冲突 — 前者是 PATH 里的 shell/Rust binary, 后者走 `~/Applications/WezTerm-SSH.app`.
 
 源 of truth: `ssh-ops-requirements.md`(在仓库根)。本文件只描述**实现层架构**。
 
@@ -28,7 +44,7 @@ bin/sshops                ← CLI 主分发器
 lib/
 ├── common.sh      ← 配置加载、日志、ssh_opts_for, ANSI strip, nonce
 ├── safety.sh      ← 危险命令模式 + prod 判定 + --i-mean-it
-├── wezterm.sh     ← wezterm cli 封装 + 自动启动
+├── wezterm.sh     ← WezTerm-SSH-cli 封装 + 自动启动 (文件名沿用历史)
 ├── marker.sh      ← BEGIN/END 注入 + 轮询 get-text + 切片
 ├── project.sh     ← $PWD → 项目 ID + flock state + pane 生命周期
 ├── recorder.sh    ← asciinema spawn + commands.jsonl + meta.json
@@ -97,3 +113,4 @@ recorder.sh 追加 commands.jsonl
 
 - 2026-05-02 初始化骨架,Phase 1a 启动
 - 2026-05-02 Phase 1a 实施完成(commit `9cd0881`):6 lib + 2 bin + install.sh + SKILL.md + self-test;关键不变量第 2/4/6/7/8/9/10 条新增/补全(mkdir 锁 / awk 精确行 / pwd -P / asciinema 转义 / bash 4+ / now_ms 跨平台 / --i-mean-it 不主动加)
+- 2026-05-04 WezTerm fork 改名为 WezTerm-SSH 落地 (wezterm-src commit `1c0e05f`+`1d518e9`, ssh-ops commit `e3edf8e`):完整 namespace 隔离 (compute_runtime_dir/data_dir/cache_dir/window_class/toast id/bundle id 全改),跟原版 WezTerm 可共存;ssh-ops 内部默认 cli_path 切到 WezTerm-SSH-cli;install.sh 接管 wezterm-src 自动构建+部署 (经 wezterm-src/install-local.sh)
