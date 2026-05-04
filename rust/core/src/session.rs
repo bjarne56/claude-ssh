@@ -39,29 +39,32 @@ pub fn execute(
     let t0 = Instant::now();
     let start_byte = recorder.cast_size();
 
-    // marker 协议: 命令后追加 echo SSHOPS_END_<nonce>=$?
-    // - cast 中出现该字符串 = 命令执行完成 (无需 wait_stable 边界)
-    // - exit code 直接从 marker 提取 (修真实 exit code 硬伤)
+    // marker 协议: BEGIN + END 两个 marker 精确切片
+    // - 命令 echo (PTY 回显, 可能被 wezterm wrap 跨行) 必在 BEGIN 之前
+    // - 命令真实输出在 BEGIN 之后, END 之前
+    // - END 行包含 exit code
+    // 用 printf 拼接打散 marker 字符串避免命令 echo 误判
     let mut nonce_bytes = [0u8; 8];
     use rand::RngCore;
     rand::thread_rng().fill_bytes(&mut nonce_bytes);
     let nonce: String = nonce_bytes.iter().map(|b| format!("{b:02x}")).collect();
-    let marker_prefix = format!("SSHOPS_END_{nonce}=");
-    // 打散 marker 字符串避免命令 echo 行含完整 marker 子串导致 wait_for_marker 误判.
-    // 命令 echo: `cmd; printf '%s_%s=%d\n' 'SSHOPS' 'END_<nonce>' $?` (无完整 marker_prefix)
-    // 执行输出: `SSHOPS_END_<nonce>=0` (有完整 marker_prefix)
+    let begin_marker = format!("SSHOPS_BEGIN_{nonce}");
+    let end_marker_prefix = format!("SSHOPS_END_{nonce}=");
+    // wrapped 命令:
+    //   { printf '%s_%s\n' 'SSHOPS' 'BEGIN_<nonce>'; <cmd>; printf '%s_%s=%d\n' 'SSHOPS' 'END_<nonce>' $?; }
+    // echo 行: 含 `SSHOPS` 'BEGIN_xxx'` (引号隔开), 不含完整 `SSHOPS_BEGIN_xxx` 子串
+    // 执行后输出: `SSHOPS_BEGIN_<nonce>\n<cmd output>\nSSHOPS_END_<nonce>=0\n`
     let wrapped = format!(
-        "{cmd}; printf '%s_%s=%d\\n' 'SSHOPS' 'END_{nonce}' $?\r"
+        "{{ printf '%s_%s\\n' 'SSHOPS' 'BEGIN_{nonce}'; {cmd}; printf '%s_%s=%d\\n' 'SSHOPS' 'END_{nonce}' $?; }}\r"
     );
 
-    // 注入包装后命令
     let t1 = Instant::now();
     wez.send_text(pane_id, &wrapped)?;
     log("send_text", t1.elapsed().as_micros() as f64 / 1000.0);
 
-    // 等 marker 出现
+    // 等 END marker 出现 (BEGIN 已在 cast, 不需单独等)
     let t2 = Instant::now();
-    let marker_result = wait_for_marker(recorder, start_byte, &marker_prefix, timeout);
+    let marker_result = wait_for_marker(recorder, start_byte, &end_marker_prefix, timeout);
     log("wait_for_marker", t2.elapsed().as_micros() as f64 / 1000.0);
 
     let t4 = Instant::now();
@@ -69,31 +72,33 @@ pub fn execute(
     let raw = recorder.extract_output(start_byte, end_byte)?;
     log("extract_output", t4.elapsed().as_micros() as f64 / 1000.0);
 
-    // strip ANSI + 去首行 (命令 echo) + 去 marker 行 + 提取 exit code
+    // 切片: 找 BEGIN 行 + END 行, output = (BEGIN, END) 之间
     let cleaned = strip_ansi(&raw);
-    let mut lines: Vec<&str> = cleaned.lines().collect();
-    if !lines.is_empty() {
-        lines.remove(0); // 命令 echo 行
-    }
+    let lines: Vec<&str> = cleaned.lines().collect();
 
-    // 找 marker 行, 提取 exit code, 删除该行及之后所有 (含 prompt 残尾)
-    let mut exit_code: i32 = if marker_result.is_some() { 0 } else { -1 };
-    if let Some((marker_idx, parsed_exit)) = lines
-        .iter()
-        .enumerate()
-        .find_map(|(i, line)| {
-            if let Some(rest) = line.find(&marker_prefix).map(|pos| &line[pos + marker_prefix.len()..]) {
-                rest.split_whitespace().next().and_then(|s| s.parse::<i32>().ok())
-                    .map(|e| (i, e))
-            } else {
-                None
-            }
+    let begin_idx = lines.iter().rposition(|line| line.contains(&begin_marker));
+    let end_idx_and_exit = lines.iter().enumerate().find_map(|(i, line)| {
+        line.find(&end_marker_prefix).and_then(|pos| {
+            line[pos + end_marker_prefix.len()..]
+                .split_whitespace()
+                .next()
+                .and_then(|s| s.parse::<i32>().ok())
+                .map(|e| (i, e))
         })
-    {
-        exit_code = parsed_exit;
-        lines.truncate(marker_idx);
-    }
-    let output = lines.join("\n");
+    });
+    let exit_code = end_idx_and_exit.map(|(_, e)| e).unwrap_or(if marker_result.is_some() { 0 } else { -1 });
+
+    let output = match (begin_idx, end_idx_and_exit) {
+        (Some(b), Some((e, _))) if e > b + 1 => lines[b + 1..e].join("\n"),
+        // BEGIN 没找到 (意外); 退回老切片 (去首尾)
+        (None, Some((e, _))) => {
+            let mut ls = lines.clone();
+            ls.truncate(e);
+            if !ls.is_empty() { ls.remove(0); }
+            ls.join("\n")
+        }
+        _ => String::new(),
+    };
 
     Ok(ExecuteOutcome {
         output,

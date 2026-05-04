@@ -41,25 +41,9 @@ impl WezTermClient {
         Ok(serde_json::from_slice(&out.stdout)?)
     }
 
-    /// 检查 wezterm cli 是否可用; macOS 不可用时尝试 `open -a WezTerm` + 等 5s
-    /// 返回 (just_started, initial_panes_at_launch):
-    /// - just_started=true 时, initial_panes 是 wezterm 自启的默认窗口列表
-    ///   pane_open 用完后应清理这些 default 窗口, 避免视觉残留
-    /// - 已在跑则 just_started=false, initial_panes 空
-    pub fn ensure_running(&self) -> Result<(bool, Vec<PaneEntry>)> {
-        if let Ok(_) = self.list() {
-            return Ok((false, Vec::new()));
-        }
-        if cfg!(target_os = "macos") {
-            let _ = Command::new("open").args(["-a", "WezTerm"]).output();
-        }
-        for _ in 0..25 {
-            if let Ok(panes) = self.list() {
-                return Ok((true, panes));
-            }
-            std::thread::sleep(std::time::Duration::from_millis(200));
-        }
-        Err(Error::WezTerm("WezTerm 启动失败".into()))
+    /// 检查 wezterm 当前是否在跑 (cli list 工作)
+    pub fn is_running(&self) -> bool {
+        self.list().is_ok()
     }
 
     /// `wezterm cli send-text --pane-id <id> --no-paste -- <text>` (text 含 \r 末尾触发执行)
@@ -137,22 +121,62 @@ impl WezTermClient {
         }
     }
 
-    /// `--new-window` 模式
+    /// 新窗口跑 argv. 优先 cli spawn (wezterm 在跑); 失败时用 wezterm start 直接启动
+    /// + 一步到位 spawn argv 跳过 default shell 窗口.
     pub fn spawn_new_window(&self, cwd: &str, argv: &[&str]) -> Result<u64> {
+        // 试 cli spawn (wezterm 已在跑)
+        if self.is_running() {
+            let mut cmd = Command::new(&self.cli_path);
+            cmd.args(["cli", "spawn", "--new-window", "--cwd", cwd, "--"]);
+            for a in argv {
+                cmd.arg(a);
+            }
+            let out = cmd.output()?;
+            if out.status.success() {
+                let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if let Ok(pid) = s.parse::<u64>() {
+                    return Ok(pid);
+                }
+            }
+        }
+
+        // wezterm 不在跑: wezterm start 启动 + 直接 spawn argv (跳 default 窗口)
+        self.wezterm_start_with_cmd(cwd, argv)
+    }
+
+    /// wezterm start --cwd <cwd> -- <argv> 后台启动 wezterm + 一步 spawn pane
+    /// 等 cli list 拿到新 pane, max 5s
+    fn wezterm_start_with_cmd(&self, cwd: &str, argv: &[&str]) -> Result<u64> {
+        use std::collections::HashSet;
+        let initial: HashSet<u64> = self
+            .list()
+            .ok()
+            .map(|ps| ps.iter().map(|p| p.pane_id).collect())
+            .unwrap_or_default();
+
         let mut cmd = Command::new(&self.cli_path);
-        cmd.args(["cli", "spawn", "--new-window", "--cwd", cwd, "--"]);
+        cmd.args(["start", "--cwd", cwd, "--"]);
         for a in argv {
             cmd.arg(a);
         }
-        let out = cmd.output()?;
-        if !out.status.success() {
-            return Err(Error::WezTerm(
-                String::from_utf8_lossy(&out.stderr).into_owned(),
-            ));
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        cmd.spawn()
+            .map_err(|e| Error::WezTerm(format!("wezterm start spawn: {e}")))?;
+
+        // 等 wezterm 启动 + 新 pane 出现
+        for _ in 0..50 {
+            if let Ok(panes) = self.list() {
+                for p in &panes {
+                    if !initial.contains(&p.pane_id) {
+                        return Ok(p.pane_id);
+                    }
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
-        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        s.parse::<u64>()
-            .map_err(|e| Error::WezTerm(format!("parse pane id: {e} ({s})")))
+        Err(Error::WezTerm("wezterm start 后 5s 未拿到新 pane".into()))
     }
 
     /// `wezterm cli get-text --pane-id <id> [--start-line <n>]`

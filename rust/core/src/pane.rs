@@ -49,8 +49,6 @@ pub fn pane_open(
     selector: &str,
     target: &SshTarget,
 ) -> Result<OpenedPane> {
-    let (just_started, initial_panes) = wez.ensure_running()?;
-
     let pid = project_id();
 
     // 已存在? alive 则复用
@@ -133,33 +131,6 @@ pub fn pane_open(
     let opened_window = wez.window_of_pane(pane_id);
     if let Some(win) = opened_window {
         state.set_window(&pid, session_key, win)?;
-    }
-
-    // 如果 wezterm 是我们刚启动的, 清理它自启的默认空窗口
-    // 严格安全: 只 kill 既不是我们刚开的窗口, 也不在 panes.json 任何项目/session 里的 pane
-    // 这样 ssh-ops / test2 / 其他项目的旧 pane 一律不动, 只关 wezterm 自启的默认 shell.
-    if just_started {
-        let known: std::collections::HashSet<u64> = state
-            .read()
-            .map(|st| {
-                st.projects
-                    .values()
-                    .flat_map(|p| p.sessions.values())
-                    .flat_map(|s| s.panes.values())
-                    .map(|info| info.pane_id)
-                    .collect()
-            })
-            .unwrap_or_default();
-        for p in &initial_panes {
-            if Some(p.window_id) == opened_window {
-                continue; // 我们刚开的窗口, 不动
-            }
-            if known.contains(&p.pane_id) {
-                continue; // 任何项目/session 记录过, 不动 (跨项目保护)
-            }
-            // 既不在我们刚开窗口, 也无任何项目记录 → wezterm 自启的 default, 关掉
-            let _ = wez.kill_pane(p.pane_id);
-        }
     }
 
     // tab 标题
