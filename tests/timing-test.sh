@@ -14,7 +14,7 @@ set -eu
 SELECTOR="${1:-}"
 if [[ -z "$SELECTOR" ]]; then
     echo "用法: $0 <selector>"
-    echo "例: $0 @10.32.49.7   或   $0 cvm-01"
+    echo "例: $0 @aws/edge   或   $0 cvm-01"
     exit 1
 fi
 

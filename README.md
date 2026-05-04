@@ -75,7 +75,7 @@ open -a WezTerm-SSH       # 启动 GUI (双击 .app 同效果)
 **Claude Code 中调用:**
 
 ```
-/sshops <你的请求>          # 例: /sshops 帮我连 10.32.49.7 跑一下 uname
+/sshops <你的请求>          # 例: /sshops 帮我连 10.0.0.5 跑一下 uname
 ```
 
 slash 命令名 `sshops` 跟 SKILL 目录名 + frontmatter `name` 一致。skill 列表

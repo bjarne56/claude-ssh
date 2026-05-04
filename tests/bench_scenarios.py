@@ -8,8 +8,9 @@ import statistics
 import subprocess
 import time
 
+import os
 SSHOPS = "./rust/target/release/sshops-rs"
-HOST = "@10.32.49.7"
+HOST = os.environ.get("BENCH_HOST", "@<set BENCH_HOST env, e.g. @aws/edge>")
 
 
 def run(cmd: str, timeout: int = 30) -> dict:

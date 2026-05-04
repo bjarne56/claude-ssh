@@ -16,9 +16,10 @@ config.json
 *.swp
 *~
 
-# Claude Code 本地状态
+# Claude Code / claude-mem 本地状态
 .claude/
 .claude-store/
+.claude-mem/
 
 # 第三方工具本地缓存
 .sloc-guard/
@@ -27,7 +28,15 @@ config.json
 # 全局 symlink(指向用户主目录的绝对路径,不入库)
 AGENTS.md
 
-# 外部依赖源码(WezTerm 等),供本地查阅 / 按需编译,不入库
-wezterm-src/
+# 外部依赖
 colorizer/
+
+# 录像数据 (运行时产生)
+vedio/
+
+# Rust 构建产物
 rust/target/
+wezterm-src/target/
+cast-player/target/
+cast-player/dist/
+cast-player/node_modules/

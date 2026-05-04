@@ -8,7 +8,7 @@ set -eu
 SELECTOR="${1:-}"
 [[ -z "$SELECTOR" ]] && { echo "用法: $0 @<host>"; exit 1; }
 
-SSHOPS=/Users/bjarne/Code/ssh-ops/bin/sshops
+SSHOPS="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/bin/sshops"
 ROUNDS=3
 
 now_ms() {

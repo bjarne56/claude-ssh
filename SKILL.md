@@ -36,7 +36,7 @@ Plain identifier (IP / partial hostname / file fragment) — fuzzy matches both 
 
 ```bash
 sshops run cvm-01 "uptime"
-sshops run 10.32.49.7 "df -h"
+sshops run 10.0.0.5 "df -h"
 ```
 
 ### 2.3 `--host H --user U` — Temporary args

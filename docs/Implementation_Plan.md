@@ -102,15 +102,15 @@ self-test 当前只覆盖第 1-3 行,其余 Phase 1a 完整测试矩阵见 `requ
 - [x] **新增:Password V2 检测**:.ini 是密码登录(无 Identity + 有 Password V2)时,
       给清晰错误提示三种方案(--ask-password / SecureCRT 改 key / Phase 2 password_refs)
 - [x] SKILL.md 完整版(主机解析三入口、prod 判定、`.ppk` 坑、密码登录处理)
-- [x] 单元测试:`/Users/bjarne/Work/安全工具/SecureCRT/Config/Sessions/10.32.49.7.ini`
-      实际解析,Port hex 解码 / 全局回退 / Password V2 检测全部正确
+- [x] 单元测试:用一个真实 SecureCRT `.ini` 文件验证, Port hex 解码 / 全局回退 /
+      Password V2 检测全部正确
 
 ### Phase 1b 剩余(待后续)
 
 - [ ] 跳板机递归 ≤3 层 + 循环引用检测,组装 `-J` 参数(MVP 仅警告不阻塞)
 - [ ] `sshops list <pattern>`、`sshops show <selector>`、`sshops crt-find <kw>`
 - [ ] 完整测试用例:`requirements.md` 第 18.2 节(跳板机 / 协议拒绝 / Windows 路径映射)
-- [ ] 端到端验证:在真实主机 (10.32.49.7) 跑 `sshops run @10.32.49.7 "uptime"`
+- [ ] 端到端验证:在真实远程主机跑 `sshops run @<host> "uptime"`
 
 ---
 

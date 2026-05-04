@@ -10,7 +10,8 @@ import subprocess
 import time
 
 SSHOPS = "./rust/target/release/sshops-rs"
-HOST = "@10.32.49.7"
+import os as _os
+HOST = _os.environ.get("BENCH_HOST", "@<set BENCH_HOST env, e.g. @aws/edge>")
 
 
 def fire(cmd_id):
@@ -72,8 +73,11 @@ section("commands.jsonl 记录完整性")
 sid = results[0].get("session_id") if results else None
 if sid:
     import os
-    # 找 cast dir
-    base = "/Users/bjarne/Code/ssh-ops/vedio"
+    # 找 cast dir (从脚本位置推 repo 根)
+    base = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "vedio",
+    )
     found = None
     for proj in os.listdir(base):
         cand = os.path.join(base, proj, sid)

@@ -1,8 +1,8 @@
 {
   "_comment": "ssh-ops 配置模板。setup 时复制为 ~/.claude/skills/ssh-ops/config.json 并交互填写。所有路径支持 ~ 展开。",
 
-  "securecrt_config_dir": "/Users/u/Work/安全工具/SecureCRT/Config",
-  "securecrt_sessions_dir": "/Users/u/Work/安全工具/SecureCRT/Config/Sessions",
+  "securecrt_config_dir": "~/Library/Application Support/VanDyke/SecureCRT/Config",
+  "securecrt_sessions_dir": "~/Library/Application Support/VanDyke/SecureCRT/Config/Sessions",
 
   "_path_mappings_comment": "Windows → 本机 路径映射。SecureCRT .ini 来自 Windows 同步时,key 路径要转换。",
   "path_mappings": [],
