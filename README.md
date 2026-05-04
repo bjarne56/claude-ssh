@@ -61,7 +61,7 @@ bash install.sh
 3. 部署 skill 到 `~/.claude/skills/sshops/`(slash 命令是 `/sshops`)
    - `SKILL.md` 按系统 locale 选 description 翻译(31 种语言, 见 `skill-locales/descriptions.json`)
    - 不存在的 locale fallback 到英文
-   - 业务文件 `bin/` `lib/` `rust/` 等 symlink 到源仓库
+   - 业务文件 `bin/` `rust/` 等 symlink 到源仓库
 4. 写入 PATH 到 `~/.zshenv` (`~/Code/ssh-ops/bin` + `~/.local/bin` 各自幂等)
 
 完成后:
@@ -181,17 +181,10 @@ ssh-ops/
 ├── SKILL.md               Claude 决策手册
 ├── README.md              本文档
 ├── bin/
-│   ├── sshops             业务 CLI 主入口 (bash dispatcher → Rust binary)
+│   ├── sshops             业务 CLI dispatcher (bash, 透传业务子命令到 Rust)
 │   └── sshops-setup       初始化向导
-├── lib/                   Phase 1 bash 实现 (Rust 已替代主路径, 保留 fallback)
-│   ├── common.sh          配置、日志、ssh 选项、ANSI strip、nonce、锁
-│   ├── safety.sh          危险命令模式 + prod 判定
-│   ├── wezterm.sh         WezTerm-SSH-cli 封装 (文件名沿用历史)
-│   ├── marker.sh          注入 + 切片(技术心脏)
-│   ├── project.sh         项目识别 + pane 生命周期
-│   └── recorder.sh        asciinema + commands.jsonl
-├── rust/                  Phase B/C: Rust 重写 + daemon 模式 (主路径)
-│   ├── core/              共享业务逻辑 (config / state / pane / wezterm_mux ...)
+├── rust/                  业务实现 (Rust + daemon 模式, 唯一主路径)
+│   ├── core/              共享业务逻辑 (config / state / pane / wezterm_mux / safety / recorder ...)
 │   ├── bin/               sshops-rs binary (短命 CLI)
 │   └── daemon/            sshops-daemon (持久 IPC)
 ├── wezterm-src/           WezTerm fork → WezTerm-SSH (子目录, 独立 git 仓库)

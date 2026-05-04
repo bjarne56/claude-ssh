@@ -405,7 +405,7 @@ for item in "${SKILL_LINKS[@]}"; do
     fi
     ln -s "$src" "$dst"
 done
-ok "业务文件 (bin/ lib/ rust/ ...) 已链接到源仓库"
+ok "业务文件 (bin/ rust/ ...) 已链接到源仓库"
 
 # 关键脚本可执行权限 (幂等: chmod +x 反复执行无副作用)
 for f in bin/sshops bin/sshops-setup install.sh tests/self-test.sh \
