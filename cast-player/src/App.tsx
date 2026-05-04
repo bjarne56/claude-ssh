@@ -180,6 +180,24 @@ function App() {
               <span>{t("status.events")}: {loadData.events.length}</span>
               <span>{t("status.state")}: {player.playState}</span>
               <span style={{ flex: 1 }} />
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+                title="关键字高亮 (跟 wezterm 同套规则)"
+              >
+                <input
+                  type="checkbox"
+                  checked={player.highlight}
+                  onChange={(e) => player.setHighlight(e.target.checked)}
+                />
+                高亮
+              </label>
               <button onClick={() => setShowSearch(true)} title={t("search.open")}>
                 🔍 {t("search.open").replace(/\s*\(.*\)/, "")}
               </button>

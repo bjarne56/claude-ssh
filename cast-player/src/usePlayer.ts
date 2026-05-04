@@ -4,6 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import type { LoadResult, CastEventMeta, PlayState } from "./types";
+import { applyHighlight, resetHighlightBuffer, stripMarkers } from "./highlight";
 
 export const SPEEDS = [0.5, 1, 1.5, 2, 4, 8];
 export const IDLE_THRESHOLD = 2.0;
@@ -25,6 +26,7 @@ export function computeIdleSegments(
 export function usePlayer() {
   // ---- refs (不触发重渲染) ----
   const termRef = useRef<Terminal | null>(null);
+  const highlightRef = useRef<boolean>(true); // 默认开启关键字高亮
   const fitAddonRef = useRef<FitAddon | null>(null);
   const timerRef = useRef<number | null>(null);
   const eventIdxRef = useRef(0);
@@ -100,7 +102,9 @@ export function usePlayer() {
     const [, line] = events[idx];
     const parts = JSON.parse(line) as [number, string, string];
     if (parts.length >= 3 && parts[1] === "o") {
-      termRef.current?.write(parts[2].replace(/\0/g, ""));
+      const text = stripMarkers(parts[2].replace(/\0/g, ""));
+      const out = highlightRef.current ? applyHighlight(text) : text;
+      termRef.current?.write(out);
     }
 
     // elapsed = 当前事件的累计时间
@@ -164,12 +168,15 @@ export function usePlayer() {
 
     // 重建终端
     term.reset();
+    resetHighlightBuffer(); // 清流式 highlight buffer 避免跨 seek 错位
     for (let i = 0; i < lo; i++) {
       const [, line] = eventsRef.current[i];
       try {
         const parts = JSON.parse(line) as [number, string, string];
         if (parts.length >= 3 && parts[1] === "o") {
-          term.write(parts[2].replace(/\0/g, ""));
+          const text = stripMarkers(parts[2].replace(/\0/g, ""));
+          const out = highlightRef.current ? applyHighlight(text) : text;
+          term.write(out);
         }
       } catch {}
     }
@@ -259,6 +266,13 @@ export function usePlayer() {
   // 清理
   useEffect(() => () => stopTimer(), [stopTimer]);
 
+  // 高亮开关 (默认 true). 切换不影响已渲染内容, 只影响后续 write
+  const [highlight, setHighlight2] = useState<boolean>(true);
+  const setHighlight = useCallback((enabled: boolean) => {
+    highlightRef.current = enabled;
+    setHighlight2(enabled);
+  }, []);
+
   return {
     initTerminal,
     loadSession,
@@ -267,6 +281,8 @@ export function usePlayer() {
     totalDuration,
     speed,
     skipIdle,
+    highlight,
+    setHighlight,
     play, pause, stop,
     togglePlay, seekTo,
     stepForward, stepBackward,
