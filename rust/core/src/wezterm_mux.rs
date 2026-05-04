@@ -42,16 +42,20 @@ impl WezTermClient {
     }
 
     /// 检查 wezterm cli 是否可用; macOS 不可用时尝试 `open -a WezTerm` + 等 5s
-    pub fn ensure_running(&self) -> Result<()> {
-        if self.list().is_ok() {
-            return Ok(());
+    /// 返回 (just_started, initial_panes_at_launch):
+    /// - just_started=true 时, initial_panes 是 wezterm 自启的默认窗口列表
+    ///   pane_open 用完后应清理这些 default 窗口, 避免视觉残留
+    /// - 已在跑则 just_started=false, initial_panes 空
+    pub fn ensure_running(&self) -> Result<(bool, Vec<PaneEntry>)> {
+        if let Ok(_) = self.list() {
+            return Ok((false, Vec::new()));
         }
         if cfg!(target_os = "macos") {
             let _ = Command::new("open").args(["-a", "WezTerm"]).output();
         }
         for _ in 0..25 {
-            if self.list().is_ok() {
-                return Ok(());
+            if let Ok(panes) = self.list() {
+                return Ok((true, panes));
             }
             std::thread::sleep(std::time::Duration::from_millis(200));
         }

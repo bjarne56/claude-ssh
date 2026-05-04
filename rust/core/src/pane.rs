@@ -46,7 +46,7 @@ pub fn pane_open(
     selector: &str,
     target: &SshTarget,
 ) -> Result<OpenedPane> {
-    wez.ensure_running()?;
+    let (just_started, initial_panes) = wez.ensure_running()?;
 
     let pid = project_id();
 
@@ -126,8 +126,18 @@ pub fn pane_open(
     };
 
     // 写 window_id 到 state (按 session_key 隔离)
-    if let Some(win) = wez.window_of_pane(pane_id) {
+    let opened_window = wez.window_of_pane(pane_id);
+    if let Some(win) = opened_window {
         state.set_window(&pid, session_key, win)?;
+    }
+
+    // 如果 wezterm 是我们刚启动的, 清理它自启的默认空窗口
+    if just_started {
+        for p in &initial_panes {
+            if Some(p.window_id) != opened_window {
+                let _ = wez.kill_pane(p.pane_id);
+            }
+        }
     }
 
     // tab 标题
