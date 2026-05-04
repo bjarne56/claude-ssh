@@ -232,7 +232,7 @@ if (( opt_uninstall == 1 )); then
 fi
 
 check_cmd() {
-    # check_cmd <name> <required> <hint>
+    # check_cmd <name> <required> <hint>  (兼容老调用, 仅检测不自动装)
     local cmd="$1" required="$2" hint="$3"
     if command -v "$cmd" >/dev/null 2>&1; then
         ok "$cmd: $(command -v "$cmd")"
@@ -247,18 +247,63 @@ check_cmd() {
     fi
 }
 
+# ensure_cmd <name> <required: 0|1> <brew_pkg> <linux_hint>
+# macOS 缺则自动 brew install; Linux 只报提示 (apt/yum 用户偏好不一)
+ensure_cmd() {
+    local cmd="$1" required="$2" brew_pkg="$3" linux_hint="$4"
+    if command -v "$cmd" >/dev/null 2>&1; then
+        ok "$cmd: $(command -v "$cmd")"
+        return 0
+    fi
+    if [[ "$(uname)" == "Darwin" ]]; then
+        if ! command -v brew >/dev/null 2>&1; then
+            err "$cmd 缺失, 且 Homebrew 不在 PATH"
+            err "  先装 Homebrew: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+            return 1
+        fi
+        warn "$cmd 缺失, 自动跑: brew install $brew_pkg"
+        if brew install $brew_pkg >/dev/null 2>&1; then
+            if command -v "$cmd" >/dev/null 2>&1; then
+                ok "$cmd 装完: $(command -v "$cmd")"
+                return 0
+            fi
+            warn "brew install $brew_pkg 完成但 $cmd 仍不在 PATH (需新 shell?)"
+            return $(( required == 1 ? 1 : 0 ))
+        fi
+        err "brew install $brew_pkg 失败"
+        return $(( required == 1 ? 1 : 0 ))
+    fi
+    # Linux
+    if [[ "$required" == "1" ]]; then
+        err "$cmd 缺失。Linux 安装: $linux_hint"
+        return 1
+    fi
+    warn "$cmd 缺失(可选)。Linux 安装: $linux_hint"
+    return 0
+}
+
 fail=0
 
 if (( opt_link_only == 0 )); then
     echo "==> 检查系统依赖"
-    check_cmd asciinema  1 "macOS: brew install asciinema  /  Linux: pip install asciinema 或 apt install asciinema" || fail=1
-    check_cmd jq         1 "brew install jq" || fail=1
-    check_cmd ssh        1 "(自带,通常无需安装)" || fail=1
-    check_cmd sshpass    0 "macOS: brew install hudochenkov/sshpass/sshpass  /  Linux: apt install sshpass" || true
-    check_cmd perl       1 "(自带,通常无需安装)" || fail=1
-    check_cmd xxd        1 "(自带,通常无需安装)" || fail=1
-    check_cmd pass       0 "macOS: brew install pass  /  Linux: apt install pass" || true
-    check_cmd cargo      1 "rustup: https://rustup.rs (构建 wezterm-src fork 需要)" || fail=1
+    # 自动装 (macOS 缺则 brew install): asciinema / jq / sshpass / pass
+    ensure_cmd asciinema 1 "asciinema"                       "pip install asciinema 或 apt install asciinema" || fail=1
+    ensure_cmd jq        1 "jq"                              "apt install jq" || fail=1
+    ensure_cmd sshpass   0 "hudochenkov/sshpass/sshpass"     "apt install sshpass" || true
+    ensure_cmd pass      0 "pass"                            "apt install pass" || true
+    # 系统自带, 仅检测
+    check_cmd  ssh       1 "(自带,通常无需安装)" || fail=1
+    check_cmd  perl      1 "(自带,通常无需安装)" || fail=1
+    check_cmd  xxd       1 "(自带,通常无需安装)" || fail=1
+    # cargo 走 rustup curl, 不自动跑 (有交互); 缺则报清晰指引
+    if ! command -v cargo >/dev/null 2>&1; then
+        err "cargo 缺失 (构建 wezterm-src fork 必需)"
+        err "  装 rustup: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+        err "  装完后: source \$HOME/.cargo/env && bash install.sh"
+        fail=1
+    else
+        ok "cargo: $(command -v cargo)"
+    fi
 
     # bash 版本:本 skill 兼容 bash 3.2 / 4 / 5
     ok "bash: $BASH_VERSION (3.2 / 4 / 5 全部兼容)"
