@@ -39,44 +39,96 @@ pub fn execute(
     let t0 = Instant::now();
     let start_byte = recorder.cast_size();
 
-    // 注入命令 (\r 触发执行)
+    // marker 协议: 命令后追加 echo SSHOPS_END_<nonce>=$?
+    // - cast 中出现该字符串 = 命令执行完成 (无需 wait_stable 边界)
+    // - exit code 直接从 marker 提取 (修真实 exit code 硬伤)
+    let mut nonce_bytes = [0u8; 8];
+    use rand::RngCore;
+    rand::thread_rng().fill_bytes(&mut nonce_bytes);
+    let nonce: String = nonce_bytes.iter().map(|b| format!("{b:02x}")).collect();
+    let marker_prefix = format!("SSHOPS_END_{nonce}=");
+    // 打散 marker 字符串避免命令 echo 行含完整 marker 子串导致 wait_for_marker 误判.
+    // 命令 echo: `cmd; printf '%s_%s=%d\n' 'SSHOPS' 'END_<nonce>' $?` (无完整 marker_prefix)
+    // 执行输出: `SSHOPS_END_<nonce>=0` (有完整 marker_prefix)
+    let wrapped = format!(
+        "{cmd}; printf '%s_%s=%d\\n' 'SSHOPS' 'END_{nonce}' $?\r"
+    );
+
+    // 注入包装后命令
     let t1 = Instant::now();
-    wez.send_text(pane_id, &format!("{cmd}\r"))?;
+    wez.send_text(pane_id, &wrapped)?;
     log("send_text", t1.elapsed().as_micros() as f64 / 1000.0);
 
-    // 合并 wait_prompt + wait_stable: 紧 polling 见 prompt + 1 个无变化窗口
+    // 等 marker 出现
     let t2 = Instant::now();
-    let timed_out = !wait_prompt_and_stable(recorder, start_byte, timeout);
-    log("wait_prompt+stable", t2.elapsed().as_micros() as f64 / 1000.0);
+    let marker_result = wait_for_marker(recorder, start_byte, &marker_prefix, timeout);
+    log("wait_for_marker", t2.elapsed().as_micros() as f64 / 1000.0);
 
     let t4 = Instant::now();
     let end_byte = recorder.cast_size();
     let raw = recorder.extract_output(start_byte, end_byte)?;
     log("extract_output", t4.elapsed().as_micros() as f64 / 1000.0);
 
-    // strip ANSI + 去首行 (命令 echo) + 去末行 (prompt)
+    // strip ANSI + 去首行 (命令 echo) + 去 marker 行 + 提取 exit code
     let cleaned = strip_ansi(&raw);
     let mut lines: Vec<&str> = cleaned.lines().collect();
     if !lines.is_empty() {
-        lines.remove(0);
+        lines.remove(0); // 命令 echo 行
     }
-    if let Some(last) = lines.last() {
-        let t = last.trim_end();
-        if t.ends_with("# ") || t.ends_with("$ ") || t.ends_with('#') || t.ends_with('$') {
-            lines.pop();
-        }
+
+    // 找 marker 行, 提取 exit code, 删除该行及之后所有 (含 prompt 残尾)
+    let mut exit_code: i32 = if marker_result.is_some() { 0 } else { -1 };
+    if let Some((marker_idx, parsed_exit)) = lines
+        .iter()
+        .enumerate()
+        .find_map(|(i, line)| {
+            if let Some(rest) = line.find(&marker_prefix).map(|pos| &line[pos + marker_prefix.len()..]) {
+                rest.split_whitespace().next().and_then(|s| s.parse::<i32>().ok())
+                    .map(|e| (i, e))
+            } else {
+                None
+            }
+        })
+    {
+        exit_code = parsed_exit;
+        lines.truncate(marker_idx);
     }
     let output = lines.join("\n");
 
     Ok(ExecuteOutcome {
         output,
-        exit: 0, // bash 版默认 0; 真实退出码无法从屏幕文本可靠还原
+        exit: exit_code,
         duration_ms: t0.elapsed().as_millis() as u64,
         cast_offset: recorder.cast_offset(),
         start_byte,
         end_byte,
-        timed_out,
+        timed_out: marker_result.is_none(),
     })
+}
+
+/// 等 cast 末尾出现 marker_prefix (如 "SSHOPS_END_<nonce>=")
+/// 返回 Some(()) 见到, None 超时
+pub fn wait_for_marker(
+    recorder: &Recorder,
+    start_byte: u64,
+    marker_prefix: &str,
+    timeout: Duration,
+) -> Option<()> {
+    use crate::incremental_parser::SessionParser;
+    let deadline = Instant::now() + timeout;
+    let poll = Duration::from_millis(10);
+    let mut parser = SessionParser::new(start_byte);
+    while Instant::now() < deadline {
+        let cur = recorder.cast_size();
+        if cur > parser.cursor() {
+            let _ = parser.poll_until(recorder, cur);
+        }
+        if parser.out_tail_str().contains(marker_prefix) {
+            return Some(());
+        }
+        std::thread::sleep(poll);
+    }
+    None
 }
 
 /// 紧 polling: 20ms 间隔扫 cast 末尾, 看到 prompt + 1 个无变化窗口即退出
