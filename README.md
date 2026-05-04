@@ -58,7 +58,10 @@ bash install.sh
    - 部署到 `~/Applications/WezTerm-SSH.app/Contents/MacOS/{WezTerm-SSH, WezTerm-SSH-cli, WezTerm-SSH-mux}`
    - ad-hoc codesign + `lsregister -f` 刷新 LaunchServices
    - `~/.local/bin/{WezTerm-SSH-cli, WezTerm-SSH-mux}` 部署 wrapper 脚本 (exec 进 .app, macOS 才能正确关联 .app icon)
-3. 链接 skill 到 `~/.claude/skills/ssh-ops/`
+3. 部署 skill 到 `~/.claude/skills/sshops/`(slash 命令是 `/sshops`)
+   - `SKILL.md` 按系统 locale 选 description 翻译(31 种语言, 见 `skill-locales/descriptions.json`)
+   - 不存在的 locale fallback 到英文
+   - 业务文件 `bin/` `lib/` `rust/` 等 symlink 到源仓库
 4. 写入 PATH 到 `~/.zshenv` (`~/Code/ssh-ops/bin` + `~/.local/bin` 各自幂等)
 
 完成后:
@@ -69,17 +72,30 @@ sshops setup              # 交互式向导写 config.json
 open -a WezTerm-SSH       # 启动 GUI (双击 .app 同效果)
 ```
 
-跳过 wezterm 构建 (已部署或非 macOS):
+**Claude Code 中调用:**
 
-```bash
-bash install.sh --no-build-wezterm
+```
+/sshops <你的请求>          # 例: /sshops 帮我连 10.32.49.7 跑一下 uname
 ```
 
-只重链 skill:
+slash 命令名 `sshops` 跟 SKILL 目录名 + frontmatter `name` 一致。skill 列表
+显示的描述按你的系统 locale 自动选择(macOS `defaults read -g AppleLocale`,
+Linux `$LANG`)。
+
+**安装可选项:**
 
 ```bash
-bash install.sh --link-only
+bash install.sh --no-build-wezterm        # 跳过 wezterm 构建 (已部署或 Linux)
+bash install.sh --link-only               # 只重链 skill (跳过依赖检查 + wezterm 构建)
+bash install.sh --locale en               # 强制英文 description (默认: 系统 locale)
+bash install.sh --link-only --locale ja   # 切日文 description, 不重编译
 ```
+
+**多语言 description 维护:**
+
+所有 31 种语言的 description 集中在 `skill-locales/descriptions.json`(英文 +
+简繁中文 + 日韩法德西意葡俄乌等共 32 条 KV)。加新语言只需往 JSON 加一行,
+正文 `SKILL.md` 是英文 master, 改正文只改一处.
 
 ### 3. 验证
 
