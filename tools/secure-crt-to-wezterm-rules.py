@@ -4,7 +4,7 @@
 SecureCRT Keyword List V3 (.ini) -> WezTerm keyword_highlight_rules (Lua) 转换器
 
 用法:
-    python3 tools/secure-crt-to-wezterm-rules.py <input.ini> --out lua/wezterm-roy.lua
+    python3 tools/secure-crt-to-wezterm-rules.py <input.ini> --out lua/wezterm-bjarne.lua
     或:
     python3 tools/secure-crt-to-wezterm-rules.py <input.ini>   # 输出到 stdout
 
@@ -179,7 +179,7 @@ def emit_lua(list_name: str, match_case: bool, rules: list, source_path: str) ->
     out.append("--")
     out.append("--   local wezterm = require 'wezterm'")
     out.append("--   local config = wezterm.config_builder()")
-    out.append("--   config.keyword_highlight_rules = require 'wezterm-roy'")
+    out.append("--   config.keyword_highlight_rules = require 'wezterm-bjarne'")
     out.append("--   return config")
     out.append("--")
     out.append("-- 该文件需要 fork 版 WezTerm(支持 keyword_highlight_rules)。")
