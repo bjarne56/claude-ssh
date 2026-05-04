@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { SearchAddon } from "@xterm/addon-search";
 import "@xterm/xterm/css/xterm.css";
 import type { LoadResult, CastEventMeta, PlayState } from "./types";
 import { applyHighlight, resetHighlightBuffer, stripMarkers } from "./highlight";
@@ -28,6 +29,7 @@ export function usePlayer() {
   const termRef = useRef<Terminal | null>(null);
   const highlightRef = useRef<boolean>(true); // 默认开启关键字高亮
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
   const timerRef = useRef<number | null>(null);
   const eventIdxRef = useRef(0);
   const eventsRef = useRef<[number, string][]>([]);
@@ -66,12 +68,15 @@ export function usePlayer() {
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     try { term.loadAddon(new WebglAddon()); } catch {}
+    const searchAddon = new SearchAddon();
+    term.loadAddon(searchAddon);
 
     term.open(container);
     fitAddon.fit();
 
     termRef.current = term;
     fitAddonRef.current = fitAddon;
+    searchAddonRef.current = searchAddon;
 
     const observer = new ResizeObserver(() => { try { fitAddon.fit(); } catch {} });
     observer.observe(container);
@@ -80,6 +85,7 @@ export function usePlayer() {
       observer.disconnect();
       term.dispose();
       termRef.current = null;
+      searchAddonRef.current = null;
     };
   }, []);
 
@@ -283,6 +289,8 @@ export function usePlayer() {
     skipIdle,
     highlight,
     setHighlight,
+    searchAddonRef,
+    termRef,
     play, pause, stop,
     togglePlay, seekTo,
     stepForward, stepBackward,

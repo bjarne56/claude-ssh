@@ -155,9 +155,7 @@ function App() {
                   totalDuration={loadData.index.total_duration}
                 />
                 <SearchOverlay
-                  termRef={
-                    player as unknown as React.MutableRefObject<import("@xterm/xterm").Terminal | null>
-                  }
+                  searchAddonRef={player.searchAddonRef}
                   visible={showSearch}
                   onClose={() => setShowSearch(false)}
                 />

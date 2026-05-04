@@ -1,121 +1,93 @@
-import { useState, useCallback } from "react";
-import { Terminal } from "@xterm/xterm";
+import { useState, useCallback, useEffect, useRef } from "react";
+import type { SearchAddon } from "@xterm/addon-search";
 import { useTranslation } from "../i18n";
 
 interface SearchOverlayProps {
-  termRef: React.MutableRefObject<Terminal | null>;
+  searchAddonRef: React.MutableRefObject<SearchAddon | null>;
   visible: boolean;
   onClose: () => void;
 }
 
-export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps) {
+/**
+ * 终端内查找浮层. 用 @xterm/addon-search 提供的 findNext / findPrevious,
+ * 自动滚动 + decoration 高亮匹配 (替换之前手撸的 buffer 扫描, 那个不会高亮
+ * 也不准确滚动).
+ */
+export function SearchOverlay({ searchAddonRef, visible, onClose }: SearchOverlayProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [regex, setRegex] = useState(false);
+  // count: 当前查询命中总数; current: 第几个 (1-based, 0 = 无 query / 无 hit)
   const [count, setCount] = useState(0);
   const [current, setCurrent] = useState(0);
+  // SearchAddon 触发的 onDidChangeResults 报告 (resultIndex, resultCount)
+  // 把 listener 注册到 ref 上, visible 切回 true 时复用同一 SearchAddon 实例
+  const listenerInstalledRef = useRef<SearchAddon | null>(null);
 
-  const doSearch = useCallback(
+  useEffect(() => {
+    const addon = searchAddonRef.current;
+    if (!addon || listenerInstalledRef.current === addon) return;
+    addon.onDidChangeResults(({ resultIndex, resultCount }) => {
+      setCount(resultCount);
+      // resultIndex < 0 表示 "在 buffer 内但未定位到具体一个" → 当 0 显示
+      setCurrent(resultIndex >= 0 ? resultIndex + 1 : 0);
+    });
+    listenerInstalledRef.current = addon;
+  }, [searchAddonRef, visible]);
+
+  // 输入变化时立即 findNext 触发首次定位
+  const runSearch = useCallback(
     (q: string, cs: boolean, re: boolean) => {
-      const term = termRef.current;
-      if (!term || !q) {
+      const addon = searchAddonRef.current;
+      if (!addon) return;
+      if (!q) {
+        addon.clearDecorations();
         setCount(0);
         setCurrent(0);
         return;
       }
-
-      const bufferLines: string[] = [];
-      const buffer = term.buffer.active;
-      const totalLines = buffer.length;
-      for (let i = 0; i < totalLines; i++) {
-        const line = buffer.getLine(i);
-        if (line) {
-          bufferLines.push(line.translateToString(true));
-        }
-      }
-
-      const fullText = bufferLines.join("\n");
-      let pattern: RegExp;
-      const flags = cs ? "g" : "gi";
-      try {
-        if (re) {
-          pattern = new RegExp(q, flags);
-        } else {
-          pattern = new RegExp(
-            q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-            flags
-          );
-        }
-      } catch {
-        setCount(0);
-        setCurrent(0);
-        return;
-      }
-
-      const matches: string[] = [...(fullText.match(pattern) ?? [])];
-      setCount(matches.length);
-      setCurrent(0);
-
-      if (matches.length > 0 && matches[0]) {
-        const idx = fullText.indexOf(matches[0]);
-        const before = fullText.slice(0, idx);
-        const lineNum = before.split("\n").length - 1;
-        term.scrollToLine(Math.max(0, lineNum - 5));
-      }
+      addon.findNext(q, {
+        caseSensitive: cs,
+        regex: re,
+        wholeWord: false,
+        decorations: {
+          matchBackground: "#FFA500",
+          matchBorder: "#FFFFFF",
+          matchOverviewRuler: "#FFA500",
+          activeMatchBackground: "#FF6B00",
+          activeMatchBorder: "#FFFFFF",
+          activeMatchColorOverviewRuler: "#FF6B00",
+        },
+      });
     },
-    [termRef]
+    [searchAddonRef]
   );
 
   const handleSearch = (q: string) => {
     setQuery(q);
-    doSearch(q, caseSensitive, regex);
+    runSearch(q, caseSensitive, regex);
   };
 
-  // 简化的 next/prev: 在当前 buffer 中搜索并滚动
   const navigateMatch = (dir: 1 | -1) => {
-    if (count === 0) return;
-    const next = ((current + dir) % count + count) % count;
-    setCurrent(next);
-
-    const term = termRef.current;
-    if (!term || !query) return;
-
-    const bufferLines: string[] = [];
-    const buffer = term.buffer.active;
-    const totalLines = buffer.length;
-    for (let i = 0; i < totalLines; i++) {
-      const line = buffer.getLine(i);
-      if (line) {
-        bufferLines.push(line.translateToString(true));
-      }
-    }
-
-    const fullText = bufferLines.join("\n");
-    let pattern: RegExp;
-    const flags = caseSensitive ? "g" : "gi";
-    try {
-      if (regex) {
-        pattern = new RegExp(query, flags);
-      } else {
-        pattern = new RegExp(
-          query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-          flags
-        );
-      }
-    } catch {
-      return;
-    }
-
-    const matches = fullText.match(pattern) || [];
-    const hit = matches[next];
-    if (hit) {
-      const idx = fullText.indexOf(hit);
-      const before = fullText.slice(0, idx);
-      const lineNum = before.split("\n").length - 1;
-      term.scrollToLine(Math.max(0, lineNum - 5));
-    }
+    const addon = searchAddonRef.current;
+    if (!addon || !query) return;
+    const opts = {
+      caseSensitive,
+      regex,
+      wholeWord: false,
+      // 复用首次 findNext 设置的 decorations, 此处不必重传
+    };
+    if (dir === 1) addon.findNext(query, opts);
+    else addon.findPrevious(query, opts);
   };
+
+  // visible 切 false 时清掉 decoration, 否则用户关浮层后高亮还在
+  useEffect(() => {
+    if (!visible) {
+      searchAddonRef.current?.clearDecorations();
+    }
+  }, [visible, searchAddonRef]);
 
   if (!visible) return null;
 
@@ -127,6 +99,14 @@ export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps)
           placeholder={t("search.placeholder")}
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              navigateMatch(e.shiftKey ? -1 : 1);
+              e.preventDefault();
+            } else if (e.key === "Escape") {
+              onClose();
+            }
+          }}
           autoFocus
         />
         <button onClick={() => navigateMatch(-1)} disabled={count === 0}>
@@ -139,7 +119,7 @@ export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps)
       </div>
       <div className="search-row">
         <span className="search-count">
-          {count > 0 ? `${current + 1}/${count}` : t("search.noMatch")}
+          {count > 0 ? `${current}/${count}` : query ? t("search.noMatch") : ""}
         </span>
         <div className="search-options">
           <label>
@@ -148,7 +128,7 @@ export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps)
               checked={caseSensitive}
               onChange={(e) => {
                 setCaseSensitive(e.target.checked);
-                if (query) doSearch(query, e.target.checked, regex);
+                if (query) runSearch(query, e.target.checked, regex);
               }}
             />
             Aa
@@ -159,7 +139,7 @@ export function SearchOverlay({ termRef, visible, onClose }: SearchOverlayProps)
               checked={regex}
               onChange={(e) => {
                 setRegex(e.target.checked);
-                if (query) doSearch(query, caseSensitive, e.target.checked);
+                if (query) runSearch(query, caseSensitive, e.target.checked);
               }}
             />
             .*
