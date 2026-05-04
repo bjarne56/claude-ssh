@@ -2,13 +2,13 @@
 # tests/self-test.sh
 # Phase 1a 冒烟测试。
 # 前置:
-#   - WezTerm 已安装并能 GUI 启动
+#   - WezTerm-SSH 已部署 (~/Applications/WezTerm-SSH.app), CLI 在 PATH
 #   - asciinema / jq / ssh / perl / xxd 已装
 #   - ssh localhost 能用当前用户免密登录(key 已加进 ~/.ssh/authorized_keys)
 #   - 已跑过 sshops setup 或 install.sh
 #
 # 验证项:
-#   1. wezterm cli 可用
+#   1. WezTerm-SSH-cli 可用
 #   2. ssh localhost echo 直接跑通(基线)
 #   3. sshops run --host localhost --user $USER "echo hello-from-sshops" 跑通
 #   4. JSON 输出 exit=0,output 含 "hello-from-sshops"
@@ -34,25 +34,25 @@ cleanup() {
 trap cleanup EXIT
 
 inf "==> 1) 环境检查"
-command -v wezterm >/dev/null   || ng "wezterm 未安装"
+command -v WezTerm-SSH-cli >/dev/null || ng "WezTerm-SSH-cli 未安装 (跑 bash install.sh 部署 wezterm-src fork)"
 command -v asciinema >/dev/null || ng "asciinema 未安装"
 command -v jq >/dev/null        || ng "jq 未安装"
 ok "工具齐"
 
-inf "==> 2) wezterm cli 可用(必要时自动启动 GUI)"
-if ! wezterm cli list >/dev/null 2>&1; then
-    inf "  WezTerm GUI 未启动,尝试 open -a WezTerm…"
+inf "==> 2) WezTerm-SSH-cli 可用(必要时自动启动 GUI)"
+if ! WezTerm-SSH-cli cli list >/dev/null 2>&1; then
+    inf "  WezTerm-SSH GUI 未启动,尝试 open -a WezTerm-SSH…"
     if [[ "$(uname)" == "Darwin" ]]; then
-        open -a WezTerm 2>/dev/null || true
+        open -a WezTerm-SSH 2>/dev/null || true
     fi
     # 等待最多 8 秒
     for i in 1 2 3 4 5 6 7 8; do
         sleep 1
-        wezterm cli list >/dev/null 2>&1 && break
+        WezTerm-SSH-cli cli list >/dev/null 2>&1 && break
     done
 fi
-wezterm cli list >/dev/null 2>&1 || ng "wezterm cli 仍不通(请手动启动 WezTerm GUI 后重试)"
-ok "wezterm cli ok"
+WezTerm-SSH-cli cli list >/dev/null 2>&1 || ng "WezTerm-SSH-cli 仍不通(请手动启动 WezTerm-SSH GUI 后重试)"
+ok "WezTerm-SSH-cli ok"
 
 inf "==> 3) ssh localhost 直连(基线)"
 out="$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
