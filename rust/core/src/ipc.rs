@@ -142,6 +142,9 @@ pub struct RunResp {
     pub blocked: bool,
     pub reason: Option<String>,
     pub recent_human_activity: Vec<HumanCmd>,
+    /// 仅在 pane spawn 时 (cold) 触发: ssh login / sudo 中曾 prompt 用户输入
+    #[serde(default)]
+    pub password_prompted: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,6 +158,8 @@ pub struct OpenResp {
     pub port: u16,
     pub key: String,
     pub reused: bool,
+    #[serde(default)]
+    pub password_prompted: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

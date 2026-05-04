@@ -20,6 +20,9 @@ pub struct OpenedPane {
     pub session_id: String,
     pub recorder: Recorder,
     pub reused: bool,
+    /// pane_open 过程中 (ssh login / sudo) 是否触发过密码/输入提示
+    /// true = 用户曾在 wezterm 手输, AI 应该提示用户密码已输完
+    pub password_prompted: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -59,6 +62,7 @@ pub fn pane_open(
                 session_id: existing.session_id,
                 recorder,
                 reused: true,
+                password_prompted: false,
             });
         }
         // pane 失效, 清掉
@@ -168,13 +172,17 @@ pub fn pane_open(
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(120);
-    if !wait_for_login_in_cast(wez, pane_id, &recorder, Duration::from_secs(login_timeout), "ssh 登录") {
+    let (login_ok, login_pwd) = wait_for_login_in_cast_after_ext(
+        wez, pane_id, &recorder, 0, Duration::from_secs(login_timeout), "ssh 登录"
+    );
+    if !login_ok {
         let _ = wez.kill_pane(pane_id);
         let _ = recorder.finalize();
         return Err(Error::Timeout(format!(
             "ssh 登录超时 ({login_timeout}s)"
         )));
     }
+    let mut password_prompted = login_pwd;
 
     // auto_sudo: 非 root 时 sudo -i (砍掉 sleep 1s)
     let mut sudo_active = false;
@@ -182,7 +190,11 @@ pub fn pane_open(
         tracing::info!("auto_sudo: {} → root via sudo -i", target.user);
         let pre_sudo_size = recorder.cast_size();
         wez.send_text(pane_id, "sudo -i\r")?;
-        if wait_for_login_in_cast_after(wez, pane_id, &recorder, pre_sudo_size, Duration::from_secs(60), "sudo -i") {
+        let (sudo_ok, sudo_pwd) = wait_for_login_in_cast_after_ext(
+            wez, pane_id, &recorder, pre_sudo_size, Duration::from_secs(60), "sudo -i"
+        );
+        if sudo_pwd { password_prompted = true; }
+        if sudo_ok {
             sudo_active = true;
         } else {
             tracing::warn!("sudo -i 超时, 后续命令在原 user shell 跑");
@@ -222,6 +234,7 @@ pub fn pane_open(
         session_id: sid,
         recorder,
         reused: false,
+        password_prompted,
     })
 }
 
@@ -264,6 +277,20 @@ pub fn wait_for_login_in_cast_after(
     timeout: Duration,
     ctx: &str,
 ) -> bool {
+    let (ok, _prompted) = wait_for_login_in_cast_after_ext(wez, pane_id, recorder, start_byte, timeout, ctx);
+    ok
+}
+
+/// 扩展版: 返回 (ok, password_prompted)
+/// password_prompted = true 表示中途见到过密码/yes-no/sudo 提示, 提示用户曾在 pane 手输.
+pub fn wait_for_login_in_cast_after_ext(
+    _wez: &WezTermClient,
+    pane_id: u64,
+    recorder: &crate::recorder::Recorder,
+    start_byte: u64,
+    timeout: Duration,
+    ctx: &str,
+) -> (bool, bool) {
     use crate::incremental_parser::SessionParser;
     let re_input = Regex::new(
         r"(?i)([Pp]assword|[Pp]assphrase|\[sudo\]\s+[Pp]assword|[Vv]erification code|[Cc]ode):\s*$|\(yes/no(?:/\[fingerprint\])?\)\?\s*$|[Aa]re you sure you want to",
@@ -273,6 +300,7 @@ pub fn wait_for_login_in_cast_after(
     let poll = Duration::from_millis(50);
     let mut parser = SessionParser::new(start_byte);
     let mut notified = false;
+    let mut password_prompted = false;
 
     while Instant::now() < deadline {
         let cur = recorder.cast_size();
@@ -281,11 +309,12 @@ pub fn wait_for_login_in_cast_after(
         }
         let tail = parser.out_tail_str();
 
-        // 见到 password/yes-no prompt: 让用户在 wezterm 手输, 等 2s 再查
+        // 见到 password/yes-no prompt: stderr 警告 + 标记 password_prompted
         if re_input.is_match(&tail) {
+            password_prompted = true;
             if !notified {
-                tracing::info!(
-                    "{ctx} 在等用户输入, 在 WezTerm pane {pane_id} 完成输入 (timeout={}s)",
+                tracing::warn!(
+                    "⚠ {ctx} 需要密码/输入, 请在 WezTerm pane {pane_id} 手动输入 (timeout={}s)",
                     timeout.as_secs()
                 );
                 notified = true;
@@ -296,14 +325,15 @@ pub fn wait_for_login_in_cast_after(
 
         // 见到 shell prompt → ssh 登录完成
         if parser.has_prompt_at_end() {
-            return true;
+            return (true, password_prompted);
         }
 
         // 还没数据, 继续等
         std::thread::sleep(poll);
     }
-    false
+    (false, password_prompted)
 }
+
 
 /// 智能轮询 pane 末尾, 直到不再出现 password/passphrase/yes-no prompt
 /// 返回 true=已完成, false=超时

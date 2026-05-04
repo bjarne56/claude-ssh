@@ -168,6 +168,7 @@ async fn handle_run(
             blocked: true,
             reason: Some(gate.reason),
             recent_human_activity: vec![],
+            password_prompted: false,
         }));
     }
 
@@ -193,6 +194,7 @@ async fn handle_run(
         let opened = pane::pane_open(&cfg, &home, &wez, &store, &session_key, &sel_clone.display, &target)?;
         let recorder = opened.recorder;
         let pane_id = opened.pane_id;
+        let password_prompted = opened.password_prompted;
 
         // recent_human_activity
         let mut recent_human = Vec::new();
@@ -252,6 +254,7 @@ async fn handle_run(
             blocked: false,
             reason: None,
             recent_human_activity: recent_human,
+            password_prompted,
         })
     })
     .await??;
@@ -307,6 +310,7 @@ async fn handle_open(
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_default(),
             reused: opened.reused,
+            password_prompted: opened.password_prompted,
         })
     })
     .await??;

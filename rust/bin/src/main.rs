@@ -285,6 +285,9 @@ fn try_ipc_run(home: &std::path::Path, common: &CommonArgs) -> Result<Option<Ipc
 fn print_run_resp(resp: IpcResponse) -> Result<()> {
     match resp {
         IpcResponse::Run(r) => {
+            if r.password_prompted {
+                eprintln!("⚠ ssh login / sudo 中曾需要密码, 已在 wezterm pane 完成输入");
+            }
             let resp = json!({
                 "exit": r.exit,
                 "duration_ms": r.duration_ms,
@@ -296,6 +299,7 @@ fn print_run_resp(resp: IpcResponse) -> Result<()> {
                 "reason": r.reason,
                 "output": r.output,
                 "recent_human_activity": r.recent_human_activity,
+                "password_prompted": r.password_prompted,
             });
             println!("{}", serde_json::to_string(&resp)?);
             if r.blocked {
@@ -361,6 +365,10 @@ fn cmd_run_inproc(common: CommonArgs) -> Result<()> {
     let opened = pane::pane_open(&cfg, &home, &wez, &store, &session_key, &r.sel.display, &target)?;
     let pane_id = opened.pane_id;
     let recorder = opened.recorder;
+    let password_prompted = opened.password_prompted;
+    if password_prompted {
+        eprintln!("⚠ ssh login / sudo 中曾需要密码, 已在 wezterm pane 完成输入");
+    }
     log_step(if opened.reused { "pane_open (reused)" } else { "pane_open (spawn)" });
 
     // recent_human_activity: 扫上次 ai run 之后到现在的 cast 区间
@@ -426,6 +434,7 @@ fn cmd_run_inproc(common: CommonArgs) -> Result<()> {
         "blocked": false,
         "output": outcome.output,
         "recent_human_activity": recent_human,
+        "password_prompted": password_prompted,
     });
     println!("{}", serde_json::to_string(&resp)?);
     Ok(())
@@ -464,6 +473,9 @@ fn cmd_open(common: CommonArgs, no_daemon: bool) -> Result<()> {
         if let Some(resp) = ipc_client::call_sync(&home, req)? {
             return match resp {
                 IpcResponse::Open(o) => {
+                    if o.password_prompted {
+                        eprintln!("⚠ ssh login / sudo 中曾需要密码, 已在 wezterm pane 完成输入");
+                    }
                     let v = json!({
                         "selector": o.selector,
                         "source": o.source,
@@ -474,6 +486,7 @@ fn cmd_open(common: CommonArgs, no_daemon: bool) -> Result<()> {
                         "port": o.port,
                         "key": o.key,
                         "reused": o.reused,
+                        "password_prompted": o.password_prompted,
                     });
                     println!("{}", serde_json::to_string(&v)?);
                     Ok(())
@@ -495,6 +508,9 @@ fn cmd_open_inproc(common: CommonArgs) -> Result<()> {
     let target = build_target(&r);
     let session_key = state::current_session_key();
     let opened = pane::pane_open(&cfg, &home, &wez, &store, &session_key, &r.sel.display, &target)?;
+    if opened.password_prompted {
+        eprintln!("⚠ ssh login / sudo 中曾需要密码, 已在 wezterm pane 完成输入");
+    }
     let resp = json!({
         "selector": r.sel.display,
         "source": match r.sel.source { Source::Crt => "crt", Source::Tmp => "tmp" },
@@ -505,6 +521,7 @@ fn cmd_open_inproc(common: CommonArgs) -> Result<()> {
         "port": r.sel.port,
         "key": r.sel.key.as_ref().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default(),
         "reused": opened.reused,
+        "password_prompted": opened.password_prompted,
     });
     println!("{}", serde_json::to_string(&resp)?);
     Ok(())
