@@ -133,29 +133,24 @@ detect_locale() {
 }
 
 # resolve_skill_file <locale> -> 输出选中文件路径; 找不到 fallback 到 SKILL.en.md
-# 查找顺序:
-#   1. skill-locales/SKILL.<locale>.md (精确 zh-CN / pt-BR)
-#   2. skill-locales/SKILL.<lang>.md (前缀 zh / pt)
-#   3. SKILL.md (项目根, 默认 zh-CN)
-#   4. skill-locales/SKILL.en.md (最终 fallback)
+# 全部 SKILL 文件统一在 skill-locales/, 含 SKILL.zh-CN.md (symlink → ../SKILL.md
+# 项目根中文主源). 查找顺序:
+#   1. skill-locales/SKILL.<locale>.md (精确, 如 zh-CN / pt-BR)
+#   2. skill-locales/SKILL.<lang>.md (前缀 fallback, 如 en-GB → en)
+#   3. skill-locales/SKILL.en.md (最终 fallback)
 resolve_skill_file() {
     local loc="$1"
-    # zh-Hans / zh-CN / zh-Hant 都规一到 zh-CN(简体) 或 zh-TW(繁体)
+    # 系统 locale 别名规一: zh-Hans / zh / zh_CN → zh-CN; zh-Hant / zh_TW / zh-HK → zh-TW
     case "$loc" in
         zh-Hans|zh|zh-CN|zh_CN) loc="zh-CN" ;;
         zh-Hant|zh-TW|zh_TW|zh-HK|zh_HK) loc="zh-TW" ;;
     esac
-    # zh-CN 是项目主语言, 用根目录 SKILL.md
-    if [[ "$loc" == "zh-CN" && -f "$SSHOPS_SRC/SKILL.md" ]]; then
-        printf '%s' "$SSHOPS_SRC/SKILL.md"
-        return
-    fi
     # 精确文件
     if [[ -f "$SKILL_LOCALES_DIR/SKILL.$loc.md" ]]; then
         printf '%s' "$SKILL_LOCALES_DIR/SKILL.$loc.md"
         return
     fi
-    # 语言前缀 fallback (en-GB → en)
+    # 语言前缀 fallback (en-GB → en, fr-CA → fr)
     local prefix="${loc%%-*}"
     if [[ -n "$prefix" && "$prefix" != "$loc" && -f "$SKILL_LOCALES_DIR/SKILL.$prefix.md" ]]; then
         printf '%s' "$SKILL_LOCALES_DIR/SKILL.$prefix.md"
