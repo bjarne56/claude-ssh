@@ -255,6 +255,11 @@ impl SessionParser {
         last.ends_with("# ") || last.ends_with("$ ")
     }
 
+    /// 当前 out_tail 末尾(stripped)文本视图, 用于 prompt / 输入提示检测
+    pub fn out_tail_str(&self) -> &str {
+        std::str::from_utf8(&self.out_tail).unwrap_or("")
+    }
+
     /// out_tail 中是否含至少 1 个 '\n' — 用于排除 race:
     /// start_byte 注入命令时, 旧 prompt 可能还在 cast 末尾.
     /// 命令注入后必有 echo (PTY 回显 "cmd\r\n"), 所以新数据必含 \n.

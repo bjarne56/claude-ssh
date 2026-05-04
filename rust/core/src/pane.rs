@@ -162,29 +162,27 @@ pub fn pane_open(
     let _ = wez.set_tab_title(pane_id, &target.host);
     recorder.set_pane_id(pane_id)?;
 
-    // 等 ssh 启动 (3s 初始余量)
-    std::thread::sleep(Duration::from_secs(3));
-
-    // 等 ssh 登录: 检测 password / passphrase / yes/no prompt 消失
+    // 等 ssh 登录: 用 cast 文件实时检测 prompt 出现 (取代固定 sleep 3s)
+    // 如果中途出现 password/yes-no, 内部 sleep 2s 等用户在 wezterm 输入
     let login_timeout = std::env::var("SSHOPS_LOGIN_TIMEOUT")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(120);
-    if !wait_for_input_complete(wez, pane_id, Duration::from_secs(login_timeout), "ssh 登录") {
+    if !wait_for_login_in_cast(wez, pane_id, &recorder, Duration::from_secs(login_timeout), "ssh 登录") {
         let _ = wez.kill_pane(pane_id);
         let _ = recorder.finalize();
         return Err(Error::Timeout(format!(
-            "ssh 登录超时 ({login_timeout}s), 用户未完成输入"
+            "ssh 登录超时 ({login_timeout}s)"
         )));
     }
 
-    // auto_sudo: 非 root 时 sudo -i
+    // auto_sudo: 非 root 时 sudo -i (砍掉 sleep 1s)
     let mut sudo_active = false;
     if cfg.auto_sudo && !cfg.auto_sudo_skip_users.iter().any(|u| u == &target.user) {
         tracing::info!("auto_sudo: {} → root via sudo -i", target.user);
+        let pre_sudo_size = recorder.cast_size();
         wez.send_text(pane_id, "sudo -i\r")?;
-        std::thread::sleep(Duration::from_secs(1));
-        if wait_for_input_complete(wez, pane_id, Duration::from_secs(60), "sudo -i") {
+        if wait_for_login_in_cast_after(wez, pane_id, &recorder, pre_sudo_size, Duration::from_secs(60), "sudo -i") {
             sudo_active = true;
         } else {
             tracing::warn!("sudo -i 超时, 后续命令在原 user shell 跑");
@@ -245,8 +243,72 @@ pub fn pane_close(
     Ok(())
 }
 
+/// 用 cast 文件实时检测 ssh 登录完成 (出现 shell prompt) 或需要用户输入
+/// 比 wait_for_input_complete 快: 不依赖 wezterm cli get-text fork, 直接读 cast 字节
+pub fn wait_for_login_in_cast(
+    wez: &WezTermClient,
+    pane_id: u64,
+    recorder: &crate::recorder::Recorder,
+    timeout: Duration,
+    ctx: &str,
+) -> bool {
+    wait_for_login_in_cast_after(wez, pane_id, recorder, 0, timeout, ctx)
+}
+
+/// 同上, 但只看 start_byte 之后的 cast 内容 (用于 sudo 后等新 prompt)
+pub fn wait_for_login_in_cast_after(
+    wez: &WezTermClient,
+    pane_id: u64,
+    recorder: &crate::recorder::Recorder,
+    start_byte: u64,
+    timeout: Duration,
+    ctx: &str,
+) -> bool {
+    use crate::incremental_parser::SessionParser;
+    let re_input = Regex::new(
+        r"(?i)([Pp]assword|[Pp]assphrase|\[sudo\]\s+[Pp]assword|[Vv]erification code|[Cc]ode):\s*$|\(yes/no(?:/\[fingerprint\])?\)\?\s*$|[Aa]re you sure you want to",
+    ).expect("regex compile");
+
+    let deadline = Instant::now() + timeout;
+    let poll = Duration::from_millis(50);
+    let mut parser = SessionParser::new(start_byte);
+    let mut notified = false;
+
+    while Instant::now() < deadline {
+        let cur = recorder.cast_size();
+        if cur > parser.cursor() {
+            let _ = parser.poll_until(recorder, cur);
+        }
+        let tail = parser.out_tail_str();
+
+        // 见到 password/yes-no prompt: 让用户在 wezterm 手输, 等 2s 再查
+        if re_input.is_match(&tail) {
+            if !notified {
+                tracing::info!(
+                    "{ctx} 在等用户输入, 在 WezTerm pane {pane_id} 完成输入 (timeout={}s)",
+                    timeout.as_secs()
+                );
+                notified = true;
+            }
+            std::thread::sleep(Duration::from_secs(2));
+            continue;
+        }
+
+        // 见到 shell prompt → ssh 登录完成
+        if parser.has_prompt_at_end() {
+            return true;
+        }
+
+        // 还没数据, 继续等
+        std::thread::sleep(poll);
+    }
+    false
+}
+
 /// 智能轮询 pane 末尾, 直到不再出现 password/passphrase/yes-no prompt
 /// 返回 true=已完成, false=超时
+/// (旧 API, 还未删除以备 fallback)
+#[allow(dead_code)]
 pub fn wait_for_input_complete(
     wez: &WezTermClient,
     pane_id: u64,
