@@ -73,7 +73,10 @@
     "json": "Eksport senarai arahan (JSON)",
     "cast": "Salin rakaman mentah (.cast)",
     "close": "Tutup",
-    "open": "Eksport"
+    "open": "Eksport",
+    "dialogTitle": "Pilih lokasi eksport",
+    "successCommands": "{{count}} arahan dieksport ke {{path}}",
+    "successCast": "{{size}} bait disalin ke {{path}}"
   },
   "status": {
     "duration": "Tempoh",

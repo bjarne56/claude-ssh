@@ -73,7 +73,10 @@
     "json": "Exporter la liste des commandes (JSON)",
     "cast": "Copier l'enregistrement brut (.cast)",
     "close": "Fermer",
-    "open": "Exporter"
+    "open": "Exporter",
+    "dialogTitle": "Choisir l'emplacement d'export",
+    "successCommands": "{{count}} commandes exportées vers {{path}}",
+    "successCast": "{{size}} octets copiés vers {{path}}"
   },
   "status": {
     "duration": "Durée",

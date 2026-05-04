@@ -73,7 +73,10 @@
     "json": "Eksportuj listę poleceń (JSON)",
     "cast": "Kopiuj surowe nagranie (.cast)",
     "close": "Zamknij",
-    "open": "Eksport"
+    "open": "Eksport",
+    "dialogTitle": "Wybierz lokalizację eksportu",
+    "successCommands": "Wyeksportowano {{count}} poleceń do {{path}}",
+    "successCast": "Skopiowano {{size}} bajtów do {{path}}"
   },
   "status": {
     "duration": "Czas trwania",

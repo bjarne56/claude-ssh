@@ -73,7 +73,10 @@
     "json": "कमांड सूची निर्यात (JSON)",
     "cast": "कच्ची रिकॉर्डिंग कॉपी (.cast)",
     "close": "बंद करें",
-    "open": "निर्यात"
+    "open": "निर्यात",
+    "dialogTitle": "निर्यात स्थान चुनें",
+    "successCommands": "{{count}} कमांड {{path}} में निर्यात किए गए",
+    "successCast": "{{size}} बाइट्स {{path}} में कॉपी किए गए"
   },
   "status": {
     "duration": "अवधि",

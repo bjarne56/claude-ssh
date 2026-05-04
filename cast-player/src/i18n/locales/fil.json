@@ -73,7 +73,10 @@
     "json": "I-export ang listahan ng utos (JSON)",
     "cast": "Kopyahin ang raw recording (.cast)",
     "close": "Isara",
-    "open": "I-export"
+    "open": "I-export",
+    "dialogTitle": "Pumili ng lokasyon ng pag-export",
+    "successCommands": "{{count}} utos na na-export sa {{path}}",
+    "successCast": "{{size}} byte na nakopya sa {{path}}"
   },
   "status": {
     "duration": "Tagal",

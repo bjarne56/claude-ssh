@@ -73,7 +73,10 @@
     "json": "Ekspor daftar perintah (JSON)",
     "cast": "Salin rekaman mentah (.cast)",
     "close": "Tutup",
-    "open": "Ekspor"
+    "open": "Ekspor",
+    "dialogTitle": "Pilih lokasi ekspor",
+    "successCommands": "{{count}} perintah diekspor ke {{path}}",
+    "successCast": "{{size}} byte disalin ke {{path}}"
   },
   "status": {
     "duration": "Durasi",

@@ -73,7 +73,10 @@
     "json": "Befehlsliste exportieren (JSON)",
     "cast": "Rohaufzeichnung kopieren (.cast)",
     "close": "Schließen",
-    "open": "Exportieren"
+    "open": "Exportieren",
+    "dialogTitle": "Exportort wählen",
+    "successCommands": "{{count}} Befehle nach {{path}} exportiert",
+    "successCast": "{{size}} Bytes nach {{path}} kopiert"
   },
   "status": {
     "duration": "Dauer",

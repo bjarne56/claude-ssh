@@ -73,7 +73,10 @@
     "json": "Komut listesini dışa aktar (JSON)",
     "cast": "Ham kaydı kopyala (.cast)",
     "close": "Kapat",
-    "open": "Dışa aktar"
+    "open": "Dışa aktar",
+    "dialogTitle": "Dışa aktarma konumunu seçin",
+    "successCommands": "{{count}} komut {{path}} konumuna aktarıldı",
+    "successCast": "{{size}} bayt {{path}} konumuna kopyalandı"
   },
   "status": {
     "duration": "Süre",

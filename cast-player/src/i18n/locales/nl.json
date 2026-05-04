@@ -73,7 +73,10 @@
     "json": "Opdrachtenlijst exporteren (JSON)",
     "cast": "Ruwe opname kopiëren (.cast)",
     "close": "Sluiten",
-    "open": "Exporteren"
+    "open": "Exporteren",
+    "dialogTitle": "Exportlocatie kiezen",
+    "successCommands": "{{count}} commando's geëxporteerd naar {{path}}",
+    "successCast": "{{size}} bytes gekopieerd naar {{path}}"
   },
   "status": {
     "duration": "Duur",

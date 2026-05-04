@@ -73,7 +73,10 @@
     "json": "تصدير قائمة الأوامر (JSON)",
     "cast": "نسخ التسجيل الخام (.cast)",
     "close": "إغلاق",
-    "open": "تصدير"
+    "open": "تصدير",
+    "dialogTitle": "اختر موقع التصدير",
+    "successCommands": "تم تصدير {{count}} أمرًا إلى {{path}}",
+    "successCast": "تم نسخ {{size}} بايت إلى {{path}}"
   },
   "status": {
     "duration": "المدة",

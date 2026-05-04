@@ -73,7 +73,10 @@
     "json": "Exportar lista de comandos (JSON)",
     "cast": "Copiar gravação bruta (.cast)",
     "close": "Fechar",
-    "open": "Exportar"
+    "open": "Exportar",
+    "dialogTitle": "Escolher local de exportação",
+    "successCommands": "{{count}} comandos exportados para {{path}}",
+    "successCast": "{{size}} bytes copiados para {{path}}"
   },
   "status": {
     "duration": "Duração",

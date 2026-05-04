@@ -73,7 +73,10 @@
     "json": "Xuất danh sách lệnh (JSON)",
     "cast": "Sao chép bản ghi thô (.cast)",
     "close": "Đóng",
-    "open": "Xuất"
+    "open": "Xuất",
+    "dialogTitle": "Chọn vị trí xuất",
+    "successCommands": "Đã xuất {{count}} lệnh đến {{path}}",
+    "successCast": "Đã sao chép {{size}} byte đến {{path}}"
   },
   "status": {
     "duration": "Thời lượng",

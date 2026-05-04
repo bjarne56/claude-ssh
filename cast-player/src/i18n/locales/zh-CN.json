@@ -73,7 +73,10 @@
     "json": "导出命令清单 (JSON)",
     "cast": "复制原始录像文件 (.cast)",
     "close": "关闭",
-    "open": "导出"
+    "open": "导出",
+    "dialogTitle": "选择导出位置",
+    "successCommands": "已导出 {{count}} 条命令到 {{path}}",
+    "successCast": "已复制 {{size}} 字节到 {{path}}"
   },
   "status": {
     "duration": "时长",

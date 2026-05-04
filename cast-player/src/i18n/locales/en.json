@@ -73,7 +73,10 @@
     "json": "Export command list (JSON)",
     "cast": "Copy raw recording (.cast)",
     "close": "Close",
-    "open": "Export"
+    "open": "Export",
+    "dialogTitle": "Choose export location",
+    "successCommands": "Exported {{count}} commands to {{path}}",
+    "successCast": "Copied {{size}} bytes to {{path}}"
   },
   "status": {
     "duration": "Duration",

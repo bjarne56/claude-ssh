@@ -73,7 +73,10 @@
     "json": "Vie komentoluettelo (JSON)",
     "cast": "Kopioi raaka tallenne (.cast)",
     "close": "Sulje",
-    "open": "Vie"
+    "open": "Vie",
+    "dialogTitle": "Valitse vientisijainti",
+    "successCommands": "Vietiin {{count}} komentoa kohteeseen {{path}}",
+    "successCast": "Kopioitiin {{size}} tavua kohteeseen {{path}}"
   },
   "status": {
     "duration": "Kesto",

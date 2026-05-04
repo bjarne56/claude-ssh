@@ -73,7 +73,10 @@
     "json": "ייצא רשימת פקודות (JSON)",
     "cast": "העתק הקלטה גולמית (cast.)",
     "close": "סגור",
-    "open": "ייצוא"
+    "open": "ייצוא",
+    "dialogTitle": "בחר מיקום ייצוא",
+    "successCommands": "יוצאו {{count}} פקודות אל {{path}}",
+    "successCast": "הועתקו {{size}} בתים אל {{path}}"
   },
   "status": {
     "duration": "משך",

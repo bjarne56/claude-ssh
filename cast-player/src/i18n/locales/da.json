@@ -73,7 +73,10 @@
     "json": "Eksporter kommandoliste (JSON)",
     "cast": "Kopier rå optagelse (.cast)",
     "close": "Luk",
-    "open": "Eksporter"
+    "open": "Eksporter",
+    "dialogTitle": "Vælg eksportplacering",
+    "successCommands": "Eksporterede {{count}} kommandoer til {{path}}",
+    "successCast": "Kopierede {{size}} bytes til {{path}}"
   },
   "status": {
     "duration": "Varighed",

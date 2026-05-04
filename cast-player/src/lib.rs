@@ -176,8 +176,12 @@ fn search_sessions(video_dir: String, query: String) -> Result<Vec<SessionSummar
 
 // ---- 导出 ----
 
+// 返回值改为结构化数字, 让前端用 i18n 模板渲染成功消息
+// CSV/JSON: 返回命令条数 (u64); CAST: 返回文件字节数 (u64)
+// 错误消息暂保留中文 (前端用 t("export.failed") + err 拼接显示)
+
 #[tauri::command]
-fn export_commands_csv(session_dir: String, output_path: String) -> Result<String, String> {
+fn export_commands_csv(session_dir: String, output_path: String) -> Result<u64, String> {
     let dir = PathBuf::from(&session_dir);
     let commands_path = dir.join("commands.jsonl");
     let commands = load_commands(&commands_path)?;
@@ -185,6 +189,7 @@ fn export_commands_csv(session_dir: String, output_path: String) -> Result<Strin
     let mut wtr = csv::Writer::from_path(&output_path)
         .map_err(|e| format!("创建 CSV 文件失败: {e}"))?;
 
+    // CSV 列头保留中文 (是 CSV 数据文件内容, 跟 UI 语言独立, 给用户用 Excel/Numbers 看)
     wtr.write_record(&[
         "时间", "操作者", "主机", "命令", "退出码", "耗时ms", "录像偏移s", "危险", "已拦截",
     ])
@@ -208,11 +213,11 @@ fn export_commands_csv(session_dir: String, output_path: String) -> Result<Strin
     }
 
     wtr.flush().map_err(|e| format!("flush CSV 失败: {e}"))?;
-    Ok(format!("已导出 {} 条命令到 {}", commands.len(), output_path))
+    Ok(commands.len() as u64)
 }
 
 #[tauri::command]
-fn export_commands_json(session_dir: String, output_path: String) -> Result<String, String> {
+fn export_commands_json(session_dir: String, output_path: String) -> Result<u64, String> {
     let dir = PathBuf::from(&session_dir);
     let commands_path = dir.join("commands.jsonl");
     let commands = load_commands(&commands_path)?;
@@ -221,19 +226,16 @@ fn export_commands_json(session_dir: String, output_path: String) -> Result<Stri
         .map_err(|e| format!("序列化 JSON 失败: {e}"))?;
     std::fs::write(&output_path, json).map_err(|e| format!("写入 JSON 文件失败: {e}"))?;
 
-    Ok(format!(
-        "已导出 {} 条命令到 {}",
-        commands.len(),
-        output_path
-    ))
+    Ok(commands.len() as u64)
 }
 
 #[tauri::command]
-fn copy_cast_file(session_dir: String, output_path: String) -> Result<String, String> {
+fn copy_cast_file(session_dir: String, output_path: String) -> Result<u64, String> {
     let dir = PathBuf::from(&session_dir);
     let cast_path = dir.join("stream.cast");
-    std::fs::copy(&cast_path, &output_path).map_err(|e| format!("复制文件失败: {e}"))?;
-    Ok(format!("已复制录像文件到 {}", output_path))
+    let bytes = std::fs::copy(&cast_path, &output_path)
+        .map_err(|e| format!("复制文件失败: {e}"))?;
+    Ok(bytes)
 }
 
 /// 删除 session 整个目录 (含 stream.cast / meta.json / commands.jsonl / annotations.jsonl)

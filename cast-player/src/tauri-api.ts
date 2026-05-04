@@ -28,24 +28,25 @@ export async function searchSessions(
   return invoke("search_sessions", { videoDir, query });
 }
 
+// 返回值改为数字 (CSV/JSON 命令条数, CAST 文件字节数), 让前端 t() 拼成功消息
 export async function exportCommandsCsv(
   sessionDir: string,
   outputPath: string
-): Promise<string> {
+): Promise<number> {
   return invoke("export_commands_csv", { sessionDir, outputPath });
 }
 
 export async function exportCommandsJson(
   sessionDir: string,
   outputPath: string
-): Promise<string> {
+): Promise<number> {
   return invoke("export_commands_json", { sessionDir, outputPath });
 }
 
 export async function copyCastFile(
   sessionDir: string,
   outputPath: string
-): Promise<string> {
+): Promise<number> {
   return invoke("copy_cast_file", { sessionDir, outputPath });
 }
 

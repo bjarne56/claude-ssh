@@ -73,7 +73,10 @@
     "json": "ส่งออกรายการคำสั่ง (JSON)",
     "cast": "คัดลอกบันทึกดิบ (.cast)",
     "close": "ปิด",
-    "open": "ส่งออก"
+    "open": "ส่งออก",
+    "dialogTitle": "เลือกตำแหน่งส่งออก",
+    "successCommands": "ส่งออก {{count}} คำสั่งไปยัง {{path}} แล้ว",
+    "successCast": "คัดลอก {{size}} ไบต์ไปยัง {{path}} แล้ว"
   },
   "status": {
     "duration": "ระยะเวลา",

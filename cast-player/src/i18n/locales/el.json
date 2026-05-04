@@ -73,7 +73,10 @@
     "json": "Εξαγωγή λίστας εντολών (JSON)",
     "cast": "Αντιγραφή ακατέργαστης εγγραφής (.cast)",
     "close": "Κλείσιμο",
-    "open": "Εξαγωγή"
+    "open": "Εξαγωγή",
+    "dialogTitle": "Επιλέξτε τοποθεσία εξαγωγής",
+    "successCommands": "Εξήχθησαν {{count}} εντολές σε {{path}}",
+    "successCast": "Αντιγράφηκαν {{size}} bytes σε {{path}}"
   },
   "status": {
     "duration": "Διάρκεια",

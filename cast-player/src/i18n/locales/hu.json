@@ -73,7 +73,10 @@
     "json": "Parancslista exportálása (JSON)",
     "cast": "Nyers felvétel másolása (.cast)",
     "close": "Bezárás",
-    "open": "Exportálás"
+    "open": "Exportálás",
+    "dialogTitle": "Exportálási hely kiválasztása",
+    "successCommands": "{{count}} parancs exportálva ide: {{path}}",
+    "successCast": "{{size}} bájt másolva ide: {{path}}"
   },
   "status": {
     "duration": "Időtartam",

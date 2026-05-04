@@ -73,7 +73,10 @@
     "json": "コマンド一覧をエクスポート (JSON)",
     "cast": "録画ファイルをコピー (.cast)",
     "close": "閉じる",
-    "open": "エクスポート"
+    "open": "エクスポート",
+    "dialogTitle": "エクスポート先を選択",
+    "successCommands": "{{count}} 件のコマンドを {{path}} にエクスポートしました",
+    "successCast": "{{size}} バイトを {{path}} にコピーしました"
   },
   "status": {
     "duration": "再生時間",

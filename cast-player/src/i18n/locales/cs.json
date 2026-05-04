@@ -73,7 +73,10 @@
     "json": "Exportovat seznam příkazů (JSON)",
     "cast": "Kopírovat surový záznam (.cast)",
     "close": "Zavřít",
-    "open": "Export"
+    "open": "Export",
+    "dialogTitle": "Vyberte umístění exportu",
+    "successCommands": "Exportováno {{count}} příkazů do {{path}}",
+    "successCast": "Zkopírováno {{size}} bajtů do {{path}}"
   },
   "status": {
     "duration": "Trvání",

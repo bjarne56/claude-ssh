@@ -73,7 +73,10 @@
     "json": "Esporta lista comandi (JSON)",
     "cast": "Copia registrazione (.cast)",
     "close": "Chiudi",
-    "open": "Esporta"
+    "open": "Esporta",
+    "dialogTitle": "Scegli posizione di esportazione",
+    "successCommands": "{{count}} comandi esportati in {{path}}",
+    "successCast": "{{size}} byte copiati in {{path}}"
   },
   "status": {
     "duration": "Durata",

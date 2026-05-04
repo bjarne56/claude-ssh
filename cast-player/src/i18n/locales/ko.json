@@ -73,7 +73,10 @@
     "json": "명령어 목록 내보내기 (JSON)",
     "cast": "녹화 파일 복사 (.cast)",
     "close": "닫기",
-    "open": "내보내기"
+    "open": "내보내기",
+    "dialogTitle": "내보내기 위치 선택",
+    "successCommands": "{{count}}개 명령을 {{path}}에 내보냈습니다",
+    "successCast": "{{size}}바이트를 {{path}}에 복사했습니다"
   },
   "status": {
     "duration": "재생 시간",

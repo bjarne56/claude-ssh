@@ -73,7 +73,10 @@
     "json": "Exportera kommandolista (JSON)",
     "cast": "Kopiera rå inspelning (.cast)",
     "close": "Stäng",
-    "open": "Exportera"
+    "open": "Exportera",
+    "dialogTitle": "Välj exportplats",
+    "successCommands": "Exporterade {{count}} kommandon till {{path}}",
+    "successCast": "Kopierade {{size}} byte till {{path}}"
   },
   "status": {
     "duration": "Varaktighet",

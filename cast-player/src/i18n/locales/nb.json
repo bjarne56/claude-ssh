@@ -73,7 +73,10 @@
     "json": "Eksporter kommandoliste (JSON)",
     "cast": "Kopier rått opptak (.cast)",
     "close": "Lukk",
-    "open": "Eksporter"
+    "open": "Eksporter",
+    "dialogTitle": "Velg eksportplassering",
+    "successCommands": "Eksporterte {{count}} kommandoer til {{path}}",
+    "successCast": "Kopierte {{size}} byte til {{path}}"
   },
   "status": {
     "duration": "Varighet",

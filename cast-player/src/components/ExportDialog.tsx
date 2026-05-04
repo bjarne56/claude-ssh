@@ -16,12 +16,11 @@ export function ExportDialog({ sessionDir, sessionId, onClose }: ExportDialogPro
 
   const handleExport = async (type: "csv" | "json" | "cast") => {
     const ext = type === "cast" ? "cast" : type;
-    // 弹保存对话框, 用户选导出位置
     const filterName = type === "cast" ? "Asciinema cast" : type.toUpperCase();
     let outputPath: string | null;
     try {
       outputPath = await save({
-        title: "选择导出位置",
+        title: t("export.dialogTitle"),
         defaultPath: `${sessionId}.${ext}`,
         filters: [{ name: filterName, extensions: [ext] }],
       });
@@ -34,17 +33,22 @@ export function ExportDialog({ sessionDir, sessionId, onClose }: ExportDialogPro
     setExporting(true);
     setStatus(t("export.exporting"));
     try {
+      // backend 返回数字: CSV/JSON 命令条数, CAST 文件字节数, 用 t() 拼成功消息
       let msg = "";
       switch (type) {
         case "csv":
-          msg = await exportCommandsCsv(sessionDir, outputPath);
+        case "json": {
+          const count = await (type === "csv"
+            ? exportCommandsCsv(sessionDir, outputPath)
+            : exportCommandsJson(sessionDir, outputPath));
+          msg = t("export.successCommands", { count, path: outputPath });
           break;
-        case "json":
-          msg = await exportCommandsJson(sessionDir, outputPath);
+        }
+        case "cast": {
+          const size = await copyCastFile(sessionDir, outputPath);
+          msg = t("export.successCast", { size, path: outputPath });
           break;
-        case "cast":
-          msg = await copyCastFile(sessionDir, outputPath);
-          break;
+        }
       }
       setStatus(msg);
     } catch (err) {

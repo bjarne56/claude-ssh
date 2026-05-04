@@ -73,7 +73,10 @@
     "json": "Exportă lista de comenzi (JSON)",
     "cast": "Copiază înregistrarea brută (.cast)",
     "close": "Închide",
-    "open": "Exportă"
+    "open": "Exportă",
+    "dialogTitle": "Alegeți locația de export",
+    "successCommands": "{{count}} comenzi exportate în {{path}}",
+    "successCast": "{{size}} octeți copiați în {{path}}"
   },
   "status": {
     "duration": "Durată",
