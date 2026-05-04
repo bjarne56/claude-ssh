@@ -112,7 +112,7 @@ pub fn execute(
 }
 
 /// 等 cast 末尾出现 marker_prefix (如 "SSHOPS_END_<nonce>=")
-/// 返回 Some(()) 见到, None 超时
+/// 用 SessionParser 增量 polling cast 文件 (5ms 间隔, 接近物理极限)
 pub fn wait_for_marker(
     recorder: &Recorder,
     start_byte: u64,
@@ -121,7 +121,6 @@ pub fn wait_for_marker(
 ) -> Option<()> {
     use crate::incremental_parser::SessionParser;
     let deadline = Instant::now() + timeout;
-    // 5ms poll: 比文件系统 page cache miss 更小, 进一步压响应延迟
     let poll = Duration::from_millis(5);
     let mut parser = SessionParser::new(start_byte);
     while Instant::now() < deadline {
