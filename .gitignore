@@ -30,7 +30,4 @@ AGENTS.md
 # 外部依赖源码(WezTerm 等),供本地查阅 / 按需编译,不入库
 wezterm-src/
 colorizer/
-oh-my-zsh-src/
-test2/
-wezterm-src.zip
 rust/target/
