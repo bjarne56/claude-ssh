@@ -39,7 +39,9 @@
     "progressClickHint": "Atlamak için tıklayın",
     "idleSegmentHint": "Boşta kalma (varsayılan atlanır)",
     "markerCmd": "Komut",
-    "markerDanger": "Tehlikeli komut"
+    "markerDanger": "Tehlikeli komut",
+    "highlight": "Vurgula",
+    "highlightTooltip": "Anahtar kelime vurgulama (wezterm ile aynı kurallar)"
   },
   "commands": {
     "title": "Komutlar",

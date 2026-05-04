@@ -39,7 +39,9 @@
     "progressClickHint": "Nhấp để chuyển",
     "idleSegmentHint": "Thời gian rảnh (bỏ qua mặc định)",
     "markerCmd": "Lệnh",
-    "markerDanger": "Lệnh nguy hiểm"
+    "markerDanger": "Lệnh nguy hiểm",
+    "highlight": "Tô sáng",
+    "highlightTooltip": "Tô sáng từ khóa (cùng quy tắc với wezterm)"
   },
   "commands": {
     "title": "Danh Sách Lệnh",

@@ -39,7 +39,9 @@
     "progressClickHint": "คลิกเพื่อข้าม",
     "idleSegmentHint": "ช่วงว่าง (ข้ามค่าเริ่มต้น)",
     "markerCmd": "คำสั่ง",
-    "markerDanger": "คำสั่งอันตราย"
+    "markerDanger": "คำสั่งอันตราย",
+    "highlight": "ไฮไลต์",
+    "highlightTooltip": "ไฮไลต์คำสำคัญ (กฎเดียวกับ wezterm)"
   },
   "commands": {
     "title": "คำสั่ง",

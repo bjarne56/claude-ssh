@@ -39,7 +39,9 @@
     "progressClickHint": "Clic para buscar",
     "idleSegmentHint": "Período inactivo (omitido por defecto)",
     "markerCmd": "Comando",
-    "markerDanger": "Comando peligroso"
+    "markerDanger": "Comando peligroso",
+    "highlight": "Resaltar",
+    "highlightTooltip": "Resaltado de palabras clave (mismas reglas que wezterm)"
   },
   "commands": {
     "title": "Comandos",

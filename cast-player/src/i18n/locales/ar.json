@@ -39,7 +39,9 @@
     "progressClickHint": "انقر للانتقال",
     "idleSegmentHint": "فترة خمول (تتخطى افتراضياً)",
     "markerCmd": "أمر",
-    "markerDanger": "أمر خطير"
+    "markerDanger": "أمر خطير",
+    "highlight": "تمييز",
+    "highlightTooltip": "تمييز الكلمات الرئيسية (نفس قواعد wezterm)"
   },
   "commands": {
     "title": "الأوامر",

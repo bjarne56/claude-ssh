@@ -39,7 +39,9 @@
     "progressClickHint": "Click to seek",
     "idleSegmentHint": "Idle period (skipped by default)",
     "markerCmd": "Command",
-    "markerDanger": "Dangerous command"
+    "markerDanger": "Dangerous command",
+    "highlight": "Highlight",
+    "highlightTooltip": "Keyword highlight (same rules as wezterm)"
   },
   "commands": {
     "title": "Commands",

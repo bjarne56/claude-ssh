@@ -189,14 +189,14 @@ function App() {
                   cursor: "pointer",
                   userSelect: "none",
                 }}
-                title="关键字高亮 (跟 wezterm 同套规则)"
+                title={t("controls.highlightTooltip")}
               >
                 <input
                   type="checkbox"
                   checked={player.highlight}
                   onChange={(e) => player.setHighlight(e.target.checked)}
                 />
-                高亮
+                {t("controls.highlight")}
               </label>
               <button onClick={() => setShowSearch(true)} title={t("search.open")}>
                 🔍 {t("search.open").replace(/\s*\(.*\)/, "")}

@@ -39,7 +39,9 @@
     "progressClickHint": "Clicca per saltare",
     "idleSegmentHint": "Periodo inattivo (saltato per default)",
     "markerCmd": "Comando",
-    "markerDanger": "Comando pericoloso"
+    "markerDanger": "Comando pericoloso",
+    "highlight": "Evidenzia",
+    "highlightTooltip": "Evidenziazione parole chiave (stesse regole di wezterm)"
   },
   "commands": {
     "title": "Comandi",

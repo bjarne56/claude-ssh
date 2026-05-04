@@ -39,7 +39,9 @@
     "progressClickHint": "Klicka för att hoppa",
     "idleSegmentHint": "Vilotid (hoppas över som standard)",
     "markerCmd": "Kommando",
-    "markerDanger": "Farligt kommando"
+    "markerDanger": "Farligt kommando",
+    "highlight": "Markera",
+    "highlightTooltip": "Nyckelords-markering (samma regler som wezterm)"
   },
   "commands": {
     "title": "Kommandon",

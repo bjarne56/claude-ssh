@@ -39,7 +39,9 @@
     "progressClickHint": "クリックでシーク",
     "idleSegmentHint": "アイドル時間 (デフォルトでスキップ)",
     "markerCmd": "コマンド",
-    "markerDanger": "危険コマンド"
+    "markerDanger": "危険コマンド",
+    "highlight": "ハイライト",
+    "highlightTooltip": "キーワード強調 (wezterm と同じルール)"
   },
   "commands": {
     "title": "コマンド一覧",

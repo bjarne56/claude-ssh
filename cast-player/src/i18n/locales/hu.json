@@ -39,7 +39,9 @@
     "progressClickHint": "Kattintson az ugráshoz",
     "idleSegmentHint": "Üresjárati időszak (átugorva)",
     "markerCmd": "Parancs",
-    "markerDanger": "Veszélyes parancs"
+    "markerDanger": "Veszélyes parancs",
+    "highlight": "Kiemelés",
+    "highlightTooltip": "Kulcsszó kiemelés (ugyanazok a szabályok, mint a wezterm)"
   },
   "commands": {
     "title": "Parancsok",

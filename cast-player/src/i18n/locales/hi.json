@@ -39,7 +39,9 @@
     "progressClickHint": "जाने के लिए क्लिक करें",
     "idleSegmentHint": "निष्क्रिय अवधि (डिफ़ॉल्ट छोड़ी)",
     "markerCmd": "कमांड",
-    "markerDanger": "खतरनाक कमांड"
+    "markerDanger": "खतरनाक कमांड",
+    "highlight": "हाइलाइट",
+    "highlightTooltip": "कीवर्ड हाइलाइट (wezterm के समान नियम)"
   },
   "commands": {
     "title": "कमांड",

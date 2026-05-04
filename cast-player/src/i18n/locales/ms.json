@@ -39,7 +39,9 @@
     "progressClickHint": "Klik untuk pergi",
     "idleSegmentHint": "Tempoh melahu (dilangkau)",
     "markerCmd": "Arahan",
-    "markerDanger": "Arahan berbahaya"
+    "markerDanger": "Arahan berbahaya",
+    "highlight": "Sorot",
+    "highlightTooltip": "Sorotan kata kunci (peraturan sama seperti wezterm)"
   },
   "commands": {
     "title": "Arahan",

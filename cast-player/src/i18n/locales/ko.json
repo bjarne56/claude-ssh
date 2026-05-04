@@ -39,7 +39,9 @@
     "progressClickHint": "클릭하여 이동",
     "idleSegmentHint": "유휴 시간 (기본 건너뜀)",
     "markerCmd": "명령어",
-    "markerDanger": "위험한 명령어"
+    "markerDanger": "위험한 명령어",
+    "highlight": "강조",
+    "highlightTooltip": "키워드 강조 (wezterm과 동일한 규칙)"
   },
   "commands": {
     "title": "명령어 목록",

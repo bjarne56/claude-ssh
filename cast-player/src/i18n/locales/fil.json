@@ -39,7 +39,9 @@
     "progressClickHint": "I-click upang lumipat",
     "idleSegmentHint": "Idle period (default skipped)",
     "markerCmd": "Utos",
-    "markerDanger": "Mapanganib na utos"
+    "markerDanger": "Mapanganib na utos",
+    "highlight": "I-highlight",
+    "highlightTooltip": "Highlight ng keyword (parehong panuntunan ng wezterm)"
   },
   "commands": {
     "title": "Mga Utos",

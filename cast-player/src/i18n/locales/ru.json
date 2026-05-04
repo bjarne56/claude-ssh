@@ -39,7 +39,9 @@
     "progressClickHint": "Нажмите для перехода",
     "idleSegmentHint": "Период бездействия (пропускается)",
     "markerCmd": "Команда",
-    "markerDanger": "Опасная команда"
+    "markerDanger": "Опасная команда",
+    "highlight": "Подсветка",
+    "highlightTooltip": "Подсветка ключевых слов (те же правила, что и wezterm)"
   },
   "commands": {
     "title": "Команды",

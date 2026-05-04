@@ -39,7 +39,9 @@
     "progressClickHint": "Klikk for å hoppe",
     "idleSegmentHint": "Inaktiv periode (hoppes over)",
     "markerCmd": "Kommando",
-    "markerDanger": "Farlig kommando"
+    "markerDanger": "Farlig kommando",
+    "highlight": "Uthev",
+    "highlightTooltip": "Stikkord-utheving (samme regler som wezterm)"
   },
   "commands": {
     "title": "Kommandoer",

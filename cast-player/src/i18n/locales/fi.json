@@ -39,7 +39,9 @@
     "progressClickHint": "Klikkaa siirtyäksesi",
     "idleSegmentHint": "Joutoaika (ohitetaan oletuksena)",
     "markerCmd": "Komento",
-    "markerDanger": "Vaarallinen komento"
+    "markerDanger": "Vaarallinen komento",
+    "highlight": "Korosta",
+    "highlightTooltip": "Avainsanojen korostus (samat säännöt kuin wezterm)"
   },
   "commands": {
     "title": "Komennot",

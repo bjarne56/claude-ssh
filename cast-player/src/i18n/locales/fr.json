@@ -39,7 +39,9 @@
     "progressClickHint": "Cliquer pour aller à",
     "idleSegmentHint": "Période inactive (sautée par défaut)",
     "markerCmd": "Commande",
-    "markerDanger": "Commande dangereuse"
+    "markerDanger": "Commande dangereuse",
+    "highlight": "Coloration",
+    "highlightTooltip": "Coloration des mots-clés (mêmes règles que wezterm)"
   },
   "commands": {
     "title": "Commandes",

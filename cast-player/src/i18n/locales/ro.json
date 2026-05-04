@@ -39,7 +39,9 @@
     "progressClickHint": "Faceți clic pentru a căuta",
     "idleSegmentHint": "Perioadă inactivă (omisă implicit)",
     "markerCmd": "Comandă",
-    "markerDanger": "Comandă periculoasă"
+    "markerDanger": "Comandă periculoasă",
+    "highlight": "Evidențiere",
+    "highlightTooltip": "Evidențiere cuvinte cheie (aceleași reguli ca wezterm)"
   },
   "commands": {
     "title": "Comenzi",

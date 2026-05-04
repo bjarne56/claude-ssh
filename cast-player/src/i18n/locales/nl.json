@@ -39,7 +39,9 @@
     "progressClickHint": "Klik om te zoeken",
     "idleSegmentHint": "Inactieve periode (overgeslagen)",
     "markerCmd": "Opdracht",
-    "markerDanger": "Gevaarlijke opdracht"
+    "markerDanger": "Gevaarlijke opdracht",
+    "highlight": "Markeren",
+    "highlightTooltip": "Trefwoord markering (zelfde regels als wezterm)"
   },
   "commands": {
     "title": "Opdrachten",

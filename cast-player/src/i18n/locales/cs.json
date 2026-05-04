@@ -39,7 +39,9 @@
     "progressClickHint": "Klikněte pro přesun",
     "idleSegmentHint": "Nečinné období (přeskočeno)",
     "markerCmd": "Příkaz",
-    "markerDanger": "Nebezpečný příkaz"
+    "markerDanger": "Nebezpečný příkaz",
+    "highlight": "Zvýraznit",
+    "highlightTooltip": "Zvýraznění klíčových slov (stejná pravidla jako wezterm)"
   },
   "commands": {
     "title": "Příkazy",

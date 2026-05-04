@@ -39,7 +39,9 @@
     "progressClickHint": "Klik untuk mencari",
     "idleSegmentHint": "Periode diam (dilewati default)",
     "markerCmd": "Perintah",
-    "markerDanger": "Perintah berbahaya"
+    "markerDanger": "Perintah berbahaya",
+    "highlight": "Sorot",
+    "highlightTooltip": "Sorotan kata kunci (aturan sama dengan wezterm)"
   },
   "commands": {
     "title": "Perintah",

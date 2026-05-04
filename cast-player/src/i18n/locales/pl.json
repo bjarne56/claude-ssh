@@ -39,7 +39,9 @@
     "progressClickHint": "Kliknij, aby przejść",
     "idleSegmentHint": "Okres bezczynności (pomijany)",
     "markerCmd": "Polecenie",
-    "markerDanger": "Niebezpieczne polecenie"
+    "markerDanger": "Niebezpieczne polecenie",
+    "highlight": "Podświetl",
+    "highlightTooltip": "Podświetlanie słów kluczowych (te same reguły co wezterm)"
   },
   "commands": {
     "title": "Polecenia",

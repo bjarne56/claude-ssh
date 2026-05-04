@@ -39,7 +39,9 @@
     "progressClickHint": "Klik for at hoppe",
     "idleSegmentHint": "Inaktiv periode (springes over)",
     "markerCmd": "Kommando",
-    "markerDanger": "Farlig kommando"
+    "markerDanger": "Farlig kommando",
+    "highlight": "Fremhæv",
+    "highlightTooltip": "Fremhævning af nøgleord (samme regler som wezterm)"
   },
   "commands": {
     "title": "Kommandoer",

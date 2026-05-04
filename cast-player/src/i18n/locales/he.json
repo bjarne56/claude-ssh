@@ -39,7 +39,9 @@
     "progressClickHint": "לחץ כדי לעבור",
     "idleSegmentHint": "תקופת מנוחה (מדולג כברירת מחדל)",
     "markerCmd": "פקודה",
-    "markerDanger": "פקודה מסוכנת"
+    "markerDanger": "פקודה מסוכנת",
+    "highlight": "הדגש",
+    "highlightTooltip": "הדגשת מילות מפתח (אותם כללים כמו wezterm)"
   },
   "commands": {
     "title": "פקודות",

@@ -39,7 +39,9 @@
     "progressClickHint": "Κλικ για μετάβαση",
     "idleSegmentHint": "Αδρανής περίοδος (παράλειψη)",
     "markerCmd": "Εντολή",
-    "markerDanger": "Επικίνδυνη εντολή"
+    "markerDanger": "Επικίνδυνη εντολή",
+    "highlight": "Επισήμανση",
+    "highlightTooltip": "Επισήμανση λέξεων-κλειδιών (ίδιοι κανόνες με το wezterm)"
   },
   "commands": {
     "title": "Εντολές",

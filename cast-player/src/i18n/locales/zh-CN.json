@@ -39,7 +39,9 @@
     "progressClickHint": "点击跳转",
     "idleSegmentHint": "空闲时段 (默认跳过)",
     "markerCmd": "命令执行点",
-    "markerDanger": "危险命令"
+    "markerDanger": "危险命令",
+    "highlight": "高亮",
+    "highlightTooltip": "关键字高亮 (跟 wezterm 同套规则)"
   },
   "commands": {
     "title": "命令列表",

@@ -39,7 +39,9 @@
     "progressClickHint": "Zum Springen klicken",
     "idleSegmentHint": "Leerlaufzeit (standardmäßig übersprungen)",
     "markerCmd": "Befehl",
-    "markerDanger": "Gefährlicher Befehl"
+    "markerDanger": "Gefährlicher Befehl",
+    "highlight": "Hervorheben",
+    "highlightTooltip": "Schlüsselwort-Hervorhebung (gleiche Regeln wie wezterm)"
   },
   "commands": {
     "title": "Befehlsliste",
