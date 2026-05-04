@@ -193,20 +193,6 @@ impl WezTermClient {
         Ok(())
     }
 
-    pub fn set_user_var(&self, pane_id: u64, key: &str, val: &str) -> Result<()> {
-        let _ = Command::new(&self.cli_path)
-            .args([
-                "cli",
-                "set-user-var",
-                "--pane-id",
-                &pane_id.to_string(),
-                key,
-                val,
-            ])
-            .output();
-        Ok(())
-    }
-
     pub fn pane_alive(&self, pane_id: u64) -> bool {
         match self.list() {
             Ok(panes) => panes.iter().any(|p| p.pane_id == pane_id),

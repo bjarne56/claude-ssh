@@ -6,7 +6,7 @@
 use crate::config::Config;
 use crate::recorder::{build_recorder_argv, Recorder};
 use crate::session::strip_ansi;
-use crate::state::{project_id, StateStore};
+use crate::state::{project_id, project_slug, StateStore};
 use crate::wezterm_mux::WezTermClient;
 use crate::{Error, Result};
 use crate::state::DEFAULT_SESSION_KEY;
@@ -173,23 +173,30 @@ pub fn pane_open(
         }
     }
 
-    // PS1 注入 — REAL_USER=claude
+    // PS1 注入 + OSC 1337 SetUserVar (sshops_project 给 wezterm format-window-title 用)
+    // OSC 1337 必须由 pane 内的 shell 输出, wezterm 才能感知 (从外部 send-text 没用)
+    use base64::{engine::general_purpose, Engine};
+    let proj_b64 = general_purpose::STANDARD.encode(project_slug());
+    let sid_b64 = general_purpose::STANDARD.encode(&sid);
+    let ai_b64 = general_purpose::STANDARD.encode("ai");
+    // 一条命令搞定: 设 PS1 + 输出 OSC 三条 (项目/actor/session) + clear
+    let osc = format!(
+        "printf '\\033]1337;SetUserVar=sshops_project={proj_b64}\\007'; \
+         printf '\\033]1337;SetUserVar=sshops_actor={ai_b64}\\007'; \
+         printf '\\033]1337;SetUserVar=sshops_session_id={sid_b64}\\007'"
+    );
     let real_user = "claude";
     let login_label = if sudo_active { "root" } else { target.user.as_str() };
     let ps1_cmd = if login_label == real_user {
         format!(
-            "export REAL_USER='{real_user}'; export PS1='[\\u@\\h \\W]\\$ '; clear\r"
+            "export REAL_USER='{real_user}'; export PS1='[\\u@\\h \\W]\\$ '; {osc}; clear\r"
         )
     } else {
         format!(
-            "export REAL_USER='{real_user}'; export PS1='[\\u({login_label}:$REAL_USER)@\\h \\W]\\$ '; clear\r"
+            "export REAL_USER='{real_user}'; export PS1='[\\u({login_label}:$REAL_USER)@\\h \\W]\\$ '; {osc}; clear\r"
         )
     };
     wez.send_text(pane_id, &ps1_cmd)?;
-
-    // 视觉标识
-    let _ = wez.set_user_var(pane_id, "sshops_actor", "ai");
-    let _ = wez.set_user_var(pane_id, "sshops_session_id", &sid);
 
     // 持久化
     state.add_pane(&pid, session_key, selector, pane_id, &sid)?;
