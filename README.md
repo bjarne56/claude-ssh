@@ -190,7 +190,6 @@ ssh-ops/
 ├── wezterm-src/           WezTerm fork → WezTerm-SSH (子目录, 独立 git 仓库)
 │   └── install-local.sh   本地构建 + 部署 ~/Applications/WezTerm-SSH.app
 ├── cast-player/           Tauri 录像回放 GUI (独立)
-├── recorder/              asciinema fork 备份 (现已切到 brew install asciinema)
 ├── config.example.json    配置模板
 ├── install.sh             依赖检测 + 调用 wezterm-src/install-local.sh + skill symlink
 ├── tests/self-test.sh     localhost echo 冒烟
