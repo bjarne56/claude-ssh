@@ -111,7 +111,7 @@ else
 fi
 
 echo
-echo "==> 检测 locale 并选 SKILL.md 翻译"
+echo "==> 检测 locale 并选 description 翻译"
 
 # detect_locale: 优先 --locale 参数, 否则 macOS AppleLocale, 否则 LANG
 detect_locale() {
@@ -132,38 +132,9 @@ detect_locale() {
     printf '%s' "$lang"
 }
 
-# resolve_skill_file <locale> -> 输出选中文件路径; 找不到 fallback 到 SKILL.en.md
-# 全部 SKILL 文件统一在 skill-locales/, 含 SKILL.zh-CN.md (symlink → ../SKILL.md
-# 项目根中文主源). 查找顺序:
-#   1. skill-locales/SKILL.<locale>.md (精确, 如 zh-CN / pt-BR)
-#   2. skill-locales/SKILL.<lang>.md (前缀 fallback, 如 en-GB → en)
-#   3. skill-locales/SKILL.en.md (最终 fallback)
-resolve_skill_file() {
-    local loc="$1"
-    # 系统 locale 别名规一: zh-Hans / zh / zh_CN → zh-CN; zh-Hant / zh_TW / zh-HK → zh-TW
-    case "$loc" in
-        zh-Hans|zh|zh-CN|zh_CN) loc="zh-CN" ;;
-        zh-Hant|zh-TW|zh_TW|zh-HK|zh_HK) loc="zh-TW" ;;
-    esac
-    # 精确文件
-    if [[ -f "$SKILL_LOCALES_DIR/SKILL.$loc.md" ]]; then
-        printf '%s' "$SKILL_LOCALES_DIR/SKILL.$loc.md"
-        return
-    fi
-    # 语言前缀 fallback (en-GB → en, fr-CA → fr)
-    local prefix="${loc%%-*}"
-    if [[ -n "$prefix" && "$prefix" != "$loc" && -f "$SKILL_LOCALES_DIR/SKILL.$prefix.md" ]]; then
-        printf '%s' "$SKILL_LOCALES_DIR/SKILL.$prefix.md"
-        return
-    fi
-    # 最终 fallback: 英文
-    printf '%s' "$SKILL_LOCALES_DIR/SKILL.en.md"
-}
-
 LOCALE="$(detect_locale)"
 [[ -z "$LOCALE" ]] && LOCALE="en"
-SKILL_FILE="$(resolve_skill_file "$LOCALE")"
-ok "system locale: $LOCALE → $(basename "$SKILL_FILE")"
+ok "system locale: $LOCALE"
 
 echo
 echo "==> 部署 skill 到 $SSHOPS_DEST"
@@ -175,12 +146,33 @@ if [[ -L "$SSHOPS_OLD_DEST" || -d "$SSHOPS_OLD_DEST" ]]; then
 fi
 
 # sshops 目录策略: 实体目录 + symlink, 让 SKILL.md 可独立按 locale 切换
-# 老的 symlink-到-整个仓库 方式不允许 SKILL.md 跟仓库分离, 改不了语言.
 mkdir -p "$SSHOPS_DEST"
 
-# SKILL.md: cp (按 locale 选定的版本, 不是 ln, 因为下次换 locale 要重 cp)
-cp -f "$SKILL_FILE" "$SSHOPS_DEST/SKILL.md"
-ok "SKILL.md ← $(basename "$SKILL_FILE")"
+# SKILL.md: cp 项目根 (英文主) + python 替换 description 为当前 locale 翻译
+# 翻译数据全在 skill-locales/descriptions.json, 31 种语言只维护一个 JSON
+DESCRIPTIONS_JSON="$SKILL_LOCALES_DIR/descriptions.json"
+cp -f "$SSHOPS_SRC/SKILL.md" "$SSHOPS_DEST/SKILL.md"
+python3 - "$LOCALE" "$DESCRIPTIONS_JSON" "$SSHOPS_DEST/SKILL.md" <<'PY'
+import json, re, sys
+locale, json_path, skill_path = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(json_path, encoding="utf-8") as f:
+    descs = json.load(f)
+# 系统 locale 别名规一
+ALIAS = {
+    "zh-Hans": "zh-CN", "zh": "zh-CN", "zh_CN": "zh-CN",
+    "zh-Hant": "zh-TW", "zh_TW": "zh-TW", "zh-HK": "zh-TW", "zh_HK": "zh-TW",
+}
+loc = ALIAS.get(locale, locale)
+# 精确 → 语言前缀 → en fallback
+desc = descs.get(loc) or descs.get(loc.split("-")[0]) or descs["en"]
+text = open(skill_path, encoding="utf-8").read()
+new_text = re.sub(r"^description:.*$", f"description: {desc}", text, count=1, flags=re.MULTILINE)
+open(skill_path, "w", encoding="utf-8").write(new_text)
+# 反馈实际选中的 locale (loc 跟 desc 来源)
+chosen = loc if loc in descs else (loc.split("-")[0] if loc.split("-")[0] in descs else "en")
+print(f"  description ← {chosen}")
+PY
+ok "SKILL.md 部署完成 (英文正文 + 当前 locale description)"
 
 # 其他业务文件: ln -s 到源仓库 (省得每次同步)
 declare -a SKILL_LINKS=(bin lib rust state tests config.example.json README.md docs ssh-ops-requirements.md)
