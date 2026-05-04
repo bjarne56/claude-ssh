@@ -1,6 +1,6 @@
 ---
 name: sshops
-description: SSH remote operations via WezTerm-SSH. Each CC project maps to one WezTerm-SSH window, each host to one pane — character-level live view + full asciinema recording + command-level index. **Auto-resolves host info from the user's SecureCRT config** (Hostname/Username/Port/Identity with SSH2.ini global fallback), so the user can connect by just an IP / keyword / path. Invoke when the user wants to run commands on a remote host, see the live view, or replay/audit later.
+description: SSH remote ops. Auto-resolves hosts from SecureCRT; one IP/keyword/path connects. Live view + recording + command index.
 ---
 
 # sshops Skill — Decision Manual
