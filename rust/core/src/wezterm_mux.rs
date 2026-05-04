@@ -24,7 +24,9 @@ pub struct WezTermClient {
 impl WezTermClient {
     pub fn new(cli_path: Option<String>) -> Self {
         Self {
-            cli_path: cli_path.unwrap_or_else(|| "wezterm".to_string()),
+            // ssh-ops fork: 默认 WezTerm-SSH-cli (wezterm CLI 部署改名后), 可由
+            // config.wezterm.cli_path 覆盖
+            cli_path: cli_path.unwrap_or_else(|| "WezTerm-SSH-cli".to_string()),
         }
     }
 

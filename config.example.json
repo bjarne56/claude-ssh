@@ -60,7 +60,7 @@
   ],
 
   "wezterm": {
-    "cli_path": "wezterm",
+    "cli_path": "WezTerm-SSH-cli",
     "spawn_strategy": "split-in-project-window",
     "ai_pane_color": "#cc3333",
     "human_pane_color": "#33aa33",

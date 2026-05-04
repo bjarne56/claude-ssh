@@ -25,12 +25,12 @@ impl std::fmt::Display for Missing {
 pub fn check_all(sshops_home: &Path) -> Result<(), Vec<Missing>> {
     let mut missing = Vec::new();
 
-    // 1. wezterm cli (必需 — spawn pane / send-text / list)
-    if !cmd_exists("wezterm") {
+    // 1. WezTerm-SSH-cli (必需 — spawn pane / send-text / list, ssh-ops fork 部署后)
+    if !cmd_exists("WezTerm-SSH-cli") {
         missing.push(Missing {
-            name: "wezterm",
-            reason: "命令不存在 (PATH 中找不到)".into(),
-            install_hint: "macOS: brew install --cask wezterm  /  https://wezfurlong.org/wezterm/",
+            name: "WezTerm-SSH-cli",
+            reason: "命令不存在 (PATH 中找不到 WezTerm-SSH-cli)".into(),
+            install_hint: "在仓库根跑: bash install.sh (会自动构建 + 部署 wezterm-src fork)",
         });
     }
 

@@ -13,20 +13,21 @@ fi
 _WT_CLI=""
 _wt_cli() {
     if [[ -z "$_WT_CLI" ]]; then
-        _WT_CLI="$(config_get '.wezterm.cli_path' wezterm)"
+        # 默认 WezTerm-SSH-cli (ssh-ops fork 部署改名后), 兼容老 config 设 wezterm
+        _WT_CLI="$(config_get '.wezterm.cli_path' WezTerm-SSH-cli)"
     fi
     printf '%s' "$_WT_CLI"
 }
 
-# wt_check:确认 wezterm cli 可用。WezTerm 没启动时尝试 `open -a WezTerm`。
+# wt_check:确认 WezTerm-SSH-cli 可用。GUI 没启动时尝试 `open -a WezTerm-SSH`。
 wt_check() {
     local cli; cli="$(_wt_cli)"
     if "$cli" cli list >/dev/null 2>&1; then
         return 0
     fi
-    log_warn "WezTerm cli 不可用,尝试启动 WezTerm…"
+    log_warn "WezTerm-SSH-cli 不可用,尝试启动 WezTerm-SSH…"
     if [[ "$(uname)" == "Darwin" ]]; then
-        open -a WezTerm 2>/dev/null || true
+        open -a WezTerm-SSH 2>/dev/null || true
     else
         "$cli" >/dev/null 2>&1 &
         disown 2>/dev/null || true
@@ -39,7 +40,7 @@ wt_check() {
         fi
         sleep 0.2
     done
-    die 6 "WezTerm 启动失败,请手动启动后重试 / WezTerm not available"
+    die 6 "WezTerm-SSH 启动失败,请手动启动后重试 / WezTerm-SSH not available"
 }
 
 # wt_list_json:列出所有窗口/tab/pane(JSON)
