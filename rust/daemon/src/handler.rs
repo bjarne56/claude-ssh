@@ -3,7 +3,7 @@
 //! 现阶段直接调 core::pane / session (同步执行, 一次一个请求 await).
 //! 真正的并发由 tokio runtime 多 worker 线程提供 — 不同请求独立处理.
 
-use crate::{get_pane_lock, pane_lock_key, DaemonState};
+use crate::{get_pane_lock, get_session_lock, pane_lock_key, session_lock_key, DaemonState};
 use ssh_ops_core::{
     config::expand_path,
     human_detect, ipc::{
@@ -171,7 +171,9 @@ async fn handle_run(
         }));
     }
 
-    // 抢 per-pane 锁: 同 pane 的 run 串行化, 不同 pane 并行
+    // 锁顺序: session_lock (同 session 的 spawn 串行化, 防 race) → pane_lock (同 pane 串行化)
+    let sess_lock = get_session_lock(&state, &session_lock_key(&ctx.project_id, &ctx.session_key)).await;
+    let _sess_guard = sess_lock.lock().await;
     let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel.display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
@@ -277,6 +279,8 @@ async fn handle_open(
     let project_id_str = ctx.project_id.clone();
     let session_key = ctx.session_key.clone();
 
+    let sess_lock = get_session_lock(&state, &session_lock_key(&ctx.project_id, &ctx.session_key)).await;
+    let _sess_guard = sess_lock.lock().await;
     let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel.display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
@@ -328,6 +332,8 @@ async fn handle_close(
     let sel_display = sel.display.clone();
     let session_key = ctx.session_key.clone();
 
+    let sess_lock = get_session_lock(&state, &session_lock_key(&ctx.project_id, &ctx.session_key)).await;
+    let _sess_guard = sess_lock.lock().await;
     let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel_display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
