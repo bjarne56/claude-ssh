@@ -1,9 +1,9 @@
 ---
-name: ssh-ops
-description: 通过 WezTerm 进行 SSH 远程运维。每个 CC 项目对应一个 WezTerm 窗口,每台主机对应一个 pane,字符级实时画面 + 全程 asciinema 录像 + 命令级索引。**优先从用户的 SecureCRT 配置自动解析主机连接信息**(Hostname/Username/Port/Identity 含 SSH2.ini 全局回退),用户只需说一个 IP / 关键词 / 路径就能连。当用户要 SSH 跑命令、看实时画面、需要后续回放 / 审计时调用。
+name: sshops
+description: 通过 WezTerm-SSH 进行 SSH 远程运维。每个 CC 项目对应一个 WezTerm-SSH 窗口,每台主机对应一个 pane,字符级实时画面 + 全程 asciinema 录像 + 命令级索引。**优先从用户的 SecureCRT 配置自动解析主机连接信息**(Hostname/Username/Port/Identity 含 SSH2.ini 全局回退),用户只需说一个 IP / 关键词 / 路径就能连。当用户要 SSH 跑命令、看实时画面、需要后续回放 / 审计时调用。
 ---
 
-# ssh-ops Skill 决策手册
+# sshops Skill 决策手册
 
 > Phase 1b。Phase 2/3/4 见 `docs/Implementation_Plan.md`。
 
