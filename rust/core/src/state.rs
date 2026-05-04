@@ -348,17 +348,32 @@ pub fn project_id() -> String {
         .unwrap_or_else(|| ".".into())
 }
 
-/// session_key: 优先 SSHOPS_SESSION_KEY > WEZTERM_PANE > DEFAULT_SESSION_KEY
-/// 一个 Claude 实例下所有 sshops 调用拿同一个 session_key, 自动隔离不同 Claude 的窗口
+/// session_key: 自动识别"一个 Claude 实例", 同 Claude 多次调用拿同一 key
+///
+/// 优先级 (从高到低):
+///   1. SSHOPS_SESSION_KEY (显式覆盖)
+///   2. WEZTERM_PANE (wezterm 内跑 Claude)
+///   3. ITERM_SESSION_ID (iTerm2)
+///   4. TERM_SESSION_ID (Apple Terminal)
+///   5. ssh: SSH_TTY (远程 ssh 跑 Claude, 一个 tty 一个 session)
+///   6. fallback: DEFAULT_SESSION_KEY (退回旧行为, 共享 active window)
 pub fn current_session_key() -> String {
     if let Ok(k) = std::env::var("SSHOPS_SESSION_KEY") {
         if !k.is_empty() {
             return k;
         }
     }
-    if let Ok(p) = std::env::var("WEZTERM_PANE") {
-        if !p.is_empty() {
-            return format!("wez:{p}");
+    let candidates = [
+        ("WEZTERM_PANE", "wez"),
+        ("ITERM_SESSION_ID", "iterm"),
+        ("TERM_SESSION_ID", "term"),
+        ("SSH_TTY", "ssh"),
+    ];
+    for (var, prefix) in candidates {
+        if let Ok(v) = std::env::var(var) {
+            if !v.is_empty() {
+                return format!("{prefix}:{v}");
+            }
         }
     }
     DEFAULT_SESSION_KEY.to_string()
