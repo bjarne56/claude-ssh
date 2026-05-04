@@ -97,6 +97,17 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
     let no_daemon = cli.no_daemon;
+
+    // 依赖 preflight: 需要 wezterm/asciinema 的子命令先验证依赖, 缺则友好报错 + exit 2
+    // daemon-status / daemon-stop / list-panes 仅 IPC 不动 wezterm, 跳过
+    let needs_deps = matches!(
+        cli.cmd,
+        Cmd::Run(_) | Cmd::Open(_) | Cmd::Close(_) | Cmd::Peek(_) | Cmd::Recent { .. }
+    );
+    if needs_deps {
+        ssh_ops_core::preflight::check_or_exit(&sshops_home());
+    }
+
     match cli.cmd {
         Cmd::Run(c) => cmd_run(c, no_daemon),
         Cmd::Open(c) => cmd_open(c, no_daemon),

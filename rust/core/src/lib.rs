@@ -12,6 +12,7 @@ pub mod human_detect;
 pub mod incremental_parser;
 pub mod ipc;
 pub mod pane;
+pub mod preflight;
 pub mod recorder;
 pub mod safety;
 pub mod securecrt;
