@@ -1,17 +1,21 @@
 //! 持久化 pane 状态: SSHOPS_HOME/state/panes.json
 //!
-//! schema (跟 bash 版兼容, 不要改 key):
+//! 新 schema (sessions 中间层, 区分多 Claude 实例):
 //! ```json
 //! {
 //!   "<project_id>": {
-//!     "wezterm_window_id": 17,
-//!     "started_at": "2026-05-02T10:00:00Z",
-//!     "panes": {
-//!       "<selector>": { "pane_id": 42, "session_id": "...", "started_at": "..." }
+//!     "sessions": {
+//!       "<session_key>": {              // session_key = WEZTERM_PANE 等
+//!         "wezterm_window_id": 17,
+//!         "started_at": "...",
+//!         "panes": { "<selector>": { pane_id, session_id, started_at } }
+//!       }
 //!     }
 //!   }
 //! }
 //! ```
+//!
+//! 老 schema 自动迁移到 sessions["default"] 下 (load 时透明转换).
 
 use crate::Result;
 use fs2::FileExt;
@@ -22,6 +26,9 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
+/// 默认 session key (无 WEZTERM_PANE 也无显式覆盖时用)
+pub const DEFAULT_SESSION_KEY: &str = "default";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaneInfo {
     pub pane_id: u64,
@@ -30,13 +37,20 @@ pub struct PaneInfo {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ProjectState {
+pub struct SessionState {
     #[serde(default)]
     pub wezterm_window_id: u64,
     #[serde(default)]
     pub started_at: String,
     #[serde(default)]
     pub panes: HashMap<String, PaneInfo>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProjectState {
+    /// per-Claude session: key = session_key (WEZTERM_PANE 等)
+    #[serde(default)]
+    pub sessions: HashMap<String, SessionState>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -65,29 +79,76 @@ impl StateStore {
         if s.trim().is_empty() {
             return Ok(PanesState::default());
         }
-        Ok(serde_json::from_str(&s).unwrap_or_default())
+        // 兼容老 schema: 项目对象顶层有 wezterm_window_id 和 panes (没有 sessions)
+        let raw: Value = serde_json::from_str(&s).unwrap_or(Value::Object(Map::new()));
+        Ok(parse_panes_state(raw))
     }
 
-    /// 取项目 → pane 信息
-    pub fn get_pane(&self, project_id: &str, selector: &str) -> Result<Option<PaneInfo>> {
+    /// 取项目 → session → pane 信息
+    pub fn get_pane(
+        &self,
+        project_id: &str,
+        session_key: &str,
+        selector: &str,
+    ) -> Result<Option<PaneInfo>> {
         let st = self.read()?;
         Ok(st
             .projects
             .get(project_id)
-            .and_then(|p| p.panes.get(selector).cloned()))
+            .and_then(|p| p.sessions.get(session_key))
+            .and_then(|s| s.panes.get(selector).cloned()))
     }
 
-    pub fn list_panes(&self, project_id: &str) -> Result<Vec<(String, PaneInfo)>> {
+    pub fn list_panes(
+        &self,
+        project_id: &str,
+        session_key: &str,
+    ) -> Result<Vec<(String, PaneInfo)>> {
         let st = self.read()?;
         Ok(st
             .projects
             .get(project_id)
-            .map(|p| p.panes.iter().map(|(s, i)| (s.clone(), i.clone())).collect())
+            .and_then(|p| p.sessions.get(session_key))
+            .map(|s| s.panes.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             .unwrap_or_default())
     }
 
-    pub fn project_state(&self, project_id: &str) -> Result<Option<ProjectState>> {
-        Ok(self.read()?.projects.get(project_id).cloned())
+    /// 列项目所有 session 的 pane (用于 list-panes --all)
+    pub fn list_panes_all(
+        &self,
+        project_id: &str,
+    ) -> Result<HashMap<String, Vec<(String, PaneInfo)>>> {
+        let st = self.read()?;
+        Ok(st
+            .projects
+            .get(project_id)
+            .map(|p| {
+                p.sessions
+                    .iter()
+                    .map(|(k, s)| {
+                        (
+                            k.clone(),
+                            s.panes
+                                .iter()
+                                .map(|(sel, info)| (sel.clone(), info.clone()))
+                                .collect(),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    pub fn session_state(
+        &self,
+        project_id: &str,
+        session_key: &str,
+    ) -> Result<Option<SessionState>> {
+        Ok(self
+            .read()?
+            .projects
+            .get(project_id)
+            .and_then(|p| p.sessions.get(session_key).cloned()))
     }
 
     /// 锁内: 读 → 修改 → 原子写
@@ -132,18 +193,37 @@ impl StateStore {
         Ok(())
     }
 
-    pub fn set_window(&self, project_id: &str, window_id: u64) -> Result<()> {
+    pub fn set_window(
+        &self,
+        project_id: &str,
+        session_key: &str,
+        window_id: u64,
+    ) -> Result<()> {
         let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
-        self.modify(|v| {
+        let pid = project_id.to_string();
+        let sk = session_key.to_string();
+        self.modify(move |v| {
+            // 先 migrate 老格式
+            migrate_in_place(v);
             let obj = v.as_object_mut().unwrap();
             let proj = obj
-                .entry(project_id.to_string())
+                .entry(pid)
+                .or_insert_with(|| serde_json::json!({"sessions": {}}));
+            let sessions = proj
+                .as_object_mut()
+                .unwrap()
+                .entry("sessions".to_string())
+                .or_insert(Value::Object(Map::new()))
+                .as_object_mut()
+                .unwrap();
+            let sess = sessions
+                .entry(sk)
                 .or_insert_with(|| serde_json::json!({"panes": {}, "started_at": now.clone()}));
-            let proj = proj.as_object_mut().unwrap();
-            proj.insert("wezterm_window_id".into(), Value::from(window_id));
-            proj.entry("started_at".to_string())
+            let sess = sess.as_object_mut().unwrap();
+            sess.insert("wezterm_window_id".into(), Value::from(window_id));
+            sess.entry("started_at".to_string())
                 .or_insert(Value::from(now.clone()));
-            proj.entry("panes".to_string())
+            sess.entry("panes".to_string())
                 .or_insert(Value::Object(Map::new()));
         })
     }
@@ -151,41 +231,108 @@ impl StateStore {
     pub fn add_pane(
         &self,
         project_id: &str,
+        session_key: &str,
         selector: &str,
         pane_id: u64,
         session_id: &str,
     ) -> Result<()> {
         let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
-        self.modify(|v| {
+        let pid = project_id.to_string();
+        let sk = session_key.to_string();
+        let sel = selector.to_string();
+        let sid = session_id.to_string();
+        self.modify(move |v| {
+            migrate_in_place(v);
             let obj = v.as_object_mut().unwrap();
             let proj = obj
-                .entry(project_id.to_string())
+                .entry(pid)
+                .or_insert_with(|| serde_json::json!({"sessions": {}}));
+            let sessions = proj
+                .as_object_mut()
+                .unwrap()
+                .entry("sessions".to_string())
+                .or_insert(Value::Object(Map::new()))
+                .as_object_mut()
+                .unwrap();
+            let sess = sessions
+                .entry(sk)
                 .or_insert_with(|| serde_json::json!({"panes": {}, "started_at": now.clone()}));
-            let proj = proj.as_object_mut().unwrap();
-            let panes = proj
+            let panes = sess
+                .as_object_mut()
+                .unwrap()
                 .entry("panes".to_string())
                 .or_insert(Value::Object(Map::new()))
                 .as_object_mut()
                 .unwrap();
             panes.insert(
-                selector.to_string(),
+                sel,
                 serde_json::json!({
                     "pane_id": pane_id,
-                    "session_id": session_id,
+                    "session_id": sid,
                     "started_at": now,
                 }),
             );
         })
     }
 
-    pub fn remove_pane(&self, project_id: &str, selector: &str) -> Result<()> {
-        self.modify(|v| {
-            if let Some(proj) = v.get_mut(project_id).and_then(|p| p.as_object_mut()) {
-                if let Some(panes) = proj.get_mut("panes").and_then(|p| p.as_object_mut()) {
-                    panes.remove(selector);
+    pub fn remove_pane(
+        &self,
+        project_id: &str,
+        session_key: &str,
+        selector: &str,
+    ) -> Result<()> {
+        let pid = project_id.to_string();
+        let sk = session_key.to_string();
+        let sel = selector.to_string();
+        self.modify(move |v| {
+            migrate_in_place(v);
+            if let Some(proj) = v.get_mut(&pid).and_then(|p| p.as_object_mut()) {
+                if let Some(sessions) = proj.get_mut("sessions").and_then(|s| s.as_object_mut()) {
+                    if let Some(sess) = sessions.get_mut(&sk).and_then(|s| s.as_object_mut()) {
+                        if let Some(panes) = sess.get_mut("panes").and_then(|p| p.as_object_mut()) {
+                            panes.remove(&sel);
+                        }
+                    }
                 }
             }
         })
+    }
+}
+
+/// 把 raw JSON Value 转 PanesState, 自动 migrate 老 schema
+fn parse_panes_state(mut raw: Value) -> PanesState {
+    migrate_in_place(&mut raw);
+    serde_json::from_value(raw).unwrap_or_default()
+}
+
+/// 老 schema 在项目对象顶层有 wezterm_window_id + panes (没有 sessions),
+/// 把它包到 sessions["default"] 下.
+fn migrate_in_place(v: &mut Value) {
+    let obj = match v.as_object_mut() {
+        Some(o) => o,
+        None => return,
+    };
+    for (_, proj) in obj.iter_mut() {
+        let proj_obj = match proj.as_object_mut() {
+            Some(o) => o,
+            None => continue,
+        };
+        // 已经是新 schema: 有 sessions 字段
+        if proj_obj.contains_key("sessions") {
+            continue;
+        }
+        // 老 schema: 移动 wezterm_window_id / started_at / panes 到 sessions["default"]
+        let mut default_session = serde_json::Map::new();
+        for k in ["wezterm_window_id", "started_at", "panes"] {
+            if let Some(val) = proj_obj.remove(k) {
+                default_session.insert(k.to_string(), val);
+            }
+        }
+        if !default_session.is_empty() {
+            let mut sessions = serde_json::Map::new();
+            sessions.insert(DEFAULT_SESSION_KEY.into(), Value::Object(default_session));
+            proj_obj.insert("sessions".into(), Value::Object(sessions));
+        }
     }
 }
 
@@ -199,6 +346,22 @@ pub fn project_id() -> String {
         .and_then(|p| p.canonicalize().ok())
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|| ".".into())
+}
+
+/// session_key: 优先 SSHOPS_SESSION_KEY > WEZTERM_PANE > DEFAULT_SESSION_KEY
+/// 一个 Claude 实例下所有 sshops 调用拿同一个 session_key, 自动隔离不同 Claude 的窗口
+pub fn current_session_key() -> String {
+    if let Ok(k) = std::env::var("SSHOPS_SESSION_KEY") {
+        if !k.is_empty() {
+            return k;
+        }
+    }
+    if let Ok(p) = std::env::var("WEZTERM_PANE") {
+        if !p.is_empty() {
+            return format!("wez:{p}");
+        }
+    }
+    DEFAULT_SESSION_KEY.to_string()
 }
 
 /// project_slug: basename(project_id), 文件名安全, 截 64 字符

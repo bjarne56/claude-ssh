@@ -9,6 +9,7 @@ use crate::session::strip_ansi;
 use crate::state::{project_id, StateStore};
 use crate::wezterm_mux::WezTermClient;
 use crate::{Error, Result};
+use crate::state::DEFAULT_SESSION_KEY;
 use regex::Regex;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -41,6 +42,7 @@ pub fn pane_open(
     sshops_home: &Path,
     wez: &WezTermClient,
     state: &StateStore,
+    session_key: &str,
     selector: &str,
     target: &SshTarget,
 ) -> Result<OpenedPane> {
@@ -49,7 +51,7 @@ pub fn pane_open(
     let pid = project_id();
 
     // 已存在? alive 则复用
-    if let Some(existing) = state.get_pane(&pid, selector)? {
+    if let Some(existing) = state.get_pane(&pid, session_key, selector)? {
         if wez.pane_alive(existing.pane_id) {
             let recorder = Recorder::open(cfg, &existing.session_id)?;
             return Ok(OpenedPane {
@@ -60,7 +62,7 @@ pub fn pane_open(
             });
         }
         // pane 失效, 清掉
-        state.remove_pane(&pid, selector)?;
+        state.remove_pane(&pid, session_key, selector)?;
     }
 
     // 录像准备
@@ -98,15 +100,34 @@ pub fn pane_open(
     let rec_argv = build_recorder_argv(sshops_home, &recorder.cast_path, &ssh_argv);
     let rec_argv_ref: Vec<&str> = rec_argv.iter().map(|s| s.as_str()).collect();
 
-    // spawn tab
+    // spawn pane: 该 session 是否已有窗口?
+    //   有且 alive → spawn_tab_in_window 在该窗口加新 tab
+    //   无 / 失效  → 第一次该 session, 强制 spawn_new_window 隔离
+    //   特例: session_key == DEFAULT_SESSION_KEY 时退回旧行为 (复用 active window)
     let cwd = std::env::current_dir()
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| "/".into());
-    let pane_id = wez.spawn_tab(&cwd, &rec_argv_ref)?;
 
-    // 写 window_id 到 state
+    let existing_window = state
+        .session_state(&pid, session_key)?
+        .map(|s| s.wezterm_window_id)
+        .filter(|w| *w > 0)
+        .filter(|w| wez.window_alive(*w));
+
+    let pane_id = if let Some(win) = existing_window {
+        // 该 Claude session 已有 wezterm 窗口, 在里面加新 tab
+        wez.spawn_tab_in_window(win, &cwd, &rec_argv_ref)?
+    } else if session_key == DEFAULT_SESSION_KEY {
+        // 无 session_key (非 wezterm 环境等), 退回旧行为: 用当前 active window
+        wez.spawn_tab(&cwd, &rec_argv_ref)?
+    } else {
+        // 第一次该 session: 强制开新窗口
+        wez.spawn_new_window(&cwd, &rec_argv_ref)?
+    };
+
+    // 写 window_id 到 state (按 session_key 隔离)
     if let Some(win) = wez.window_of_pane(pane_id) {
-        state.set_window(&pid, win)?;
+        state.set_window(&pid, session_key, win)?;
     }
 
     // tab 标题
@@ -161,7 +182,7 @@ pub fn pane_open(
     let _ = wez.set_user_var(pane_id, "sshops_session_id", &sid);
 
     // 持久化
-    state.add_pane(&pid, selector, pane_id, &sid)?;
+    state.add_pane(&pid, session_key, selector, pane_id, &sid)?;
 
     Ok(OpenedPane {
         pane_id,
@@ -175,16 +196,17 @@ pub fn pane_close(
     cfg: &Config,
     wez: &WezTermClient,
     state: &StateStore,
+    session_key: &str,
     selector: &str,
 ) -> Result<()> {
     let pid = project_id();
-    if let Some(info) = state.get_pane(&pid, selector)? {
+    if let Some(info) = state.get_pane(&pid, session_key, selector)? {
         let _ = wez.kill_pane(info.pane_id);
         if let Ok(rec) = Recorder::open(cfg, &info.session_id) {
             let _ = rec.finalize();
         }
     }
-    state.remove_pane(&pid, selector)?;
+    state.remove_pane(&pid, session_key, selector)?;
     Ok(())
 }
 

@@ -357,7 +357,8 @@ fn cmd_run_inproc(common: CommonArgs) -> Result<()> {
     let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
     let store = state::StateStore::new(&state_dir(&home))?;
     let target = build_target(&r);
-    let opened = pane::pane_open(&cfg, &home, &wez, &store, &r.sel.display, &target)?;
+    let session_key = state::current_session_key();
+    let opened = pane::pane_open(&cfg, &home, &wez, &store, &session_key, &r.sel.display, &target)?;
     let pane_id = opened.pane_id;
     let recorder = opened.recorder;
     log_step(if opened.reused { "pane_open (reused)" } else { "pane_open (spawn)" });
@@ -492,7 +493,8 @@ fn cmd_open_inproc(common: CommonArgs) -> Result<()> {
     let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
     let store = state::StateStore::new(&state_dir(&home))?;
     let target = build_target(&r);
-    let opened = pane::pane_open(&cfg, &home, &wez, &store, &r.sel.display, &target)?;
+    let session_key = state::current_session_key();
+    let opened = pane::pane_open(&cfg, &home, &wez, &store, &session_key, &r.sel.display, &target)?;
     let resp = json!({
         "selector": r.sel.display,
         "source": match r.sel.source { Source::Crt => "crt", Source::Tmp => "tmp" },
@@ -545,7 +547,8 @@ fn cmd_close_inproc(common: CommonArgs) -> Result<()> {
     let r = resolve(&common, false, &cfg)?;
     let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
     let store = state::StateStore::new(&state_dir(&home))?;
-    pane::pane_close(&cfg, &wez, &store, &r.sel.display)?;
+    let session_key = state::current_session_key();
+    pane::pane_close(&cfg, &wez, &store, &session_key, &r.sel.display)?;
     tracing::info!("closed: {}", r.sel.display);
     Ok(())
 }
@@ -590,8 +593,9 @@ fn cmd_peek_inproc(common: CommonArgs) -> Result<()> {
     let r = resolve(&common, false, &cfg)?;
     let store = state::StateStore::new(&state_dir(&home))?;
     let pid = state::project_id();
+    let session_key = state::current_session_key();
     let info = store
-        .get_pane(&pid, &r.sel.display)?
+        .get_pane(&pid, &session_key, &r.sel.display)?
         .ok_or_else(|| anyhow!("未找到 pane: {} (先 sshops open)", r.sel.display))?;
     let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
     if !wez.pane_alive(info.pane_id) {
@@ -649,15 +653,17 @@ fn cmd_list_panes_inproc() -> Result<()> {
     let home = sshops_home();
     let store = state::StateStore::new(&state_dir(&home))?;
     let pid = state::project_id();
-    let proj = store.project_state(&pid)?.unwrap_or_default();
-    let panes_obj: serde_json::Map<String, serde_json::Value> = proj
+    let session_key = state::current_session_key();
+    let sess = store.session_state(&pid, &session_key)?.unwrap_or_default();
+    let panes_obj: serde_json::Map<String, serde_json::Value> = sess
         .panes
         .iter()
         .map(|(s, info)| (s.clone(), serde_json::to_value(info).unwrap()))
         .collect();
     let resp = json!({
-        "wezterm_window_id": proj.wezterm_window_id,
-        "started_at": proj.started_at,
+        "session_key": session_key,
+        "wezterm_window_id": sess.wezterm_window_id,
+        "started_at": sess.started_at,
         "panes": panes_obj,
     });
     println!("{}", serde_json::to_string_pretty(&resp)?);
@@ -705,8 +711,9 @@ fn cmd_recent_inproc(common: CommonArgs, seconds: u64) -> Result<()> {
     let r = resolve(&common, false, &cfg)?;
     let store = state::StateStore::new(&state_dir(&home))?;
     let pid = state::project_id();
+    let session_key = state::current_session_key();
     let info = store
-        .get_pane(&pid, &r.sel.display)?
+        .get_pane(&pid, &session_key, &r.sel.display)?
         .ok_or_else(|| anyhow!("未找到 pane: {}", r.sel.display))?;
     let recorder = Recorder::open(&cfg, &info.session_id)?;
 

@@ -63,9 +63,9 @@ pub async fn get_pane_lock(
         .clone()
 }
 
-/// 构造 pane lock key
-pub fn pane_lock_key(project_id: &str, selector: &str) -> String {
-    format!("{project_id}|{selector}")
+/// 构造 pane lock key (含 session_key, 不同 Claude 的同 selector 不冲突)
+pub fn pane_lock_key(project_id: &str, session_key: &str, selector: &str) -> String {
+    format!("{project_id}|{session_key}|{selector}")
 }
 
 fn parse_args() -> bool {

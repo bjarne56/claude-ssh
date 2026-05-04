@@ -99,6 +99,40 @@ impl WezTermClient {
             .map_err(|e| Error::WezTerm(format!("parse pane id: {e} ({s})")))
     }
 
+    /// 在指定 window 内 spawn tab (--window-id <id>)
+    pub fn spawn_tab_in_window(&self, window_id: u64, cwd: &str, argv: &[&str]) -> Result<u64> {
+        let mut cmd = Command::new(&self.cli_path);
+        cmd.args([
+            "cli",
+            "spawn",
+            "--window-id",
+            &window_id.to_string(),
+            "--cwd",
+            cwd,
+            "--",
+        ]);
+        for a in argv {
+            cmd.arg(a);
+        }
+        let out = cmd.output()?;
+        if !out.status.success() {
+            return Err(Error::WezTerm(
+                String::from_utf8_lossy(&out.stderr).into_owned(),
+            ));
+        }
+        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        s.parse::<u64>()
+            .map_err(|e| Error::WezTerm(format!("parse pane id: {e} ({s})")))
+    }
+
+    /// 检查 window_id 是否存在 (任何 pane 的 window_id 匹配即可)
+    pub fn window_alive(&self, window_id: u64) -> bool {
+        match self.list() {
+            Ok(panes) => panes.iter().any(|p| p.window_id == window_id),
+            Err(_) => false,
+        }
+    }
+
     /// `--new-window` 模式
     pub fn spawn_new_window(&self, cwd: &str, argv: &[&str]) -> Result<u64> {
         let mut cmd = Command::new(&self.cli_path);

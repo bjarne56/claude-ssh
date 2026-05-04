@@ -14,6 +14,7 @@ pub fn build_ctx(home: &Path) -> ClientCtx {
         sshops_home: home.to_path_buf(),
         project_id: ssh_ops_core::state::project_id(),
         proto: PROTO_VERSION,
+        session_key: ssh_ops_core::state::current_session_key(),
     }
 }
 

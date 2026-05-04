@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// 协议版本: 不兼容时 daemon 拒绝旧 cli
-pub const PROTO_VERSION: u32 = 1;
+pub const PROTO_VERSION: u32 = 2;
 
 /// 默认 socket 路径: $SSHOPS_HOME/state/daemon.sock
 pub fn default_sock_path(sshops_home: &std::path::Path) -> PathBuf {
@@ -38,6 +38,14 @@ pub struct ClientCtx {
     pub project_id: String,
     /// 客户端协议版本
     pub proto: u32,
+    /// session_key: 区分多 Claude 实例 (优先 SSHOPS_SESSION_KEY > WEZTERM_PANE > "default")
+    /// 同 session 共用 wezterm 窗口 + tab, 不同 session 各自窗口
+    #[serde(default = "default_session_key")]
+    pub session_key: String,
+}
+
+fn default_session_key() -> String {
+    "default".to_string()
 }
 
 /// IPC 请求
@@ -228,6 +236,7 @@ mod tests {
                 sshops_home: PathBuf::from("/tmp"),
                 project_id: "/p".into(),
                 proto: PROTO_VERSION,
+                session_key: "wez:7".into(),
             },
             selector: SelectorSpec::Crt("@aws/edge".into()),
             cmd: "uptime".into(),

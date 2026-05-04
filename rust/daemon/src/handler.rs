@@ -42,7 +42,7 @@ pub async fn dispatch(req: IpcRequest, state: Arc<Mutex<DaemonState>>) -> IpcRes
             let panes_count = st
                 .as_ref()
                 .and_then(|st| st.read().ok())
-                .map(|ps| ps.projects.values().map(|p| p.panes.len()).sum())
+                .map(|ps| ps.projects.values().flat_map(|p| p.sessions.values()).map(|s| s.panes.len()).sum())
                 .unwrap_or(0);
             IpcResponse::Status(StatusInfo {
                 uptime_secs: s.started_at.elapsed().as_secs(),
@@ -172,7 +172,7 @@ async fn handle_run(
     }
 
     // 抢 per-pane 锁: 同 pane 的 run 串行化, 不同 pane 并行
-    let lock_key = pane_lock_key(&ctx.project_id, &sel.display);
+    let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel.display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
 
@@ -180,6 +180,7 @@ async fn handle_run(
     let sel_clone = sel.clone();
     let target = build_target(&sel, &auth_type, password);
     let project_id_str = ctx.project_id.clone();
+    let session_key = ctx.session_key.clone();
 
     let res = tokio::task::spawn_blocking(move || -> anyhow::Result<RunResp> {
         // 把 cli 端的 project_id 通过 env 注入 (state::project_id 优先读 env)
@@ -187,7 +188,7 @@ async fn handle_run(
 
         let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
         let store = StateStore::new(&state_dir(&home))?;
-        let opened = pane::pane_open(&cfg, &home, &wez, &store, &sel_clone.display, &target)?;
+        let opened = pane::pane_open(&cfg, &home, &wez, &store, &session_key, &sel_clone.display, &target)?;
         let recorder = opened.recorder;
         let pane_id = opened.pane_id;
 
@@ -274,8 +275,9 @@ async fn handle_open(
     let target = build_target(&sel, &auth_type, password);
     let sel_clone = sel.clone();
     let project_id_str = ctx.project_id.clone();
+    let session_key = ctx.session_key.clone();
 
-    let lock_key = pane_lock_key(&ctx.project_id, &sel.display);
+    let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel.display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
 
@@ -283,7 +285,7 @@ async fn handle_open(
         std::env::set_var("SSHOPS_PROJECT", &project_id_str);
         let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
         let store = StateStore::new(&state_dir(&home))?;
-        let opened = pane::pane_open(&cfg, &home, &wez, &store, &sel_clone.display, &target)?;
+        let opened = pane::pane_open(&cfg, &home, &wez, &store, &session_key, &sel_clone.display, &target)?;
         Ok(OpenResp {
             selector: sel_clone.display.clone(),
             source: match sel_clone.source {
@@ -324,8 +326,9 @@ async fn handle_close(
     };
     let project_id_str = ctx.project_id.clone();
     let sel_display = sel.display.clone();
+    let session_key = ctx.session_key.clone();
 
-    let lock_key = pane_lock_key(&ctx.project_id, &sel_display);
+    let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel_display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
 
@@ -333,7 +336,7 @@ async fn handle_close(
         std::env::set_var("SSHOPS_PROJECT", &project_id_str);
         let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
         let store = StateStore::new(&state_dir(&home))?;
-        pane::pane_close(&cfg, &wez, &store, &sel_display)?;
+        pane::pane_close(&cfg, &wez, &store, &session_key, &sel_display)?;
         Ok(())
     })
     .await??;
@@ -357,9 +360,10 @@ async fn handle_peek(
     };
     let project_id_str = ctx.project_id.clone();
     let sel_display = sel.display.clone();
+    let session_key = ctx.session_key.clone();
 
     // peek 加锁: 等同 pane 的 run/open/close 完成, 避免读到执行中状态
-    let lock_key = pane_lock_key(&ctx.project_id, &sel_display);
+    let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel_display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
 
@@ -368,7 +372,7 @@ async fn handle_peek(
         let store = StateStore::new(&state_dir(&home))?;
         let pid = state::project_id();
         let info = store
-            .get_pane(&pid, &sel_display)?
+            .get_pane(&pid, &session_key, &sel_display)?
             .ok_or_else(|| anyhow::anyhow!("未找到 pane: {sel_display}"))?;
         let wez = WezTermClient::new(cfg.wezterm.cli_path.clone());
         if !wez.pane_alive(info.pane_id) {
@@ -392,12 +396,13 @@ async fn handle_list_panes(
     }
     let home = { state.lock().await.home.clone() };
     let project_id_str = ctx.project_id.clone();
+    let session_key = ctx.session_key.clone();
     let resp = tokio::task::spawn_blocking(move || -> anyhow::Result<PanesResp> {
         std::env::set_var("SSHOPS_PROJECT", &project_id_str);
         let store = StateStore::new(&state_dir(&home))?;
         let pid = state::project_id();
-        let proj = store.project_state(&pid)?.unwrap_or_default();
-        let panes: Vec<(String, PaneEntry)> = proj
+        let sess = store.session_state(&pid, &session_key)?.unwrap_or_default();
+        let panes: Vec<(String, PaneEntry)> = sess
             .panes
             .iter()
             .map(|(s, info)| {
@@ -412,8 +417,8 @@ async fn handle_list_panes(
             })
             .collect();
         Ok(PanesResp {
-            wezterm_window_id: proj.wezterm_window_id,
-            started_at: proj.started_at,
+            wezterm_window_id: sess.wezterm_window_id,
+            started_at: sess.started_at,
             panes,
         })
     })
@@ -439,9 +444,10 @@ async fn handle_recent(
     };
     let project_id_str = ctx.project_id.clone();
     let sel_display = sel.display.clone();
+    let session_key = ctx.session_key.clone();
 
     // recent 加锁: 等同 pane 的 run 完成, 避免读到一半 cast
-    let lock_key = pane_lock_key(&ctx.project_id, &sel_display);
+    let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel_display);
     let pane_lock = get_pane_lock(&state, &lock_key).await;
     let _pane_guard = pane_lock.lock().await;
 
@@ -450,7 +456,7 @@ async fn handle_recent(
         let store = StateStore::new(&state_dir(&home))?;
         let pid = state::project_id();
         let info = store
-            .get_pane(&pid, &sel_display)?
+            .get_pane(&pid, &session_key, &sel_display)?
             .ok_or_else(|| anyhow::anyhow!("未找到 pane: {sel_display}"))?;
         let recorder = Recorder::open(&cfg, &info.session_id)?;
         let size = recorder.cast_size();
