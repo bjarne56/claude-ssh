@@ -105,7 +105,11 @@ futures-lite = "2.3"
 futures-util = "0.3"
 gethostname = "0.5"
 getrandom = "0.3.1"
-git2 = { version = "0.20", default-features = false, features = ["https"] }
+# ssh-ops fork: 加 vendored-libgit2 让 git2 crate 编译自带 libgit2 源码,
+# 不依赖 system /opt/homebrew/Cellar/libgit2/<ver>/lib (brew upgrade 会换路径
+# 导致 cargo cache 链接命令找不到旧库). 编译时间 +1min, binary 体积 +~5MB,
+# 但消除版本敏感性 + 跨机器一致.
+git2 = { version = "0.20", default-features = false, features = ["https", "vendored-libgit2"] }
 gl_generator = "0.14"
 glium = { version = "0.35", default-features = false }
 governor = {version="0.5", default-features=false, features=["std"]}
