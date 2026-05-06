@@ -1,10 +1,16 @@
 //! 会话执行: 注入命令 + 等 cast prompt + 切片输出
 //!
-//! 设计同 bash 版 cmd_run:
+//! 设计:
 //!   1. 记 start_byte = cast 文件大小 (cast-recorder 立即 flush, 字节边界精准)
-//!   2. send_text 注入命令
-//!   3. 轮询 cast 文件 tail 直到看到 shell prompt (`# ` / `$ `) 出现两次 (稳定)
-//!   4. 等 cast flush 稳定后, 从 start_byte 提取所有 'o' 事件拼接, strip ANSI, 去首末行
+//!   2. send_text 直接注入命令 (无 marker 包装, 命令在 pane 显示干净)
+//!   3. 轮询 cast 末尾, 见到 shell prompt 稳定 (1 个无变化窗口) 即认为命令完成
+//!   4. 从 start_byte 提取所有 'o' 事件 → strip ANSI → 去首行 (命令 echo) + 末行 (prompt)
+//!
+//! 取舍 (vs 旧 BEGIN/END marker 协议):
+//!   - exit code 拿不到, 统一 0 (超时 -1). marker 时代靠 `END_<nonce>=$?` 解析.
+//!   - 多用户共享 pane 时切片精度下降 (用户在两次 sshops run 中间手敲会污染输出).
+//!     ssh-ops 的 recent_human_activity 检测仍能在 commands.jsonl 里区分 ai/human 行为.
+//!   - 收益: 命令注入显示干净, 不再有 `{ printf BEGIN; ...; printf END=$?; }` 长包装.
 
 use crate::recorder::Recorder;
 use crate::wezterm_mux::WezTermClient;
@@ -39,101 +45,43 @@ pub fn execute(
     let t0 = Instant::now();
     let start_byte = recorder.cast_size();
 
-    // marker 协议: BEGIN + END 两个 marker 精确切片
-    // - 命令 echo (PTY 回显, 可能被 wezterm wrap 跨行) 必在 BEGIN 之前
-    // - 命令真实输出在 BEGIN 之后, END 之前
-    // - END 行包含 exit code
-    // 用 printf 拼接打散 marker 字符串避免命令 echo 误判
-    let mut nonce_bytes = [0u8; 8];
-    use rand::RngCore;
-    rand::thread_rng().fill_bytes(&mut nonce_bytes);
-    let nonce: String = nonce_bytes.iter().map(|b| format!("{b:02x}")).collect();
-    let begin_marker = format!("SSHOPS_BEGIN_{nonce}");
-    let end_marker_prefix = format!("SSHOPS_END_{nonce}=");
-    // wrapped 命令:
-    //   { printf '%s_%s\n' 'SSHOPS' 'BEGIN_<nonce>'; <cmd>; printf '%s_%s=%d\n' 'SSHOPS' 'END_<nonce>' $?; }
-    // echo 行: 含 `SSHOPS` 'BEGIN_xxx'` (引号隔开), 不含完整 `SSHOPS_BEGIN_xxx` 子串
-    // 执行后输出: `SSHOPS_BEGIN_<nonce>\n<cmd output>\nSSHOPS_END_<nonce>=0\n`
-    let wrapped = format!(
-        "{{ printf '%s_%s\\n' 'SSHOPS' 'BEGIN_{nonce}'; {cmd}; printf '%s_%s=%d\\n' 'SSHOPS' 'END_{nonce}' $?; }}\r"
-    );
+    // 直接注入命令 (\r 触发执行), 不再用 BEGIN/END marker 包装
+    let injected = format!("{cmd}\r");
 
     let t1 = Instant::now();
-    wez.send_text(pane_id, &wrapped)?;
+    wez.send_text(pane_id, &injected)?;
     log("send_text", t1.elapsed().as_micros() as f64 / 1000.0);
 
-    // 等 END marker 出现 (BEGIN 已在 cast, 不需单独等)
+    // 等 prompt 出现且稳定作终止信号
     let t2 = Instant::now();
-    let marker_result = wait_for_marker(recorder, start_byte, &end_marker_prefix, timeout);
-    log("wait_for_marker", t2.elapsed().as_micros() as f64 / 1000.0);
+    let prompt_seen = wait_prompt_and_stable(recorder, start_byte, timeout);
+    log("wait_prompt", t2.elapsed().as_micros() as f64 / 1000.0);
 
     let t4 = Instant::now();
     let end_byte = recorder.cast_size();
     let raw = recorder.extract_output(start_byte, end_byte)?;
     log("extract_output", t4.elapsed().as_micros() as f64 / 1000.0);
 
-    // 切片: 找 BEGIN 行 + END 行, output = (BEGIN, END) 之间
+    // 切片: 去首行 (命令 echo) + 末行 (prompt 行)
     let cleaned = strip_ansi(&raw);
-    let lines: Vec<&str> = cleaned.lines().collect();
-
-    let begin_idx = lines.iter().rposition(|line| line.contains(&begin_marker));
-    let end_idx_and_exit = lines.iter().enumerate().find_map(|(i, line)| {
-        line.find(&end_marker_prefix).and_then(|pos| {
-            line[pos + end_marker_prefix.len()..]
-                .split_whitespace()
-                .next()
-                .and_then(|s| s.parse::<i32>().ok())
-                .map(|e| (i, e))
-        })
-    });
-    let exit_code = end_idx_and_exit.map(|(_, e)| e).unwrap_or(if marker_result.is_some() { 0 } else { -1 });
-
-    let output = match (begin_idx, end_idx_and_exit) {
-        (Some(b), Some((e, _))) if e > b + 1 => lines[b + 1..e].join("\n"),
-        // BEGIN 没找到 (意外); 退回老切片 (去首尾)
-        (None, Some((e, _))) => {
-            let mut ls = lines.clone();
-            ls.truncate(e);
-            if !ls.is_empty() { ls.remove(0); }
-            ls.join("\n")
-        }
-        _ => String::new(),
-    };
+    let mut lines: Vec<&str> = cleaned.lines().collect();
+    if !lines.is_empty() {
+        lines.remove(0); // 命令 echo
+    }
+    if !lines.is_empty() {
+        lines.pop(); // prompt 行
+    }
+    let output = lines.join("\n");
 
     Ok(ExecuteOutcome {
         output,
-        exit: exit_code,
+        exit: if prompt_seen { 0 } else { -1 },
         duration_ms: t0.elapsed().as_millis() as u64,
         cast_offset: recorder.cast_offset(),
         start_byte,
         end_byte,
-        timed_out: marker_result.is_none(),
+        timed_out: !prompt_seen,
     })
-}
-
-/// 等 cast 末尾出现 marker_prefix (如 "SSHOPS_END_<nonce>=")
-/// 用 SessionParser 增量 polling cast 文件 (5ms 间隔, 接近物理极限)
-pub fn wait_for_marker(
-    recorder: &Recorder,
-    start_byte: u64,
-    marker_prefix: &str,
-    timeout: Duration,
-) -> Option<()> {
-    use crate::incremental_parser::SessionParser;
-    let deadline = Instant::now() + timeout;
-    let poll = Duration::from_millis(5);
-    let mut parser = SessionParser::new(start_byte);
-    while Instant::now() < deadline {
-        let cur = recorder.cast_size();
-        if cur > parser.cursor() {
-            let _ = parser.poll_until(recorder, cur);
-        }
-        if parser.out_tail_str().contains(marker_prefix) {
-            return Some(());
-        }
-        std::thread::sleep(poll);
-    }
-    None
 }
 
 /// 紧 polling: 20ms 间隔扫 cast 末尾, 看到 prompt + 1 个无变化窗口即退出
