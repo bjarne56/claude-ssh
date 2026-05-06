@@ -1,141 +1,140 @@
-# ssh-ops
+# claude-ssh
 
-Claude Code 通过 **WezTerm-SSH** (WezTerm fork) 进行 SSH 远程运维的 skill。
+A Claude Code skill for SSH remote operations via **WezTerm-SSH** (a WezTerm fork).
 
-- **每个 CC 项目** 对应一个 WezTerm-SSH 窗口,**每台主机** 对应一个 pane
-- pane 持有真 PTY,**字符级实时画面**,用户肉眼盯着看
-- skill 通过 `WezTerm-SSH-cli send-text` 注入命令,通过 marker 切片回抓输出给 Claude
-- 全程 **asciinema 录制**(命令级索引另存)
-- 不写 `~/.ssh/config`、不缓存主机信息、所有 UI 在 WezTerm-SSH 内
+- **One WezTerm-SSH window per Claude Code project**, **one pane per remote host**
+- Each pane holds a real PTY — character-level live view that the user can watch
+- Commands are injected via `WezTerm-SSH-cli send-text` and the output is sliced back to Claude using marker delimiters
+- **Full asciinema recording** of every session, with a separate command-level index
+- Does not write `~/.ssh/config`, does not cache host info — all UI lives inside WezTerm-SSH
 
-> 状态:**Phase 1a**(MVP 主链可用,临时参数模式)。Phase 1b 起接入 SecureCRT。完整路线见 [`docs/Implementation_Plan.md`](docs/Implementation_Plan.md)。
+> Status: **Phase 1a** (MVP main loop works in temporary-args mode). Phase 1b adds SecureCRT integration. Full roadmap in [`docs/Implementation_Plan.md`](docs/Implementation_Plan.md).
 
-> **关于 WezTerm vs WezTerm-SSH**: 本项目 `wezterm-src/` 是 WezTerm 的 fork, 编译并部署后产出三个改名后的二进制和独立 bundle, 跟原版 WezTerm **完全 namespace 隔离** (独立 socket / data / window class / bundle id), 可与官方 WezTerm 共存:
+> **WezTerm vs WezTerm-SSH**: `wezterm-src/` is a fork of WezTerm. After build & deploy it produces three renamed binaries inside an isolated `.app` bundle, **fully namespace-isolated** from upstream WezTerm (separate socket / data dir / window class / bundle id), so it can coexist with the official WezTerm:
 >
-> | 部分 | WezTerm-SSH (本 fork) | 上游 WezTerm |
+> | Component | WezTerm-SSH (this fork) | Upstream WezTerm |
 > |---|---|---|
 > | macOS bundle | `~/Applications/WezTerm-SSH.app` | `/Applications/WezTerm.app` |
 > | Bundle id | `com.wezterm-ssh.gui` | `com.github.wez.wezterm` |
 > | GUI binary | `WezTerm-SSH` | `wezterm-gui` |
-> | CLI 子命令 | `WezTerm-SSH-cli` | `wezterm` |
+> | CLI subcommand | `WezTerm-SSH-cli` | `wezterm` |
 > | mux server | `WezTerm-SSH-mux` | `wezterm-mux-server` |
 > | runtime dir | `~/.local/share/WezTerm-SSH/` | `~/.local/share/wezterm/` |
 >
-> ssh-ops 业务 CLI (`bin/sshops`) 跟 fork 的 GUI bundle 不冲突 — 前者是 PATH 里的 shell/Rust binary, 后者走 `~/Applications/WezTerm-SSH.app`.
+> The ssh-ops business CLI (`bin/sshops`) does not collide with the GUI bundle — the former is a shell/Rust binary on `PATH`, the latter lives in `~/Applications/WezTerm-SSH.app`.
 
-## 安装
+## Install
 
-### 1. 系统依赖
+### 1. System dependencies
 
 ```bash
-# macOS — 注意 *不要* 装上游 wezterm cask, 本项目用 wezterm-src/ fork
+# macOS — note: do NOT install the upstream wezterm cask, this project uses the wezterm-src/ fork
 brew install asciinema jq
-brew install hudochenkov/sshpass/sshpass   # 可选,用 --password 才需要
-brew install pass                          # 可选,密码后端
+brew install hudochenkov/sshpass/sshpass   # optional, only required if you use --password
+brew install pass                          # optional, password backend
 
-# Rust 工具链 (本地构建 wezterm-src fork 用)
+# Rust toolchain (needed to build the wezterm-src fork locally)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# 系统设置开启 "远程登录"(用于 self-test 的 ssh localhost)
+# Enable "Remote Login" so self-test can ssh localhost
 # System Settings → General → Sharing → Remote Login
-# 把当前用户的公钥加进 ~/.ssh/authorized_keys
+# Add your public key to ~/.ssh/authorized_keys
 ```
 
-> bash:**3.2 / 4 / 5 全部兼容**。macOS 系统自带 `/bin/bash` 3.2 即可,brew bash 5.x 也跑得通。空数组 + `set -u` 的 corner case 已显式守护。已实测 3.2.57 和 5.3.9。
+> bash: **3.2 / 4 / 5 all supported**. The macOS default `/bin/bash` 3.2 is fine; brew bash 5.x works too. Empty-array + `set -u` corner cases are explicitly guarded. Tested on 3.2.57 and 5.3.9.
 
-### 2. 一键安装 (含 wezterm-src fork 构建 + 部署)
+### 2. One-line install (builds & deploys the wezterm-src fork)
 
 ```bash
-cd /Users/<u>/Code/ssh-ops
+git clone https://github.com/bjarne56/claude-ssh ~/Code/ssh-ops
+cd ~/Code/ssh-ops
 bash install.sh
 ```
 
-`install.sh` 是**幂等**的, 反复跑只会跳过已就位项. 它会:
+`install.sh` is **idempotent** — running it repeatedly only skips already-deployed pieces. It will:
 
-1. 检查 asciinema/jq/ssh/cargo 等系统依赖
-2. **(macOS)** 跑 `wezterm-src/install-local.sh` 编译 + 部署 WezTerm-SSH bundle:
-   - `cargo build --release` 三个核心 crate (wezterm/wezterm-gui/wezterm-mux-server, ~2 分钟初次编译)
-   - 部署到 `~/Applications/WezTerm-SSH.app/Contents/MacOS/{WezTerm-SSH, WezTerm-SSH-cli, WezTerm-SSH-mux}`
-   - ad-hoc codesign + `lsregister -f` 刷新 LaunchServices
-   - `~/.local/bin/{WezTerm-SSH-cli, WezTerm-SSH-mux}` 部署 wrapper 脚本 (exec 进 .app, macOS 才能正确关联 .app icon)
-3. 部署 skill 到 `~/.claude/skills/sshops/`(slash 命令是 `/sshops`)
-   - `SKILL.md` 按系统 locale 选 description 翻译(31 种语言, 见 `skill-locales/descriptions.json`)
-   - 不存在的 locale fallback 到英文
-   - 业务文件 `bin/` `rust/` 等 symlink 到源仓库
-4. 写入 PATH 到 `~/.zshenv` (`~/Code/ssh-ops/bin` + `~/.local/bin` 各自幂等)
+1. Verify system dependencies (asciinema/jq/ssh/cargo/...) and `brew install` missing ones automatically (macOS)
+2. **(macOS)** Run `wezterm-src/install-local.sh` to build & deploy the WezTerm-SSH bundle:
+   - `cargo build --release` for the three core crates (wezterm/wezterm-gui/wezterm-mux-server, ~2 min on first build)
+   - Deploy to `~/Applications/WezTerm-SSH.app/Contents/MacOS/{WezTerm-SSH, WezTerm-SSH-cli, WezTerm-SSH-mux}`
+   - ad-hoc codesign + `lsregister -f` to refresh LaunchServices
+   - Install wrapper scripts under `~/.local/bin/{WezTerm-SSH-cli, WezTerm-SSH-mux}` (they `exec` into the .app so macOS can correctly associate the icon)
+3. Deploy the skill to `~/.claude/skills/sshops/` (slash command is `/sshops`)
+   - `SKILL.md` description is auto-translated based on system locale (31 languages, see `skill-locales/descriptions.json`)
+   - Unknown locales fall back to English
+   - Business files (`bin/`, `rust/`, ...) are symlinked to the source repo
+4. Append PATH entries to `~/.zshenv` (`~/Code/ssh-ops/bin` and `~/.local/bin`, both idempotent)
 
-完成后:
-
-```bash
-source ~/.zshenv          # 让 PATH 立即生效 (新开 shell 也行)
-sshops setup              # 交互式向导写 config.json
-open -a WezTerm-SSH       # 启动 GUI (双击 .app 同效果)
-```
-
-**Claude Code 中调用:**
-
-```
-/sshops <你的请求>          # 例: /sshops 帮我连 10.0.0.5 跑一下 uname
-```
-
-slash 命令名 `sshops` 跟 SKILL 目录名 + frontmatter `name` 一致。skill 列表
-显示的描述按你的系统 locale 自动选择(macOS `defaults read -g AppleLocale`,
-Linux `$LANG`)。
-
-**安装可选项:**
+After install:
 
 ```bash
-bash install.sh --no-build-wezterm        # 跳过 wezterm 构建 (已部署或 Linux)
-bash install.sh --link-only               # 只重链 skill (跳过依赖检查 + wezterm 构建)
-bash install.sh --locale en               # 强制英文 description (默认: 系统 locale)
-bash install.sh --link-only --locale ja   # 切日文 description, 不重编译
+source ~/.zshenv          # apply PATH immediately (or just open a new shell)
+sshops setup              # interactive wizard to write config.json
+open -a WezTerm-SSH       # launch the GUI (double-clicking the .app does the same)
 ```
 
-**多语言 description 维护:**
+**Invoke from Claude Code:**
 
-所有 31 种语言的 description 集中在 `skill-locales/descriptions.json`(英文 +
-简繁中文 + 日韩法德西意葡俄乌等共 32 条 KV)。加新语言只需往 JSON 加一行,
-正文 `SKILL.md` 是英文 master, 改正文只改一处.
+```
+/sshops <your request>          # e.g. /sshops connect to 10.0.0.5 and run uname
+```
 
-### 3. 验证
+The slash command name `sshops` matches the skill directory name and the `name` field in `SKILL.md` frontmatter. The description shown in the skill list is picked automatically from your system locale (macOS uses `defaults read -g AppleLocale`, Linux uses `$LANG`).
+
+**Install options:**
+
+```bash
+bash install.sh --no-build-wezterm        # skip wezterm build (already deployed, or running on Linux)
+bash install.sh --link-only               # only relink the skill (skip dep check + wezterm build)
+bash install.sh --locale en               # force English description (default: system locale)
+bash install.sh --link-only --locale ja   # switch description to Japanese, no rebuild
+bash install.sh --status                  # show current deployment state
+bash install.sh --uninstall               # remove all installed parts (asks for confirmation)
+```
+
+**Multi-language description maintenance:**
+
+All 31 description translations live in a single file: `skill-locales/descriptions.json` (English + Simplified/Traditional Chinese + Japanese, Korean, French, German, Spanish, Italian, Portuguese, Russian, Ukrainian, etc., 32 KV entries total). Adding a new language requires only one new line in the JSON. The body of `SKILL.md` is the English master — to update wording, edit it in one place.
+
+### 3. Verify
 
 ```bash
 bash tests/self-test.sh
 ```
 
-通过则说明 marker 切片 + 录像 + state 写入主链全部 OK。
+Passing means marker slicing + recording + state writes are all working end-to-end.
 
-## 使用
+## Usage
 
-### Claude 自动调用
+### Claude calls automatically
 
-在 Claude Code 对话里描述任务,Claude 据 [`SKILL.md`](SKILL.md) 决策何时使用本 skill。例:
+Describe the task in your Claude Code chat. Based on [`SKILL.md`](SKILL.md), Claude decides when to invoke this skill. For example:
 
-> 帮我连一下 10.1.2.3,跑一下 uptime 看看负载,顺便录像。
+> Connect to 10.1.2.3, run uptime to check the load, and record it.
 
-Claude 会调:
+Claude will run:
 
 ```bash
 sshops run --host 10.1.2.3 --user ec2-user --key ~/.ssh/aws.pem "uptime"
 ```
 
-### CLI 直接用
+### Direct CLI usage
 
 ```bash
-# 跑一条短命令
+# Run a short command
 sshops run --host 10.1.2.3 --user root --key ~/.ssh/k.pem "uptime"
 
-# 仅 spawn pane,不跑命令(后续手敲)
+# Just spawn a pane, no command (you'll type interactively)
 sshops open --host 10.1.2.3 --user root --key ~/.ssh/k.pem
 
-# 关 pane
+# Close the pane
 sshops close --host 10.1.2.3 --user root --port 22
 
-# 列当前项目所有 pane
+# List all panes for the current project
 sshops list-panes
 ```
 
-JSON 输出:
+JSON output:
 
 ```json
 {
@@ -149,7 +148,7 @@ JSON 输出:
 }
 ```
 
-被拦截:
+When blocked:
 
 ```json
 {
@@ -162,90 +161,106 @@ JSON 输出:
 }
 ```
 
-## 安全栏杆
+## Safety guards
 
-内置危险命令模式拦截(`rm -rf /`、`reboot`、`mkfs`、`dd of=/dev/`、`shutdown`、`:(){`、`chmod -R 777 /` 等,可在 `config.json` 自定义)。
+Built-in dangerous-command interceptor (`rm -rf /`, `reboot`, `mkfs`, `dd of=/dev/`, `shutdown`, `:(){`, `chmod -R 777 /`, etc., customizable in `config.json`).
 
-| 场景 | 行为 |
+| Scenario | Behavior |
 |---|---|
-| 危险 + `--prod` 标志 + 无 `--i-mean-it` | **拒绝**,exit 5 |
-| 危险 + `--prod` + `--i-mean-it` | 警告但放行 |
-| 危险 + 非 prod | 警告但放行 |
+| Dangerous + `--prod` flag + no `--i-mean-it` | **Refused**, exit 5 |
+| Dangerous + `--prod` + `--i-mean-it` | Warns but allows |
+| Dangerous + non-prod | Warns but allows |
 
-`--i-mean-it` Claude 不会主动加,必须用户在对话里明确确认。
+`--i-mean-it` is **never** added by Claude on its own — the user must explicitly confirm in chat.
 
-## 项目布局
+## Project layout
 
 ```
-ssh-ops/
-├── SKILL.md               Claude 决策手册
-├── README.md              本文档
+claude-ssh/
+├── SKILL.md               Claude decision manual (English master)
+├── README.md              this file
+├── LICENSE                MIT
 ├── bin/
-│   ├── sshops             业务 CLI dispatcher (bash, 透传业务子命令到 Rust)
-│   └── sshops-setup       初始化向导
-├── rust/                  业务实现 (Rust + daemon 模式, 唯一主路径)
-│   ├── core/              共享业务逻辑 (config / state / pane / wezterm_mux / safety / recorder ...)
-│   ├── bin/               sshops-rs binary (短命 CLI)
-│   └── daemon/            sshops-daemon (持久 IPC)
-├── wezterm-src/           WezTerm fork → WezTerm-SSH (子目录, 独立 git 仓库)
-│   └── install-local.sh   本地构建 + 部署 ~/Applications/WezTerm-SSH.app
-├── cast-player/           Tauri 录像回放 GUI (独立)
-├── config.example.json    配置模板
-├── install.sh             依赖检测 + 调用 wezterm-src/install-local.sh + skill symlink
-├── tests/self-test.sh     localhost echo 冒烟
+│   ├── sshops             business CLI dispatcher (bash, forwards subcommands to Rust)
+│   └── sshops-setup       interactive setup wizard
+├── rust/                  business implementation (Rust + daemon, primary path)
+│   ├── core/              shared logic (config / state / pane / wezterm_mux / safety / recorder ...)
+│   ├── bin/               sshops-rs binary (short-lived CLI)
+│   └── daemon/            sshops-daemon (persistent IPC)
+├── wezterm-src/           WezTerm fork → WezTerm-SSH (subdirectory, merged into this repo)
+│   └── install-local.sh   local build + deploy ~/Applications/WezTerm-SSH.app
+├── cast-player/           Tauri-based recording replay GUI (32-locale i18n)
+├── lua/                   keyword-highlight rules for WezTerm-SSH
+├── skill-locales/
+│   └── descriptions.json  31-language SKILL frontmatter descriptions
+├── tools/                 SecureCRT .ini → wezterm rules converter
+├── config.example.json    config template
+├── install.sh             dependency check + wezterm-src build + skill deploy (idempotent)
+├── tests/self-test.sh     localhost echo smoke test
 └── docs/
-    ├── PROJECT_OVERVIEW.md  架构总览
-    └── Implementation_Plan.md  任务级状态
+    ├── PROJECT_OVERVIEW.md   architecture overview
+    └── Implementation_Plan.md task-level status
 ```
 
-录像数据(运行时产生,不入库)默认放在**当前项目根的 `.ssh-ops/recordings/<session_id>/`**(跟项目绑定,clone/move 时一起带走;首次写录像时 skill 会自动给项目根 `.gitignore` 追加 `.ssh-ops/` 排除项)。
+Recording data (produced at runtime, not committed) defaults to **`<project>/.ssh-ops/recordings/<session_id>/`** in the current project root. The skill auto-appends `.ssh-ops/` to the project's `.gitignore` on first write.
 
-如果你希望**全局集中存储**(所有项目录到同一位置,适合统一审计):在 `config.json` 里设 `"log_dir": "~/.ssh-recordings"`(或任意路径),目录结构为 `<log_dir>/<project_slug>/<session_id>/`。
+If you prefer **centralized storage** (all projects record to one location, useful for unified auditing), set `"log_dir": "~/.ssh-recordings"` in `config.json`. The directory structure becomes `<log_dir>/<project_slug>/<session_id>/`.
 
-## 默认审计方案(无需改目标主机)
+## Default audit scheme (no remote-host changes required)
 
-skill **不需要在目标主机新建账号**,默认方案完全基于已有的 SecureCRT 配置 + PS1 字符串审计 + asciinema 录像:
+The skill **does not require creating new accounts on the target host**. The default scheme uses your existing SecureCRT config + PS1 string audit + asciinema recording:
 
-| 信号 | 值 |
+| Signal | Value |
 |---|---|
-| ssh 登录用户 | 来自 SecureCRT .ini(如 roy)|
-| auto_sudo 切 root | 默认开启,目标主机需配 NOPASSWD 或 pane 内手输 sudo 密码 |
-| 远端 PS1 prompt | `[root(roy:claude)@host ~]#` 或 `[roy(roy:claude)@host ~]$` |
-| 录像 | 项目内 `.ssh-ops/recordings/<session-id>/`(stream.cast + commands.jsonl + meta.json) |
+| ssh login user | from SecureCRT .ini (e.g. `roy`) |
+| auto_sudo to root | enabled by default; the target host needs NOPASSWD configured, or you type the sudo password manually in the pane |
+| Remote PS1 prompt | `[root(roy:claude)@host ~]#` or `[roy(roy:claude)@host ~]$` |
+| Recording | `<project>/.ssh-ops/recordings/<session-id>/` (stream.cast + commands.jsonl + meta.json) |
 
-`(roy:claude)` 这个 prompt 信号意思是「**原 ssh 登录是 roy,当前操作者是 claude (AI)**」 — 谁查 asciinema 回放或站旁边看 pane 都能立即识别 AI vs 人的操作。生产环境通常没权限在目标主机新建账号,这套基于现有账号 + PS1 字符串审计 + 完整录像的方案就是标准做法。
+The `(roy:claude)` prompt segment means "**original ssh login is `roy`, current operator is `claude` (AI)**" — anyone watching the asciinema replay or sitting next to the pane can immediately tell AI from human. In production environments where you usually can't create new accounts on target hosts, this scheme (existing account + PS1 string audit + full recording) is the standard approach.
 
 ---
 
-## 路线图
+## Roadmap
 
-- **Phase 1a** ✅ 临时参数 + marker + 录像 + 安全栏杆
-- **Phase 1b** SecureCRT 接入(`@路径` / 关键词 / 跳板机 / SSH2.ini 全局回退)
+- **Phase 1a** ✅ Temporary args + marker slicing + recording + safety guards
+- **Phase 1b** SecureCRT integration (`@path` / keyword / jumphost / SSH2.ini global fallback)
 - **Phase 2** `bg` `fan` `health` `sync` `grid` `push/pull` `forward`
-- **Phase 3** 回放 / 搜索 / 标注 / retention gc
-- **Phase 4** WezTerm Lua 视觉(AI/HUMAN/REPLAY 边框色 + 回放快捷键)
+- **Phase 3** Replay / search / annotate / retention gc
+- **Phase 4** WezTerm Lua visuals (AI/HUMAN/REPLAY border colors + replay key bindings)
 
-## 常见问题
+## FAQ
 
-**问:Claude 调 sshops 失败,提示 "WezTerm-SSH-cli 不通"。**
-答:WezTerm-SSH GUI 是否启动?skill 自带 `open -a WezTerm-SSH` 重试 5 秒,失败说明 fork 未部署 — 跑 `bash wezterm-src/install-local.sh` 重新部署即可 (幂等)。
+**Q: Claude calls sshops and gets "WezTerm-SSH-cli not reachable".**
+A: Is the WezTerm-SSH GUI running? The skill auto-runs `open -a WezTerm-SSH` and retries for 5 seconds; if that fails, the fork isn't deployed — run `bash wezterm-src/install-local.sh` to redeploy (idempotent).
 
-**问:命令注入超时(`exit 4`)。**
-答:目标命令是 TUI(`vim` `top`)或长任务。Phase 2 用 `sshops bg`,目前先 `sshops close` + 手敲 SecureCRT。
+**Q: Command-injection timeout (`exit 4`).**
+A: The command is a TUI (`vim`, `top`) or a long-running task. Phase 2 will support `sshops bg`; for now, `sshops close` and run it manually in your own terminal.
 
-**问:`exit 3` shell 不支持。**
-答:目标主机的登录 shell 必须是 bash 或 zsh。fish/tcsh/网络设备 CLI 都不行。
+**Q: `exit 3` shell not supported.**
+A: The login shell on the target host must be bash or zsh. fish / tcsh / network-device CLIs are not supported.
 
-**问:`exit 5` 被拦截。**
-答:危险命令在生产机被拦截。如确实要执行,在对话里明确告诉 Claude "我确认要在生产机执行 X",Claude 才会加 `--i-mean-it`。
+**Q: `exit 5` blocked.**
+A: A dangerous command was blocked on a production host. To run it anyway, explicitly tell Claude in chat "I confirm running X on prod" — Claude will then add `--i-mean-it`.
 
-**问:bash 版本要求?**
-答:**3.2 / 4 / 5 全兼容**。macOS 默认 `/bin/bash 3.2` 够用,brew `bash 5.x` 也跑。代码用 `[[ ${#arr[@]} -gt 0 ]]` 显式守护空数组的 `set -u` corner case。已实测 3.2.57(macOS Sonoma 自带)和 5.3.9(Homebrew)。
+**Q: bash version requirements?**
+A: **3.2 / 4 / 5 all supported**. macOS default `/bin/bash 3.2` works; brew `bash 5.x` also works. The code uses `[[ ${#arr[@]} -gt 0 ]]` to explicitly guard the empty-array + `set -u` corner case (a known bug before bash 4.4). Tested on 3.2.57 (macOS Sonoma default) and 5.3.9 (Homebrew).
 
-## 文档
+**Q: Build failure: `library 'git2' not found`.**
+A: Fixed in v1.0.1 — the `git2` crate now uses `vendored-libgit2`, so wezterm-src no longer depends on the system Homebrew libgit2. If you're on v1.0.0 and hit this after `brew upgrade libgit2`, run:
+```bash
+cd wezterm-src
+rm -rf target/release/build/libgit2-sys-* target/release/build/git2-*
+git pull && bash install-local.sh
+```
 
-- [`SKILL.md`](SKILL.md) — 给 Claude 的决策手册
-- [`ssh-ops-requirements.md`](ssh-ops-requirements.md) — 完整需求规格
-- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) — 架构总览
-- [`docs/Implementation_Plan.md`](docs/Implementation_Plan.md) — 任务级状态
-- [`CLAUDE.md`](CLAUDE.md) — 项目编码约束
+## Documentation
+
+- [`SKILL.md`](SKILL.md) — Decision manual for Claude
+- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) — Architecture overview
+- [`docs/Implementation_Plan.md`](docs/Implementation_Plan.md) — Task-level status
+- [`CLAUDE.md`](CLAUDE.md) — Project coding constraints
+
+## License
+
+[MIT](LICENSE). The bundled WezTerm fork (`wezterm-src/`) inherits its own MIT license — see `wezterm-src/LICENSE.md`.
