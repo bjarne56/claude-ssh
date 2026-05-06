@@ -16,10 +16,10 @@ config.json
 *.swp
 *~
 
-# Claude Code / claude-mem 本地状态
+# Claude Code / claude-mem(-plus) 本地状态
 .claude/
 .claude-store/
-.claude-mem/
+.claude-mem*/   # 匹配 .claude-mem/ 和 .claude-mem-plus/ 等未来变种
 
 # 第三方工具本地缓存
 .sloc-guard/
