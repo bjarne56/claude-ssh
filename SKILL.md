@@ -7,6 +7,57 @@ description: SSH remote ops. Auto-resolves hosts from SecureCRT; one IP/keyword/
 
 > Phase 1b. Phase 2/3/4 are planned in `docs/Implementation_Plan.md`.
 
+## 0 Cardinal rule (READ FIRST)
+
+**Every remote command MUST run through `sshops run` (or `sshops open` for interactive) directly. Never detach, redirect, or hide output.**
+
+The whole point of this skill is **live PTY view + asciinema recording + audit trail**. Bypassing the pane defeats all three.
+
+### ❌ NEVER do these on a remote host through sshops
+
+```bash
+# Backgrounding — pane shows nothing, cast records nothing
+sshops run X "long-cmd &"
+sshops run X "nohup long-cmd > /tmp/log 2>&1 &"
+sshops run X "setsid long-cmd < /dev/null > /tmp/log 2>&1 &"
+sshops run X "long-cmd & disown"
+
+# Redirect to file then poll — same as above
+sshops run X "cargo build > /tmp/build.log 2>&1 &"
+sshops run X "tail /tmp/build.log"   # later, polling
+
+# Silent mode — no audit visible
+sshops run X "cmd > /dev/null 2>&1"
+
+# Spawn a separate non-sshops ssh — invisible to the user, no recording
+Bash(ssh user@host 'long-cmd')
+```
+
+### ✅ DO this instead
+
+```bash
+# Long-running task: bump --timeout, run in foreground in the pane
+sshops run --timeout 600 X "cd /src && cargo build --release -p mycrate"
+
+# Even longer (up to 1 hour)
+sshops run --timeout 3600 X "make test"
+
+# Need real-time progress while doing other work? Open the pane and let user watch
+sshops open X
+# (then send sub-commands with sshops run, all visible in the same pane)
+```
+
+### Why
+
+| Sin | Consequence |
+|---|---|
+| `&` / `nohup` / `setsid` / `disown` | Command detaches from PTY → pane shows nothing, cast file empty, audit broken |
+| `> /tmp/log` redirect | PTY sees nothing → pane silent, cast empty |
+| `> /dev/null 2>&1` | Output suppressed everywhere; user can't observe, replay can't recover |
+| Bash(ssh ...) parallel session | Operates outside the recorded pane; equivalent to running on a separate machine for audit purposes |
+
+**If you think you need to detach because the timeout is too short**: bump `--timeout` (default 30 s, max 3600 s = 1 h). Long-running tasks (`cargo build`, `make`, `apt upgrade`) regularly take 5-30 minutes and `--timeout 1800` handles them fine. There is **no** legitimate reason in Phase 1b to background a remote command from within `sshops run`.
+
 ## 1 When to invoke
 
 Invoke this skill (instead of plain `Bash(ssh ...)`) for any of:
@@ -113,9 +164,11 @@ Blocked (exit 5):
 
 ## 8 Tips for Claude
 
+- **Cardinal rule (§0) is non-negotiable** — every remote command goes through `sshops run` in the foreground, no `&` / `nohup` / `setsid` / `> /tmp/log` redirects / `Bash(ssh …)` shortcuts. Bumping `--timeout` is always preferable to detaching.
 - **Read `recent_human_activity`** — the user may have typed commands in the pane between `sshops run` calls; always factor that in to avoid clobbering.
 - For multi-step ops, use one `sshops run` per command (each gets recorded separately) instead of joining with `&&`.
 - Long-running / TUI commands (`top`, `vim`) — Phase 1b can't do these; ask the user to drive interactively in the pane, then `sshops close` when done.
+- Long-running but non-TUI tasks (`cargo build`, `make`, `apt upgrade`, big `find`) — use `--timeout 600` to `--timeout 3600` and let it run in the foreground. The pane streams progress live and the cast captures everything.
 - Don't fight the safety gate — if blocked, surface the reason to the user and wait for explicit "I confirm".
 
 ## 9 Phase 1b limits
