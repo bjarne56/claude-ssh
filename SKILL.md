@@ -31,6 +31,13 @@ sshops run X "cmd > /dev/null 2>&1"
 
 # Spawn a separate non-sshops ssh — invisible to the user, no recording
 Bash(ssh user@host 'long-cmd')
+
+# Encoded payloads — pane shows opaque blob, audit can't tell what ran
+sshops run X "echo c2V0IC1lCi4uLg== | base64 -d | bash"   # ❌ base64 wrapped
+sshops run X "printf '\\x73\\x65\\x74...' | bash"          # ❌ hex wrapped
+sshops run X "echo H4sI...|gunzip|bash"                    # ❌ gzipped wrapped
+sshops run X "curl https://x.com/script.sh | bash"         # ❌ pipe-to-bash from net
+sshops run X "<<'EOF' bash\n  set -e\n  ...\n  EOF"        # ❌ heredoc obscures
 ```
 
 ### ✅ DO this instead
@@ -45,6 +52,14 @@ sshops run --timeout 3600 X "make test"
 # Need real-time progress while doing other work? Open the pane and let user watch
 sshops open X
 # (then send sub-commands with sshops run, all visible in the same pane)
+
+# Multi-step plain script — write each step explicitly, one sshops run per step
+sshops run X "sysctl net.ipv4.ip_forward net.bridge.bridge-nf-call-iptables"
+sshops run X "sysctl -w net.ipv4.ip_forward=0"
+sshops run X "iptables -t nat -F DOCKER 2>/dev/null || true"
+sshops run X "systemctl restart ebpf-spa"
+# ... if it really must be one shot, write the script INLINE plain text:
+sshops run --timeout 60 X "set -e; echo '=== step 1 ==='; sysctl -w net.ipv4.ip_forward=0; echo '=== step 2 ==='; iptables -t nat -F DOCKER 2>/dev/null || true"
 ```
 
 ### Why
@@ -55,8 +70,12 @@ sshops open X
 | `> /tmp/log` redirect | PTY sees nothing → pane silent, cast empty |
 | `> /dev/null 2>&1` | Output suppressed everywhere; user can't observe, replay can't recover |
 | Bash(ssh ...) parallel session | Operates outside the recorded pane; equivalent to running on a separate machine for audit purposes |
+| `\| base64 -d \| bash` / `\| gunzip \| bash` / hex-wrapped / heredoc-to-bash | **Pane and cast see only the encoded blob** — audit can't recover what actually ran. Also defeats the dangerous-command interceptor (regex won't match `rm -rf /` inside base64). |
+| `curl ... \| bash` from network | Recorded URL but not the actual script content; remote tampering changes what runs without audit trace. |
 
-**If you think you need to detach because the timeout is too short**: bump `--timeout` (default 30 s, max 3600 s = 1 h). Long-running tasks (`cargo build`, `make`, `apt upgrade`) regularly take 5-30 minutes and `--timeout 1800` handles them fine. There is **no** legitimate reason in Phase 1b to background a remote command from within `sshops run`.
+**If you think you need to detach because the timeout is too short**: bump `--timeout` (default 30 s, no hard upper bound — `3600` for 1 h, `7200` for 2 h, etc., add 25-50 % headroom over expected duration). Long-running tasks (`cargo build`, `make`, `apt upgrade`) regularly take 5-30 minutes and `--timeout 1800` handles them fine. There is **no** legitimate reason in Phase 1b to background a remote command from within `sshops run`.
+
+**If you think you need base64 / heredoc / pipe-to-bash because the script is multi-line**: just write the steps as separate `sshops run` calls (each one recorded individually), or inline them with `;` and quoting in a single `sshops run` argument. The audit trail must be **plaintext, human-readable, exact** — both the user watching the pane and a future auditor watching the cast replay must be able to read every command verbatim. Encoded payloads break this contract.
 
 ## 1 When to invoke
 
@@ -164,7 +183,7 @@ Blocked (exit 5):
 
 ## 8 Tips for Claude
 
-- **Cardinal rule (§0) is non-negotiable** — every remote command goes through `sshops run` in the foreground, no `&` / `nohup` / `setsid` / `> /tmp/log` redirects / `Bash(ssh …)` shortcuts. Bumping `--timeout` is always preferable to detaching.
+- **Cardinal rule (§0) is non-negotiable** — every remote command goes through `sshops run` in the foreground as **plaintext**, no `&` / `nohup` / `setsid` / `> /tmp/log` redirects / `Bash(ssh …)` shortcuts / `base64 -d | bash` / `curl … | bash` / heredoc-to-bash. Bumping `--timeout` is always preferable to detaching, and writing multiple `sshops run` calls is always preferable to encoding a multi-step script.
 - **Read `recent_human_activity`** — the user may have typed commands in the pane between `sshops run` calls; always factor that in to avoid clobbering.
 - For multi-step ops, use one `sshops run` per command (each gets recorded separately) instead of joining with `&&`.
 - Long-running / TUI commands (`top`, `vim`) — Phase 1b can't do these; ask the user to drive interactively in the pane, then `sshops close` when done.
