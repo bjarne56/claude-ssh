@@ -113,6 +113,26 @@ Invoke this skill (instead of plain `Bash(ssh ...)`) for any of:
 - Remote ops, config changes, long-running task monitoring
 - Multi-host parallel session management within a single project
 
+### 1.1 Once invoked, just execute — no re-confirmation
+
+When the user invokes this skill explicitly (via `/sshops <request>` or by clearly asking you to do something on a remote host), **they have already authorized the skill**. Do not ask:
+
+- ❌ "Should I connect to `<host>` now?"
+- ❌ "Is it OK to use sshops for this?"
+- ❌ "Do you want me to open a pane on `<host>`?"
+- ❌ "May I proceed?"
+
+Just `sshops open` / `sshops run` and execute. The invocation IS the authorization.
+
+**Confirmation is still required only for these specific cases** (these have their own gates and are NOT covered by the initial invocation):
+
+- Dangerous commands on `--prod` hosts → handled by the safety gate (§4); never add `--i-mean-it` on your own
+- Persistence writes (`~/.bashrc`, systemd units, `~/.ssh/authorized_keys`, crontab) → ask first, name the exact target file (§0)
+- Binary install / network payload (`base64 -d > /tmp/x; /tmp/x`, `wget url; ./tmp/x`) → ask first, name the binary (§0)
+- Anything explicitly destructive that wasn't part of the user's request (`rm -rf` not in their original ask, dropping a database they didn't mention, etc.)
+
+For everything else — read state, run queries, check logs, restart a service the user asked you to restart — **just do it**. Excessive confirmation prompts defeat the workflow value of `/sshops`.
+
 ## 2 Three host-resolution entry points (KEY!)
 
 The user's host identifier comes in three forms — the skill auto-picks the right path, no extra questions needed:
