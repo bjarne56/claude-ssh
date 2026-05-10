@@ -16,9 +16,11 @@
 #   --status             检测当前部署状态 (skill / GUI / CLI / daemon / config) 后退出
 #   --uninstall          卸载所有部署 (skill / .app / wrapper); 不动源仓库与录像
 #   --yes                跳过卸载确认 (跟 --uninstall 配合, CI 用)
-#   --auto-approve       patch ~/.claude/settings.json 把 Bash(sshops:*) 加入
-#                        permissions.allow, 让 Claude Code 跑 sshops 命令不再
-#                        弹 yes 提示 (备份原文件到 settings.json.bak)
+#   --no-auto-approve    关闭默认行为, 不动 ~/.claude/settings.json
+#                        (默认会 patch 加入 Bash(sshops:*) 到 permissions.allow,
+#                        让 Claude Code 跑 sshops 命令不再弹 yes 提示;
+#                        备份原文件到 settings.json.bak)
+#   --auto-approve       (兼容旧用法, 现在是默认行为, 加不加都开)
 #   -h | --help          打印帮助
 #
 # 幂等: 反复跑只会跳过已就位的步骤, 不会报错或重复写入.
@@ -38,7 +40,8 @@ opt_locale=""
 opt_status=0
 opt_uninstall=0
 opt_yes=0
-opt_auto_approve=0
+opt_auto_approve=1   # 默认开: 安装 sshops 即意味着授权 Claude Code 跑它,
+                     # 跳过每次 yes 弹窗. --no-auto-approve 退出.
 while (( $# > 0 )); do
     case "$1" in
         --no-build-wezterm) opt_no_build_wezterm=1; shift ;;
@@ -48,6 +51,7 @@ while (( $# > 0 )); do
         --uninstall)        opt_uninstall=1; shift ;;
         --yes|-y)           opt_yes=1; shift ;;
         --auto-approve)     opt_auto_approve=1; shift ;;
+        --no-auto-approve)  opt_auto_approve=0; shift ;;
         -h|--help)
             sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# *//; s/^#//'
             exit 0
@@ -436,14 +440,21 @@ for entry in "${PATH_ENTRIES[@]}"; do
     fi
 done
 
-# === --auto-approve: patch Claude Code settings.json 让 sshops 命令免确认 ===
+# === auto-approve: patch Claude Code settings.json 让 sshops 命令免 yes 确认 ===
+# 默认开. --no-auto-approve 关闭. 详见文件头注释.
 if (( opt_auto_approve == 1 )); then
     echo
-    echo "==> --auto-approve: 写 ~/.claude/settings.json (Claude Code sshops 命令免 yes 确认)"
+    echo "==> Claude Code sshops 免 yes 确认 (--no-auto-approve 退出)"
     CLAUDE_CFG="$HOME/.claude/settings.json"
+    inf "  目标文件: $CLAUDE_CFG"
     mkdir -p "$(dirname "$CLAUDE_CFG")"
-    [[ -f "$CLAUDE_CFG" ]] || printf '{}\n' > "$CLAUDE_CFG"
-    cp "$CLAUDE_CFG" "$CLAUDE_CFG.bak"
+    if [[ -f "$CLAUDE_CFG" ]]; then
+        cp "$CLAUDE_CFG" "$CLAUDE_CFG.bak"
+        inf "  已备份原文件: $CLAUDE_CFG.bak"
+    else
+        printf '{}\n' > "$CLAUDE_CFG"
+        inf "  原文件不存在, 已新建空 JSON: $CLAUDE_CFG"
+    fi
     if python3 - "$CLAUDE_CFG" <<'PY'
 import json, sys
 p = sys.argv[1]
@@ -451,18 +462,22 @@ with open(p) as f:
     cfg = json.load(f)
 perms = cfg.setdefault('permissions', {})
 allow = perms.setdefault('allow', [])
-# 两种 pattern 风格都加, 兼容不同 Claude Code 版本
 patterns = ['Bash(sshops:*)', 'Bash(sshops *)']
-added = [p for p in patterns if p not in allow]
+added   = [pat for pat in patterns if pat not in allow]
+existed = [pat for pat in patterns if pat in allow]
 allow.extend(added)
 with open(p, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
-print('added' if added else 'noop', added)
+GREEN, CYAN, NC = '\033[32m', '\033[36m', '\033[0m'
+if added:
+    print(f"  {GREEN}✓{NC} 新增 permissions.allow 模式: {' , '.join(added)}")
+if existed:
+    print(f"  {CYAN}•{NC}   已存在, 未重复添加: {' , '.join(existed)}")
+print(f"  {GREEN}✓{NC} 当前 permissions.allow 完整列表: {' , '.join(allow)}")
 PY
     then
-        ok "settings.json 已 patch (备份: $CLAUDE_CFG.bak)"
-        inf "  下次 Claude Code 跑 sshops 命令不再弹 yes 提示"
+        inf "  → 下次 Claude Code 跑任何 sshops 命令不再弹 yes 确认"
     else
         warn "settings.json patch 失败 (python3 错误); 已留备份, 请手动加 Bash(sshops:*) 到 permissions.allow"
     fi
