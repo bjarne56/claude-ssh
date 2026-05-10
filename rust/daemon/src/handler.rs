@@ -8,7 +8,7 @@ use ssh_ops_core::{
     config::expand_path,
     human_detect, ipc::{
         ClientCtx, IpcRequest, IpcResponse, OpenResp, PaneEntry, PanesResp, RunResp, SelectorSpec,
-        StatusInfo, PROTO_VERSION,
+        SendResp, StatusInfo, PROTO_VERSION,
     }, pane::{self, SshTarget}, recorder::{gen_nonce, Recorder}, safety::safety_gate, selector::{resolve_crt, resolve_tmp, ResolvedSelector, Source}, session::{execute, strip_ansi}, state::{self, StateStore}, state_dir, wezterm_mux::WezTermClient,
 };
 use std::sync::Arc;
@@ -74,6 +74,9 @@ pub async fn dispatch(req: IpcRequest, state: Arc<Mutex<DaemonState>>) -> IpcRes
                 .await
                 .unwrap_or_else(|e| IpcResponse::Error(format!("recent: {e}")))
         }
+        IpcRequest::Send { ctx, selector, keys, raw } => handle_send(state, ctx, selector, keys, raw)
+            .await
+            .unwrap_or_else(|e| IpcResponse::Error(format!("send: {e}"))),
     }
 }
 
@@ -479,6 +482,90 @@ async fn handle_recent(
     })
     .await??;
     Ok(IpcResponse::Recent(recent))
+}
+
+// === Send (interactive keys, no prompt wait) ===============================
+
+async fn handle_send(
+    state: Arc<Mutex<DaemonState>>,
+    ctx: ClientCtx,
+    selector: SelectorSpec,
+    keys: String,
+    raw: bool,
+) -> anyhow::Result<IpcResponse> {
+    if let Err(r) = check_proto(&ctx) {
+        return Ok(r);
+    }
+    let started = Instant::now();
+    let (sel, _, _, _, cfg, home) = {
+        let s = state.lock().await;
+        let (sel, auth, pw, safety) = resolve_selector(&s, &selector)?;
+        (sel, auth, pw, safety, s.cfg.clone(), s.home.clone())
+    };
+    let project_id_str = ctx.project_id.clone();
+    let sel_display = sel.display.clone();
+    let session_key = ctx.session_key.clone();
+
+    // 跟 run/peek 同 pane 互斥, 避免并发写 PTY 导致键序错乱.
+    let lock_key = pane_lock_key(&ctx.project_id, &ctx.session_key, &sel_display);
+    let pane_lock = get_pane_lock(&state, &lock_key).await;
+    let _pane_guard = pane_lock.lock().await;
+
+    // 默认: 解释常见 escape 序列让 CLI 用户能传 \r \n \t \\;
+    // raw=true: 字面发送, 用户需要自己负责所有 byte (二进制 keys 用例).
+    let payload = if raw { keys.clone() } else { unescape_keys(&keys) };
+    let bytes_sent = payload.len();
+
+    let cfg_for_blocking = cfg.clone();
+    let result = tokio::task::spawn_blocking(move || -> anyhow::Result<(u64, String)> {
+        std::env::set_var("SSHOPS_PROJECT", &project_id_str);
+        let store = StateStore::new(&state_dir(&home))?;
+        let pid = state::project_id();
+        let info = store
+            .get_pane(&pid, &session_key, &sel_display)?
+            .ok_or_else(|| anyhow::anyhow!("未找到 pane: {sel_display} (先用 sshops open / run 建立)"))?;
+        let wez = WezTermClient::new(cfg_for_blocking.wezterm.cli_path.clone());
+        if !wez.pane_alive(info.pane_id) {
+            anyhow::bail!("pane 已失效: {sel_display}");
+        }
+        wez.send_text(info.pane_id, &payload)?;
+        Ok((info.pane_id, info.session_id))
+    })
+    .await??;
+
+    let (_pane_id, session_id) = result;
+    Ok(IpcResponse::Send(SendResp {
+        selector: sel.display,
+        session_id,
+        bytes_sent,
+        duration_ms: started.elapsed().as_millis() as u64,
+    }))
+}
+
+/// 解 escape: 仅处理 \r \n \t \\, 其余 \x 字面保留 (含反斜杠 + x).
+/// CLI 端 shell 已经吃过一层引号, 这里是 second-level escape, 让用户能在
+/// 单引号字符串里塞 \r 这种通用控制字符.
+fn unescape_keys(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('r') => out.push('\r'),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('\\') => out.push('\\'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 // === helpers ================================================================

@@ -52,6 +52,17 @@ enum Cmd {
         #[arg(long, default_value_t = 60)]
         seconds: u64,
     },
+    /// 发送原始按键到 pane (不等 prompt 立即返回, 用于驱动远端交互式菜单)
+    /// 例: sshops send my-host "1\\r"   (回车选择菜单选项 1)
+    ///     sshops send my-host "yes\\n"
+    ///     sshops send my-host --raw $'\x03'   (Ctrl-C 字面字节)
+    Send {
+        #[command(flatten)]
+        common: CommonArgs,
+        /// 字面发送, 不解释 \r \n \t 等 escape 序列
+        #[arg(long)]
+        raw: bool,
+    },
     /// 查 daemon 状态 (不可达则报错)
     DaemonStatus,
     /// 优雅停 daemon
@@ -102,7 +113,7 @@ fn main() -> Result<()> {
     // daemon-status / daemon-stop / list-panes 仅 IPC 不动 wezterm, 跳过
     let needs_deps = matches!(
         cli.cmd,
-        Cmd::Run(_) | Cmd::Open(_) | Cmd::Close(_) | Cmd::Peek(_) | Cmd::Recent { .. }
+        Cmd::Run(_) | Cmd::Open(_) | Cmd::Close(_) | Cmd::Peek(_) | Cmd::Recent { .. } | Cmd::Send { .. }
     );
     if needs_deps {
         ssh_ops_core::preflight::check_or_exit(&sshops_home());
@@ -115,6 +126,7 @@ fn main() -> Result<()> {
         Cmd::Peek(c) => cmd_peek(c, no_daemon),
         Cmd::ListPanes => cmd_list_panes(no_daemon),
         Cmd::Recent { common, seconds } => cmd_recent(common, seconds, no_daemon),
+        Cmd::Send { common, raw } => cmd_send(common, raw, no_daemon),
         Cmd::DaemonStatus => cmd_daemon_status(),
         Cmd::DaemonStop => cmd_daemon_stop(),
     }
@@ -754,6 +766,103 @@ fn cmd_recent_inproc(common: CommonArgs, seconds: u64) -> Result<()> {
     let recent: Vec<_> = all.into_iter().filter(|h| h.ts_unix >= cutoff).collect();
     println!("{}", serde_json::to_string(&recent)?);
     Ok(())
+}
+
+// ============================================================
+// send: 发送原始按键到 pane (不等 prompt 立即返回)
+// ============================================================
+fn cmd_send(common: CommonArgs, raw: bool, no_daemon: bool) -> Result<()> {
+    let home = sshops_home();
+    let using_tmp = common.host.is_some() && common.user.is_some();
+    let spec = ipc_client::build_selector_spec(
+        &common.args,
+        common.host.as_deref(),
+        common.user.as_deref(),
+        common.port,
+        common.key.as_deref(),
+        common.prod,
+        common.password.as_deref(),
+        common.ask_password,
+    )?;
+    let keys = ipc_client::cmd_text_from(&common.args, using_tmp)?;
+
+    if !no_daemon {
+        let req = IpcRequest::Send {
+            ctx: ipc_client::build_ctx(&home),
+            selector: spec,
+            keys: keys.clone(),
+            raw,
+        };
+        if let Some(resp) = ipc_client::call_sync(&home, req)? {
+            return match resp {
+                IpcResponse::Send(r) => {
+                    let j = json!({
+                        "selector": r.selector,
+                        "session_id": r.session_id,
+                        "bytes_sent": r.bytes_sent,
+                        "duration_ms": r.duration_ms,
+                    });
+                    println!("{}", serde_json::to_string(&j)?);
+                    Ok(())
+                }
+                IpcResponse::Error(e) => Err(anyhow!("daemon: {e}")),
+                other => Err(anyhow!("daemon 返回非预期类型: {:?}", other)),
+            };
+        }
+    }
+    cmd_send_inproc(common, keys, raw)
+}
+
+fn cmd_send_inproc(common: CommonArgs, keys: String, raw: bool) -> Result<()> {
+    let home = sshops_home();
+    let cfg = config::load(&home)?;
+    let r = resolve(&common, false, &cfg)?;
+    let store = state::StateStore::new(&state_dir(&home))?;
+    let pid = state::project_id();
+    let session_key = state::current_session_key();
+    let info = store
+        .get_pane(&pid, &session_key, &r.sel.display)?
+        .ok_or_else(|| anyhow!("未找到 pane: {} (先用 sshops open / run)", r.sel.display))?;
+    let payload = if raw { keys } else { unescape_keys(&keys) };
+    let bytes_sent = payload.len();
+    let started = std::time::Instant::now();
+    let wez = ssh_ops_core::wezterm_mux::WezTermClient::new(cfg.wezterm.cli_path.clone());
+    if !wez.pane_alive(info.pane_id) {
+        return Err(anyhow!("pane 已失效: {}", r.sel.display));
+    }
+    wez.send_text(info.pane_id, &payload)?;
+    let j = json!({
+        "selector": r.sel.display,
+        "session_id": info.session_id,
+        "bytes_sent": bytes_sent,
+        "duration_ms": started.elapsed().as_millis() as u64,
+    });
+    println!("{}", serde_json::to_string(&j)?);
+    Ok(())
+}
+
+/// 跟 daemon 端 unescape_keys 同语义: 仅处理 \r \n \t \\.
+fn unescape_keys(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('r') => out.push('\r'),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('\\') => out.push('\\'),
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 // ============================================================

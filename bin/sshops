@@ -30,6 +30,9 @@ sshops — SSH 远程运维 skill
   sshops open   <selector>                        仅 spawn pane,不跑命令
   sshops close  <selector>                        关 pane
   sshops peek   <selector>                        抓取 pane 当前可见文本
+  sshops send   <selector> "<keys>" [--raw]       发原始按键 (不等 prompt),
+                                                  驱动远端交互式菜单
+                                                  例: sshops send H "1\r"
   sshops list-panes                               列当前项目所有 pane
   sshops recent <selector> [--seconds N]          最近 N 秒 human 活动
   sshops daemon-status                            查 daemon 状态
@@ -65,7 +68,7 @@ _SSHOPS_RUST="$SSHOPS_HOME/rust/target/release/sshops-rs"
 
 # 主入口: 业务子命令必须走 Rust, 缺则报清晰错误
 case "${1:-help}" in
-    run|open|close|peek|list-panes|recent|daemon-status|daemon-stop)
+    run|open|close|peek|send|list-panes|recent|daemon-status|daemon-stop)
         if [[ ! -x "$_SSHOPS_RUST" ]]; then
             printf '\033[31m✗\033[0m Rust binary 不存在: %s\n' "$_SSHOPS_RUST" >&2
             printf '  跑: cd %s/rust && cargo build --release\n' "$SSHOPS_HOME" >&2

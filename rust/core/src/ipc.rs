@@ -88,6 +88,15 @@ pub enum IpcRequest {
         selector: SelectorSpec,
         seconds: u64,
     },
+    /// 发送原始按键到 pane (不等 prompt 立即返回);
+    /// 用于驱动远端交互式菜单 (远端 read -p / dialog 风格).
+    /// keys 默认按 escape 序列处理 (\r \n \t \\); raw=true 时字面发送.
+    Send {
+        ctx: ClientCtx,
+        selector: SelectorSpec,
+        keys: String,
+        raw: bool,
+    },
 }
 
 /// selector 规格: 复用 cli 端解析后的语义, daemon 不重复解析 .ini 路径
@@ -118,7 +127,16 @@ pub enum IpcResponse {
     Peek(String),
     Panes(PanesResp),
     Recent(Vec<HumanCmd>),
+    Send(SendResp),
     Error(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SendResp {
+    pub selector: String,
+    pub session_id: String,
+    pub bytes_sent: usize,
+    pub duration_ms: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
