@@ -163,34 +163,91 @@ pub fn set_lang_from_locale() {
     }
 }
 
-/// 兜底注入 LC_CTYPE=C.UTF-8.
+/// 判定 locale 字符串是否属于"远端 unsafe"集合, 需要升级到 en_US.UTF-8.
+///
+/// 命中三类:
+/// - 裸字符集 (UTF-8 / utf-8 / UTF8 / utf8): macOS BSD libc 接受, Linux
+///   glibc 不认 (setlocale 失败).
+/// - C.UTF-8 / C.utf-8 / C.utf8: glibc 2.13+ 支持, 但 RedHat 系长期没
+///   backport, CentOS 7 (glibc 2.17) 的 locale -a 里没有, setlocale 失败.
+/// - 空字符串: 等同未设, 远端 setlocale 拿到空也走 fallback.
+///
+/// 完整 locale 形式 (xx_YY.UTF-8 / zh_CN.UTF-8 等) 不命中, 优先保留用户
+/// 显式选择.
+fn is_remote_unsafe_locale(value: &str) -> bool {
+    matches!(
+        value,
+        "" | "UTF-8" | "utf-8" | "UTF8" | "utf8" | "C.UTF-8" | "C.utf-8" | "C.utf8"
+    )
+}
+
+/// 兜底注入 LC_CTYPE=en_US.UTF-8.
 ///
 /// macOS launchd / 一般 GUI 启动链不传 LC_CTYPE, ssh 子进程透传到远端时
 /// glibc 拿不到 UTF-8 字符集 → vim/less 默认 encoding=latin1, UTF-8 文件
 /// 按字节流显示成 ~大写字母 乱码 (典型 wezterm-ssh 远端中文乱码症状).
 ///
-/// 用 C.UTF-8 而不是裸 UTF-8: macOS BSD libc 接受 UTF-8 但 Linux glibc
-/// 不认 (setlocale 失败 → vim fallback latin1, 即使 SSH SendEnv 透传过去也
-/// 白搭). C.UTF-8 在 glibc 2.13+ / musl 全支持, 字符集 UTF-8 + 语言 C
-/// (中性), 不强制远端语言, 远端 LANG 仍可决定菜单/错误/日期格式.
+/// 选 en_US.UTF-8 而不是 C.UTF-8 或裸 UTF-8 的原因:
+/// - 裸 UTF-8: macOS BSD libc 接受, Linux glibc 不认 (setlocale 失败).
+/// - C.UTF-8: glibc 2.13+ 支持但 RedHat 系长期没 backport, CentOS 7
+///   (glibc 2.17) locale -a 里没有, setlocale 失败 → vim 仍 latin1.
+/// - en_US.UTF-8: glibc 全系列 (含 CentOS 6/7) 都有, macOS BSD libc 也认,
+///   musl 支持. 跨发行版兼容性最好.
+///
+/// LC_CTYPE 只控制字符编码 + ctype 函数 (isupper/tolower 等), 不影响
+/// LC_MESSAGES (应用语言). 远端用户 LANG / LC_MESSAGES 由远端 shell rc /
+/// login env 决定, 不会被此值强制成英文.
 ///
 /// 触发条件:
-/// 1. LC_CTYPE 完全未设 → 设为 C.UTF-8
-/// 2. LC_CTYPE 是裸字符集形式 (UTF-8 / utf-8 / UTF8 / utf8) → 升级到 C.UTF-8
-///    (Apple Terminal.app / iTerm2 / WezTerm 上游默认注入裸 UTF-8, macOS 本地
-///    BSD libc 接受, 但 SSH 透传到 Linux 远端无效.)
+/// 1. LC_CTYPE 完全未设 → 设为 en_US.UTF-8
+/// 2. LC_CTYPE 是裸字符集形式 (UTF-8 / utf-8 / UTF8 / utf8) → 升级到
+///    en_US.UTF-8 (Apple Terminal.app / iTerm2 / WezTerm 上游默认注入裸
+///    UTF-8, macOS BSD libc 接受, 但 SSH 透传到 Linux 远端无效.)
+/// 3. LC_CTYPE = C.UTF-8 → 升级到 en_US.UTF-8 (兼容 CentOS 7 等无 C.UTF-8
+///    的 glibc; 在支持 C.UTF-8 的系统上 en_US.UTF-8 同样是 valid utf8 locale,
+///    无副作用.)
 ///
-/// 完整 locale 形式 (xx_YY.UTF-8 / C.UTF-8 等) 优先, 不覆盖.
+/// 其他完整 locale 形式 (xx_YY.UTF-8) 优先, 不覆盖.
 fn set_lc_ctype_default() {
     let needs_upgrade = match std::env::var_os("LC_CTYPE") {
         None => true,
-        Some(v) => matches!(
-            v.to_string_lossy().as_ref(),
-            "UTF-8" | "utf-8" | "UTF8" | "utf8"
-        ),
+        Some(v) => is_remote_unsafe_locale(v.to_string_lossy().as_ref()),
     };
     if needs_upgrade {
-        std::env::set_var("LC_CTYPE", "C.UTF-8");
+        std::env::set_var("LC_CTYPE", "en_US.UTF-8");
+    }
+}
+
+/// 兜底注入 LANG=en_US.UTF-8, 与 set_lc_ctype_default 对称处理.
+///
+/// 单独修 LC_CTYPE 不够: glibc 的 setlocale(LC_ALL, "") 是原子调用 ——
+/// 任一 LC_X 来源 (LC_ALL > LC_X > LANG) 是 invalid locale 整个调用失败,
+/// 所有 LC_* 一起 fallback 到 C, 即使 LC_CTYPE 自身合法也救不回来.
+///
+/// 大富 macOS shell env 实测 LANG=C.UTF-8 (zsh 继承自 launchd), 透传到
+/// CentOS 7 远端 → setlocale("") 失败 → vim encoding=latin1, 哪怕我们
+/// 已经设了 LC_CTYPE=en_US.UTF-8 也照样乱码.
+///
+/// 触发条件同 set_lc_ctype_default (复用 is_remote_unsafe_locale):
+/// 1. LANG 未设
+/// 2. LANG = "" / 裸 UTF-8 / C.UTF-8 及变体
+/// → 升级到 en_US.UTF-8
+///
+/// 其他完整 locale (zh_CN.UTF-8 / ja_JP.UTF-8 等用户显式选择) 不动, 即便
+/// 远端可能没装这些 locale 也属于用户责任 —— 只兜远端肯定不工作的几种
+/// invalid 形式.
+///
+/// 副作用: 远端 LC_MESSAGES 默认从 LANG 取, 升级到 en_US.UTF-8 会让远端
+/// 程序 (systemctl, ls -l, error msg) 输出英文. 对运维场景可接受 ——
+/// 中文 vim 显示远比中文 menu 重要; 远端用户若需要中文 menu 可在
+/// ~/.bashrc 显式 export LANG=zh_CN.UTF-8 覆盖.
+fn set_lang_default() {
+    let needs_upgrade = match std::env::var_os("LANG") {
+        None => true,
+        Some(v) => is_remote_unsafe_locale(v.to_string_lossy().as_ref()),
+    };
+    if needs_upgrade {
+        std::env::set_var("LANG", "en_US.UTF-8");
     }
 }
 
@@ -251,6 +308,7 @@ pub fn bootstrap() {
     set_lang_from_locale();
 
     set_lc_ctype_default();
+    set_lang_default();
 
     fixup_appimage();
     fixup_snap();
