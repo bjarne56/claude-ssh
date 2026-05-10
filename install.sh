@@ -16,6 +16,9 @@
 #   --status             检测当前部署状态 (skill / GUI / CLI / daemon / config) 后退出
 #   --uninstall          卸载所有部署 (skill / .app / wrapper); 不动源仓库与录像
 #   --yes                跳过卸载确认 (跟 --uninstall 配合, CI 用)
+#   --auto-approve       patch ~/.claude/settings.json 把 Bash(sshops:*) 加入
+#                        permissions.allow, 让 Claude Code 跑 sshops 命令不再
+#                        弹 yes 提示 (备份原文件到 settings.json.bak)
 #   -h | --help          打印帮助
 #
 # 幂等: 反复跑只会跳过已就位的步骤, 不会报错或重复写入.
@@ -35,6 +38,7 @@ opt_locale=""
 opt_status=0
 opt_uninstall=0
 opt_yes=0
+opt_auto_approve=0
 while (( $# > 0 )); do
     case "$1" in
         --no-build-wezterm) opt_no_build_wezterm=1; shift ;;
@@ -43,6 +47,7 @@ while (( $# > 0 )); do
         --status)           opt_status=1; shift ;;
         --uninstall)        opt_uninstall=1; shift ;;
         --yes|-y)           opt_yes=1; shift ;;
+        --auto-approve)     opt_auto_approve=1; shift ;;
         -h|--help)
             sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# *//; s/^#//'
             exit 0
@@ -430,6 +435,38 @@ for entry in "${PATH_ENTRIES[@]}"; do
         warn "无法写入 $ZSHRC, 请手动加: $entry"
     fi
 done
+
+# === --auto-approve: patch Claude Code settings.json 让 sshops 命令免确认 ===
+if (( opt_auto_approve == 1 )); then
+    echo
+    echo "==> --auto-approve: 写 ~/.claude/settings.json (Claude Code sshops 命令免 yes 确认)"
+    CLAUDE_CFG="$HOME/.claude/settings.json"
+    mkdir -p "$(dirname "$CLAUDE_CFG")"
+    [[ -f "$CLAUDE_CFG" ]] || printf '{}\n' > "$CLAUDE_CFG"
+    cp "$CLAUDE_CFG" "$CLAUDE_CFG.bak"
+    if python3 - "$CLAUDE_CFG" <<'PY'
+import json, sys
+p = sys.argv[1]
+with open(p) as f:
+    cfg = json.load(f)
+perms = cfg.setdefault('permissions', {})
+allow = perms.setdefault('allow', [])
+# 两种 pattern 风格都加, 兼容不同 Claude Code 版本
+patterns = ['Bash(sshops:*)', 'Bash(sshops *)']
+added = [p for p in patterns if p not in allow]
+allow.extend(added)
+with open(p, 'w') as f:
+    json.dump(cfg, f, indent=2)
+    f.write('\n')
+print('added' if added else 'noop', added)
+PY
+    then
+        ok "settings.json 已 patch (备份: $CLAUDE_CFG.bak)"
+        inf "  下次 Claude Code 跑 sshops 命令不再弹 yes 提示"
+    else
+        warn "settings.json patch 失败 (python3 错误); 已留备份, 请手动加 Bash(sshops:*) 到 permissions.allow"
+    fi
+fi
 
 echo
 echo "==> 下一步"

@@ -163,6 +163,37 @@ pub fn set_lang_from_locale() {
     }
 }
 
+/// 兜底注入 LC_CTYPE=C.UTF-8.
+///
+/// macOS launchd / 一般 GUI 启动链不传 LC_CTYPE, ssh 子进程透传到远端时
+/// glibc 拿不到 UTF-8 字符集 → vim/less 默认 encoding=latin1, UTF-8 文件
+/// 按字节流显示成 ~大写字母 乱码 (典型 wezterm-ssh 远端中文乱码症状).
+///
+/// 用 C.UTF-8 而不是裸 UTF-8: macOS BSD libc 接受 UTF-8 但 Linux glibc
+/// 不认 (setlocale 失败 → vim fallback latin1, 即使 SSH SendEnv 透传过去也
+/// 白搭). C.UTF-8 在 glibc 2.13+ / musl 全支持, 字符集 UTF-8 + 语言 C
+/// (中性), 不强制远端语言, 远端 LANG 仍可决定菜单/错误/日期格式.
+///
+/// 触发条件:
+/// 1. LC_CTYPE 完全未设 → 设为 C.UTF-8
+/// 2. LC_CTYPE 是裸字符集形式 (UTF-8 / utf-8 / UTF8 / utf8) → 升级到 C.UTF-8
+///    (Apple Terminal.app / iTerm2 / WezTerm 上游默认注入裸 UTF-8, macOS 本地
+///    BSD libc 接受, 但 SSH 透传到 Linux 远端无效.)
+///
+/// 完整 locale 形式 (xx_YY.UTF-8 / C.UTF-8 等) 优先, 不覆盖.
+fn set_lc_ctype_default() {
+    let needs_upgrade = match std::env::var_os("LC_CTYPE") {
+        None => true,
+        Some(v) => matches!(
+            v.to_string_lossy().as_ref(),
+            "UTF-8" | "utf-8" | "UTF8" | "utf8"
+        ),
+    };
+    if needs_upgrade {
+        std::env::set_var("LC_CTYPE", "C.UTF-8");
+    }
+}
+
 fn register_panic_hook() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
@@ -218,6 +249,8 @@ pub fn bootstrap() {
 
     #[cfg(target_os = "macos")]
     set_lang_from_locale();
+
+    set_lc_ctype_default();
 
     fixup_appimage();
     fixup_snap();

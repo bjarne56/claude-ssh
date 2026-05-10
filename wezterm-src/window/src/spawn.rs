@@ -219,8 +219,21 @@ impl SpawnQueue {
         _: CFRunLoopActivity,
         _: *mut std::ffi::c_void,
     ) {
-        if SPAWN_QUEUE.run() {
-            Self::queue_wakeup();
+        // panic 不能跨越 extern "C" 边界, 否则 Rust 触发 panic_cannot_unwind
+        // 立即终止进程 (即使 panic 源头在 SpawnFunc 内, 比如 toast notification
+        // 处理 NSError 时 NSString 为 nil 的边界情况). 包 catch_unwind 拦住
+        // panic 让 RunLoop 继续转, 仅 log 后回收.
+        if let Err(panic) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if SPAWN_QUEUE.run() {
+                Self::queue_wakeup();
+            }
+        })) {
+            let msg = panic
+                .downcast_ref::<&str>()
+                .copied()
+                .or_else(|| panic.downcast_ref::<String>().map(String::as_str))
+                .unwrap_or("<non-string panic>");
+            log::error!("SpawnQueue::trigger caught panic: {msg}");
         }
     }
 
